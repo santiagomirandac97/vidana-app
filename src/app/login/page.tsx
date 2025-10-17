@@ -10,9 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Logo } from '@/components/logo';
-import { useToast } from '@/hooks/use-toast';
 import { COMPANIES } from '@/lib/types';
-import { cn } from '@/lib/utils';
 import { AlertCircle } from 'lucide-react';
 
 
@@ -30,7 +28,6 @@ export default function LoginPage() {
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
-  const { toast } = useToast();
 
   useEffect(() => {
     if (!isUserLoading && user) {
@@ -50,25 +47,30 @@ export default function LoginPage() {
     const companyKey = selectedCompanyId as keyof typeof companyCredentials;
     const credentials = companyCredentials[companyKey];
 
+    // Simple password check first
+    if (password !== credentials.password) {
+        setError('Contraseña incorrecta. Por favor, inténtelo de nuevo.');
+        setIsLoading(false);
+        return;
+    }
+
     try {
-      // We will sign in with pre-configured emails to represent company logins
-      await signInWithEmailAndPassword(auth, credentials.email, password);
+      // If password is correct, sign in with the correct credentials
+      await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
       router.push('/');
     } catch (err: any) {
-       // Catches errors for user not found or invalid credentials, which can happen on first login
-       if (err.code === 'auth/user-not-found') {
+       // If sign-in fails because the user doesn't exist, create it.
+       if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
          try {
-            // Attempt to create the user if it doesn't exist
-            await createUserWithEmailAndPassword(auth, credentials.email, password);
-            // Now, try signing in again after successful creation
-            await signInWithEmailAndPassword(auth, credentials.email, password);
+            // Create the user with the correct, pre-defined credentials
+            await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
+            // Try signing in again
+            await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
             router.push('/');
          } catch (setupError: any) {
             setError('Error de configuración de la cuenta. Contacte al administrador.');
             console.error("Account setup error:", setupError);
          }
-       } else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-          setError('Contraseña incorrecta. Por favor, inténtelo de nuevo.');
        } else {
         console.error(err);
         setError('Ocurrió un error inesperado durante el inicio de sesión.');

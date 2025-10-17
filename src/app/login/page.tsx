@@ -47,7 +47,7 @@ export default function LoginPage() {
     const companyKey = selectedCompanyId as keyof typeof companyCredentials;
     const credentials = companyCredentials[companyKey];
 
-    // Simple password check first
+    // Simple password check first. This is the source of truth for the user-entered password.
     if (password !== credentials.password) {
         setError('Contraseña incorrecta. Por favor, inténtelo de nuevo.');
         setIsLoading(false);
@@ -55,36 +55,26 @@ export default function LoginPage() {
     }
 
     try {
-      // If password is correct, sign in with the correct credentials
+      // If the user-entered password is correct, we now sign in with the *actual* firebase credentials.
       await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
       router.push('/');
     } catch (err: any) {
-       // If sign-in fails because the user doesn't exist, create it.
+       // If sign-in fails because the user doesn't exist, create it. This should only happen once.
        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
          try {
-            // Create the user with the correct, pre-defined credentials
+            // Create the user with the correct, pre-defined credentials for Firebase Auth
             await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
-            // Try signing in again
+            // After creation, sign in again
             await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
             router.push('/');
-         } catch (setupError: any) {
-            // If creation fails because it already exists, just sign in
-            if (setupError.code === 'auth/email-already-in-use') {
-              try {
-                await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
-                router.push('/');
-              } catch (finalSignInError) {
-                setError('Ocurrió un error inesperado durante el inicio de sesión.');
-                console.error("Final sign-in error:", finalSignInError);
-              }
-            } else {
-              setError('Error de configuración de la cuenta. Contacte al administrador.');
-              console.error("Account setup error:", setupError);
-            }
+         } catch (creationError: any) {
+            setError('Error de configuración de la cuenta. Contacte al administrador.');
+            console.error("Account creation failed:", creationError);
          }
        } else {
-        console.error(err);
-        setError('Ocurrió un error inesperado durante el inicio de sesión.');
+        // Handle other errors like network issues, or too-many-requests
+        console.error("Firebase sign-in error:", err);
+        setError('Ocurrió un error inesperado. Por favor, espere un momento y vuelva a intentarlo.');
       }
     } finally {
       setIsLoading(false);

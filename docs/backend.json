@@ -1,0 +1,164 @@
+{
+  "entities": {
+    "Employee": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Employee",
+      "type": "object",
+      "description": "Represents an employee of Inditex, Grupo Axo, or Vidana.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Employee entity."
+        },
+        "employeeNumber": {
+          "type": "string",
+          "description": "The employee's number, as assigned by their company."
+        },
+        "name": {
+          "type": "string",
+          "description": "The employee's full name."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "Reference to Company. (Relationship: Company 1:N Employee)"
+        },
+        "department": {
+          "type": "string",
+          "description": "The employee's department within the company."
+        },
+        "email": {
+          "type": "string",
+          "description": "The employee's email address.",
+          "format": "email"
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Indicates whether the employee is currently active."
+        }
+      },
+      "required": [
+        "id",
+        "employeeNumber",
+        "name",
+        "companyId"
+      ]
+    },
+    "Consumption": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Consumption",
+      "type": "object",
+      "description": "Represents a single instance of an employee accessing a meal.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Consumption entity."
+        },
+        "employeeId": {
+          "type": "string",
+          "description": "Reference to Employee. (Relationship: Employee 1:N Consumption)"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The date and time the consumption occurred.",
+          "format": "date-time"
+        },
+        "voided": {
+          "type": "boolean",
+          "description": "Indicates whether the consumption record has been voided."
+        }
+      },
+      "required": [
+        "id",
+        "employeeId",
+        "timestamp"
+      ]
+    },
+    "Company": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Company",
+      "type": "object",
+      "description": "Represents the company (Inditex, Grupo Axo, or Vidana).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Company entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the company."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "companies/{companyId}",
+        "definition": {
+          "entityName": "Company",
+          "schema": {
+            "$ref": "#/backend/entities/Company"
+          },
+          "description": "Stores company information.  Root collection for the ReceptionRGSTR application.",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "The unique identifier of the company."
+            }
+          ]
+        }
+      },
+      {
+        "path": "companies/{companyId}/employees/{employeeId}",
+        "definition": {
+          "entityName": "Employee",
+          "schema": {
+            "$ref": "#/backend/entities/Employee"
+          },
+          "description": "Stores employee data for each company. Includes denormalized 'companyId' for authorization independence.",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "The unique identifier of the company."
+            },
+            {
+              "name": "employeeId",
+              "description": "The unique identifier of the employee."
+            }
+          ]
+        }
+      },
+      {
+        "path": "companies/{companyId}/consumptions/{consumptionId}",
+        "definition": {
+          "entityName": "Consumption",
+          "schema": {
+            "$ref": "#/backend/entities/Consumption"
+          },
+          "description": "Stores consumption records for each company. Includes denormalized 'companyId' for authorization independence.",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "The unique identifier of the company."
+            },
+            {
+              "name": "consumptionId",
+              "description": "The unique identifier of the consumption record."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to store company, employee, and consumption data for the ReceptionRGSTR application. The structure prioritizes authorization independence and efficient querying.  Each company has its own set of employees and consumptions, enabling easy filtering and reporting.  Since employee and consumption data are scoped to companies, the `companyId` is used as the top-level collection.  Employee and consumption data are then stored in subcollections under each company. This design promotes clarity, security, and scalability, enabling efficient data management for the ReceptionRGSTR application.\n\n**Authorization Independence:** The `companyId` of each employee and consumption document is denormalized, ensuring authorization rules can be written without relying on `get()` calls to parent documents. This significantly improves security and simplifies rule management.\n\n**QAPs Support:** The segregation of data by `companyId` allows for secure and efficient listing of employees and consumptions within each company. The structure supports the required QAPs by ensuring that rules can be applied at the collection level, filtering data based on the authenticated user's access to the company.\n"
+  }
+}

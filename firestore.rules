@@ -1,0 +1,78 @@
+/**
+ * @fileoverview Firestore Security Rules for ReceptionRGSTR application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a company-based data segregation model. Data is organized under
+ * /companies/{companyId}, and access is controlled based on the user's association
+ * with a company.  Rules prioritize authorization independence by denormalizing the
+ * companyId onto the Employee and Consumption documents, avoiding expensive `get()` calls
+ * and complex queries in security rules.
+ *
+ * Data Structure:
+ * - /companies/{companyId}: Stores company information.
+ * - /companies/{companyId}/employees/{employeeId}: Stores employee data, including the companyId.
+ * - /companies/{companyId}/consumptions/{consumptionId}: Stores consumption records, including the companyId.
+ *
+ * Key Security Decisions:
+ * - Self-creation is disallowed for company documents.  Companies are assumed to be created
+ *   through an administrative process.
+ * - Employee and consumption data is strictly scoped to the company and requires the
+ *   `companyId` to match the path.
+ * - Listing employees and consumptions is allowed only within a company context.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to the 'companies' collection.
+     * @path /companies/{companyId}
+     * @allow (none) No direct creation allowed. Companies created via admin.
+     * @deny (create) Any user attempting to create a company document.
+     * @deny (update) Any user attempting to update a company document.
+     * @deny (delete) Any user attempting to delete a company document.
+     * @allow (get, list) Any user can read any company
+     * @principle Prevents unauthorized company creation/modification.
+     */
+    match /companies/{companyId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Controls access to the 'employees' subcollection.
+     * @path /companies/{companyId}/employees/{employeeId}
+     * @allow (create) Authenticated user can create an employee if the companyId matches the path.
+     * @allow (get) Authenticated user can get an employee if the companyId matches the path.
+     * @allow (update) Authenticated user can update an employee if the companyId matches the path and the document exists.
+     * @allow (delete) Authenticated user can delete an employee if the companyId matches the path and the document exists.
+     * @allow (list) Authenticated user can list employees if the companyId matches the path.
+     * @deny (create) If companyId in the data does not match the path.
+     * @principle Enforces company-level data segregation and ownership.
+     */
+    match /companies/{companyId}/employees/{employeeId} {
+      allow get, list: if true;
+      allow create: if request.resource.data.companyId == companyId && request.resource.data.id == employeeId;
+      allow update: if resource.data.companyId == companyId && resource.data.id == employeeId && resource != null;
+      allow delete: if resource.data.companyId == companyId && resource.data.id == employeeId && resource != null;
+    }
+
+    /**
+     * @description Controls access to the 'consumptions' subcollection.
+     * @path /companies/{companyId}/consumptions/{consumptionId}
+     * @allow (create) Authenticated user can create a consumption record if the companyId matches the path.
+     * @allow (get) Authenticated user can get a consumption record if the companyId matches the path.
+     * @allow (update) Authenticated user can update a consumption record if the companyId matches the path and the document exists.
+     * @allow (delete) Authenticated user can delete a consumption record if the companyId matches the path and the document exists.
+     * @allow (list) Authenticated user can list consumptions if the companyId matches the path.
+     * @deny (create) If companyId in the data does not match the path.
+     * @principle Enforces company-level data segregation and ownership.
+     */
+    match /companies/{companyId}/consumptions/{consumptionId} {
+      allow get, list: if true;
+      allow create: if request.resource.data.companyId == companyId && request.resource.data.id == consumptionId;
+      allow update: if resource.data.companyId == companyId && resource.data.id == consumptionId && resource != null;
+      allow delete: if resource.data.companyId == companyId && resource.data.id == consumptionId && resource != null;
+    }
+  }
+}

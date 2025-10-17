@@ -372,10 +372,18 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
         return c.companyId === selectedCompanyId && c_time >= from && c_time <= to;
     });
 
-    const headers = ['id', 'employeeNumber', 'name', 'companyId', 'timestamp', 'voided'];
+    const headers = ['Nombre', 'Numero de Empleado', 'Fecha', 'Hora'];
     const rows = [
         headers,
-        ...filteredConsumptions.map(c => [c.id, c.employeeNumber, c.name, c.companyId, c.timestamp, c.voided])
+        ...filteredConsumptions.map(c => {
+          const consumptionDate = new Date(c.timestamp);
+          return [
+            c.name, 
+            c.employeeNumber, 
+            format(consumptionDate, "yyyy-MM-dd"), 
+            format(consumptionDate, "HH:mm:ss")
+          ]
+        })
     ];
 
     const uniqueEmployees = new Set(filteredConsumptions.map(c => c.employeeNumber)).size;

@@ -268,7 +268,13 @@ export default function HomePage() {
         </div>
 
         <div className="md:col-span-1">
-          <AdminPanel employees={employees} setEmployees={setEmployees} consumptions={consumptions} setConsumptions={setConsumptions} />
+          <AdminPanel 
+            employees={employees} 
+            setEmployees={setEmployees} 
+            consumptions={consumptions} 
+            setConsumptions={setConsumptions}
+            selectedCompany={selectedCompany} 
+          />
         </div>
       </main>
 
@@ -289,19 +295,19 @@ interface AdminPanelProps {
   setEmployees: (data: EmployeesData | ((d: EmployeesData) => EmployeesData)) => void;
   consumptions: ConsumptionsData;
   setConsumptions: (data: ConsumptionsData | ((d: ConsumptionsData) => ConsumptionsData)) => void;
+  selectedCompany: Company;
 }
 
-const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions, setConsumptions }) => {
+const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions, setConsumptions, selectedCompany }) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeImportCompany, setActiveImportCompany] = useState<Company | null>(null);
 
   const [date, setDate] = useState<DateRange | undefined>();
   const [reportCompany, setReportCompany] = useState<Company>('Inditex');
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !activeImportCompany) return;
+    if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -323,13 +329,13 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
           });
           employeeObj.active = String(employeeObj.active).toLowerCase() === 'true';
           return employeeObj as Employee;
-        }).filter(e => e.company === activeImportCompany);
+        }).filter(e => e.company === selectedCompany);
 
         let addedCount = 0;
         let updatedCount = 0;
 
         setEmployees(prev => {
-          const companyEmployees = [...prev[activeImportCompany!]];
+          const companyEmployees = [...prev[selectedCompany!]];
           newEmployees.forEach(newEmp => {
             const index = companyEmployees.findIndex(e => e.employee_number === newEmp.employee_number);
             if (index > -1) {
@@ -340,10 +346,10 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
               addedCount++;
             }
           });
-          return { ...prev, [activeImportCompany!]: companyEmployees };
+          return { ...prev, [selectedCompany!]: companyEmployees };
         });
 
-        toast({ title: 'Importación Exitosa', description: `${addedCount} empleados agregados, ${updatedCount} actualizados para ${activeImportCompany}.` });
+        toast({ title: 'Importación Exitosa', description: `${addedCount} empleados agregados, ${updatedCount} actualizados para ${selectedCompany}.` });
       } catch (error: any) {
         toast({ variant: 'destructive', title: 'Falló la Importación', description: error.message });
       }
@@ -407,24 +413,16 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
             <TabsTrigger value="system">Sistema</TabsTrigger>
           </TabsList>
           <TabsContent value="employees" className="space-y-4 pt-4">
-            <h3 className="font-semibold">Importar Empleados (CSV)</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {COMPANIES.map(c => (
-                <Button key={c} variant="outline" onClick={() => { setActiveImportCompany(c); fileInputRef.current?.click();}}>
-                  <Upload className="mr-2 h-4 w-4" /> {c}
-                </Button>
-              ))}
-            </div>
+            <h3 className="font-semibold">Importar Empleados (CSV) para {selectedCompany}</h3>
+            <Button variant="outline" className="w-full" onClick={() => { fileInputRef.current?.click();}}>
+              <Upload className="mr-2 h-4 w-4" /> Importar para {selectedCompany}
+            </Button>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
 
-            <h3 className="font-semibold">Exportar Empleados</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {COMPANIES.map(c => (
-                <Button key={c} variant="outline" onClick={() => handleExportEmployees(c)}>
-                  <Download className="mr-2 h-4 w-4" /> {c}
-                </Button>
-              ))}
-            </div>
+            <h3 className="font-semibold">Exportar Empleados de {selectedCompany}</h3>
+            <Button variant="outline" className="w-full" onClick={() => handleExportEmployees(selectedCompany)}>
+              <Download className="mr-2 h-4 w-4" /> Exportar para {selectedCompany}
+            </Button>
              <h3 className="font-semibold">Añadir Rápido Empleado</h3>
               <QuickAddForm onAdd={(emp) => {
                 setEmployees(prev => ({ ...prev, [emp.company]: [...prev[emp.company], emp] }));
@@ -612,3 +610,5 @@ const QuickAddForm: FC<{ onAdd: (employee: Employee) => void }> = ({ onAdd }) =>
         </Dialog>
     );
 }
+
+    

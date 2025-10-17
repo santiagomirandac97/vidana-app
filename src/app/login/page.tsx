@@ -49,31 +49,25 @@ export default function LoginPage() {
 
     const companyKey = selectedCompanyId as keyof typeof companyCredentials;
     const credentials = companyCredentials[companyKey];
-    
-    if (password !== credentials.password) {
-        setError('Contraseña incorrecta. Por favor, inténtelo de nuevo.');
-        setIsLoading(false);
-        return;
-    }
 
     try {
       // We will sign in with pre-configured emails to represent company logins
-      await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
+      await signInWithEmailAndPassword(auth, credentials.email, password);
       router.push('/');
     } catch (err: any) {
        // Catches errors for user not found or invalid credentials, which can happen on first login
-       if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+       if (err.code === 'auth/user-not-found') {
          try {
             // Attempt to create the user if it doesn't exist
-            await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
+            await createUserWithEmailAndPassword(auth, credentials.email, password);
             // Now, try signing in again after successful creation
-            await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
+            await signInWithEmailAndPassword(auth, credentials.email, password);
             router.push('/');
          } catch (setupError: any) {
             setError('Error de configuración de la cuenta. Contacte al administrador.');
             console.error("Account setup error:", setupError);
          }
-       } else if (err.code === 'auth/wrong-password') {
+       } else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
           setError('Contraseña incorrecta. Por favor, inténtelo de nuevo.');
        } else {
         console.error(err);

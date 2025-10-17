@@ -13,6 +13,7 @@ import {
   XCircle,
   Calendar as CalendarIcon,
   LogOut,
+  Building,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -36,26 +37,43 @@ import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
 
+const companyEmails: Record<string, string> = {
+  'inditex@rgstr.app': 'Inditex',
+  'grupoaxo@rgstr.app': 'Grupo Axo',
+};
+
 export default function HomePage() {
   const { firestore } = useFirebase();
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('Inditex');
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isUserLoading && user?.email) {
+      const companyId = companyEmails[user.email];
+      if (companyId) {
+        setSelectedCompanyId(companyId);
+      } else {
+        // Handle case where user email doesn't match a company, maybe sign out
+        handleSignOut();
+      }
+    }
+  }, [user, isUserLoading]);
   
   const employeesQuery = useMemoFirebase(() => 
-    firestore && user ? query(collection(firestore, `companies/${selectedCompanyId}/employees`)) : null
+    firestore && user && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/employees`)) : null
   , [firestore, user, selectedCompanyId]);
   const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
 
   const consumptionsQuery = useMemoFirebase(() =>
-    firestore && user ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc')) : null
+    firestore && user && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc')) : null
   , [firestore, user, selectedCompanyId]);
   const { data: consumptions, isLoading: isLoadingConsumptions } = useCollection<Consumption>(consumptionsQuery);
   
   const recentConsumptionsQuery = useMemoFirebase(() =>
-    firestore && user ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc'), limit(10)) : null
+    firestore && user && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc'), limit(10)) : null
   , [firestore, user, selectedCompanyId]);
   const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
 
@@ -85,7 +103,7 @@ export default function HomePage() {
   };
 
   const handleRegistration = () => {
-    if (!employeeNumber.trim() || !firestore || !user) return;
+    if (!employeeNumber.trim() || !firestore || !user || !selectedCompanyId) return;
 
     const employee = employees?.find(e => e.employeeNumber === employeeNumber.trim());
 
@@ -131,7 +149,7 @@ export default function HomePage() {
   };
 
   const handleQuickActivate = (name: string) => {
-    if (!pendingEmployee || !name.trim() || !firestore || !user) {
+    if (!pendingEmployee || !name.trim() || !firestore || !user || !selectedCompanyId) {
       toast({ variant: 'destructive', title: 'Error', description: 'Se requiere un nombre para la activación.' });
       return;
     }
@@ -150,7 +168,7 @@ export default function HomePage() {
             employeeId: docRef.id,
             employeeNumber: newEmployee.employeeNumber,
             name: newEmployee.name,
-            companyId: selectedCompanyId,
+            companyId: selectedCompanyId!,
             timestamp: new Date().toISOString(),
             voided: false,
         };
@@ -190,7 +208,7 @@ export default function HomePage() {
     }
   };
   
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user || !selectedCompanyId) {
     return (
       <div className="flex h-screen items-center justify-center">
         <p>Cargando...</p>
@@ -203,14 +221,10 @@ export default function HomePage() {
       <header className="flex justify-between items-center mb-8">
         <Logo />
         <div className="flex items-center gap-4">
-          <Select value={selectedCompanyId} onValueChange={(v) => setSelectedCompanyId(v)}>
-            <SelectTrigger className="w-[180px] text-lg h-12">
-              <SelectValue placeholder="Seleccionar Empresa" />
-            </SelectTrigger>
-            <SelectContent>
-              {COMPANIES.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2 h-12 px-4 border rounded-md bg-gray-100 dark:bg-gray-800">
+            <Building className="h-5 w-5 text-gray-500" />
+            <span className="text-lg font-medium">{selectedCompanyId}</span>
+          </div>
            <Button variant="outline" onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
             Cerrar Sesión
@@ -609,5 +623,3 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, defaul
         </Dialog>
     );
 }
-
-    

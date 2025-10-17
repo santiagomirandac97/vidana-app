@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Logo } from '@/components/logo';
 import { COMPANIES } from '@/lib/types';
 import { AlertCircle } from 'lucide-react';
-
 
 const companyCredentials = {
   'Inditex': { email: 'inditex@rgstr.app', password: 'AIFACOM01', userPassword: 'AIFACOM01' },
@@ -47,36 +46,25 @@ export default function LoginPage() {
     const companyKey = selectedCompanyId as keyof typeof companyCredentials;
     const credentials = companyCredentials[companyKey];
 
-    // 1. Check the user-entered password first. This is simple and has no side effects.
+    // Step 1: Check the user-entered password against the defined "userPassword".
     if (password !== credentials.userPassword) {
         setError('Contraseña incorrecta. Por favor, inténtelo de nuevo.');
         setIsLoading(false);
         return;
     }
 
-    // 2. If the user-entered password is correct, proceed to sign in with the actual Firebase credentials.
+    // Step 2: If the user-entered password is correct, sign in with the actual Firebase credentials.
+    // NO MORE AUTOMATIC USER CREATION.
     try {
       await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
       router.push('/');
     } catch (err: any) {
-       // 3. If sign-in fails, check if it's because the user doesn't exist.
+       console.error("Firebase sign-in error:", err);
        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-         // This block will run ONCE to create the account if it's missing.
-         try {
-            await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
-            // After successful creation, sign in again.
-            await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
-            router.push('/');
-         } catch (creationError: any) {
-            // This might happen in a race condition or if creation fails for other reasons.
-            setError('Error de configuración de la cuenta. Contacte al administrador.');
-            console.error("Account creation failed after initial sign-in failure:", creationError);
-         }
+            setError('Error de configuración de la cuenta. Contacte al administrador para crear la cuenta de la empresa.');
        } else {
-        // Handle other Firebase errors (network, etc.) without trying to create a user.
-        console.error("Firebase sign-in error:", err);
-        setError('Ocurrió un error inesperado al iniciar sesión. Por favor, vuelva a intentarlo.');
-      }
+            setError('Ocurrió un error inesperado al iniciar sesión.');
+       }
     } finally {
       setIsLoading(false);
     }

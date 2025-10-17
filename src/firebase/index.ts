@@ -28,7 +28,7 @@ export function initializeFirebase() {
   // In a real app, you'd manage this through a backend or admin panel.
   const companyUsers = {
     'inditex@rgstr.app': 'AIFACOM01',
-    'grupoaxo@rgstr.app': 'Piso 22'
+    'grupoaxo@rgstr.app': 'TOREOCOM01'
   };
 
   for (const [email, password] of Object.entries(companyUsers)) {

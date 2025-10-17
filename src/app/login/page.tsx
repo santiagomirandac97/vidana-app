@@ -18,7 +18,7 @@ import { AlertCircle } from 'lucide-react';
 
 const companyCredentials = {
   'Inditex': { email: 'inditex@rgstr.app', password: 'AIFACOM01' },
-  'Grupo Axo': { email: 'grupoaxo@rgstr.app', password: 'Piso 22' },
+  'Grupo Axo': { email: 'grupoaxo@rgstr.app', password: 'TOREOCOM01' },
 };
 
 export default function LoginPage() {

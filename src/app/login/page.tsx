@@ -46,34 +46,30 @@ export default function LoginPage() {
     const companyKey = selectedCompanyId as keyof typeof companyCredentials;
     const credentials = companyCredentials[companyKey];
 
-    // 1. Check the user-facing password first.
     if (password !== credentials.userPassword) {
         setError('Contraseña incorrecta. Por favor, inténtelo de nuevo.');
         setIsLoading(false);
         return;
     }
 
-    // 2. Try to sign in with the permanent Firebase credentials.
     try {
       await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
       router.push('/');
     } catch (err: any) {
        console.error("Firebase sign-in error:", err);
 
-       // 3. If sign-in fails because the user doesn't exist, create it once.
-       if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+       if (err.code === 'auth/user-not-found') {
           try {
              await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
-             // After creation, sign in again.
              await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
              router.push('/');
           } catch (createErr: any) {
             console.error("Firebase user creation failed after initial sign-in failure:", createErr);
-            // If creation fails (e.g., auth/email-already-in-use), show a generic error.
             setError('Error de configuración de la cuenta. Contacte al administrador.');
           }
+       } else if (err.code === 'auth/invalid-credential') {
+            setError('Error de credenciales internas. Por favor, contacte al administrador.');
        } else {
-            // For any other errors (network, too-many-requests), show a generic message.
             setError('Ocurrió un error inesperado al iniciar sesión.');
        }
     } finally {

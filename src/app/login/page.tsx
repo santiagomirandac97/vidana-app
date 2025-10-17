@@ -69,10 +69,11 @@ export default function LoginPage() {
              router.push('/');
           } catch (createErr: any) {
             console.error("Firebase user creation failed after initial sign-in failure:", createErr);
+            // If creation fails (e.g., auth/email-already-in-use), show a generic error.
             setError('Error de configuración de la cuenta. Contacte al administrador.');
           }
        } else {
-            // For any other errors (network, etc.), show a generic message.
+            // For any other errors (network, too-many-requests), show a generic message.
             setError('Ocurrió un error inesperado al iniciar sesión.');
        }
     } finally {

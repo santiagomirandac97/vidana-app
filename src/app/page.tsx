@@ -8,7 +8,6 @@ import {
   ChevronDown,
   Download,
   PlusCircle,
-  Trash2,
   Upload,
   UserPlus,
   XCircle,
@@ -28,7 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
@@ -305,6 +304,10 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
   const [date, setDate] = useState<DateRange | undefined>();
   const [reportCompany, setReportCompany] = useState<Company>('Inditex');
 
+  useEffect(() => {
+    setReportCompany(selectedCompany);
+  }, [selectedCompany]);
+
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -393,13 +396,6 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
     toast({ title: 'Reporte Generado', description: `Total: ${filteredConsumptions.length} consumos de ${uniqueEmployees} empleados únicos.` });
   }
 
-  const handleClearData = () => {
-    setEmployees(INITIAL_EMPLOYEES);
-    setConsumptions(INITIAL_CONSUMPTIONS);
-    localStorage.removeItem('RGSTR_SEEDED');
-    toast({ title: "Datos locales borrados." });
-  }
-
   return (
     <Card className="shadow-lg">
       <CardHeader>
@@ -407,10 +403,9 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="employees">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="employees">Empleados</TabsTrigger>
             <TabsTrigger value="consumptions">Reportes</TabsTrigger>
-            <TabsTrigger value="system">Sistema</TabsTrigger>
           </TabsList>
           <TabsContent value="employees" className="space-y-4 pt-4">
             <h3 className="font-semibold">Importar Empleados (CSV) para {selectedCompany}</h3>
@@ -478,23 +473,6 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
               </Popover>
             </div>
             <Button className="w-full" onClick={handleExportConsumptions}><Download className="mr-2 h-4 w-4"/> Exportar Reporte</Button>
-          </TabsContent>
-          <TabsContent value="system" className="space-y-4 pt-4">
-             <h3 className="font-semibold text-destructive">Zona de Peligro</h3>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="w-full"><Trash2 className="mr-2 h-4 w-4"/> Borrar Todos los Datos Locales</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader><AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                <AlertDialogDescription>Esto eliminará todos los datos de empleados y consumos de tu navegador. Esta acción no se puede deshacer.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleClearData}>Sí, borrar datos</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
           </TabsContent>
         </Tabs>
       </CardContent>
@@ -611,4 +589,5 @@ const QuickAddForm: FC<{ onAdd: (employee: Employee) => void }> = ({ onAdd }) =>
     );
 }
 
+    
     

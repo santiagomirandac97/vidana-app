@@ -16,10 +16,12 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { collection, doc, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 
-import useLocalStorage from '@/hooks/use-local-storage';
-import { type Company, type Employee, type Consumption, COMPANIES, type EmployeesData, type ConsumptionsData } from '@/lib/types';
-import { cn, exportToCsv, generateId, getTodayInMexicoCity, formatTimestamp } from '@/lib/utils';
+
+import { type Company, type Employee, type Consumption, COMPANIES } from '@/lib/types';
+import { cn, exportToCsv, getTodayInMexicoCity, formatTimestamp } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -27,33 +29,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
 
-const SEED_EMPLOYEES: EmployeesData = {
-  Inditex: [
-    { employee_number: '1001', name: 'Ana Garcia', company: 'Inditex', active: true },
-    { employee_number: '1002', name: 'Benito Juarez', company: 'Inditex', active: true },
-    { employee_number: '1003', name: 'Carla Rossi', company: 'Inditex', active: true },
-  ],
-  'Grupo Axo': [
-    { employee_number: '2001', name: 'David Smith', company: 'Grupo Axo', active: true },
-    { employee_number: '2002', name: 'Elena Petrova', company: 'Grupo Axo', active: true },
-    { employee_number: '2003', name: 'Frank Miller', company: 'Grupo Axo', active: true },
-  ],
-};
-
-const INITIAL_EMPLOYEES: EmployeesData = { Inditex: [], 'Grupo Axo': [] };
-const INITIAL_CONSUMPTIONS: ConsumptionsData = { Inditex: [], 'Grupo Axo': [] };
-
 export default function HomePage() {
-  const [employees, setEmployees] = useLocalStorage<EmployeesData>('RGSTR_EMPLOYEES', INITIAL_EMPLOYEES);
-  const [consumptions, setConsumptions] = useLocalStorage<ConsumptionsData>('RGSTR_CONSUMPTIONS', INITIAL_CONSUMPTIONS);
+  const { firestore } = useFirebase();
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('Inditex');
+  
+  const employeesQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, `companies/${selectedCompanyId}/employees`)) : null
+  , [firestore, selectedCompanyId]);
+  const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
 
-  const [selectedCompany, setSelectedCompany] = useState<Company>('Inditex');
+  const consumptionsQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc')) : null
+  , [firestore, selectedCompanyId]);
+  const { data: consumptions, isLoading: isLoadingConsumptions } = useCollection<Consumption>(consumptionsQuery);
+  
+  const recentConsumptionsQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc'), limit(10)) : null
+  , [firestore, selectedCompanyId]);
+  const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
+
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'warning' | 'error'; message: string } | null>(null);
 
@@ -64,22 +63,19 @@ export default function HomePage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Seed data if local storage is empty
-    const isSeeded = localStorage.getItem('RGSTR_SEEDED');
-    if (!isSeeded) {
-      setEmployees(SEED_EMPLOYEES);
-      localStorage.setItem('RGSTR_SEEDED', 'true');
+    // Seed companies if they don't exist
+    if (firestore) {
+      COMPANIES.forEach(company => {
+        const companyRef = doc(firestore, 'companies', company.id);
+        setDocumentNonBlocking(companyRef, { name: company.name }, { merge: true });
+      });
     }
-  }, [setEmployees]);
+  }, [firestore]);
+
 
   useEffect(() => {
     inputRef.current?.focus();
-  }, [selectedCompany]);
-
-  const recentConsumptions = useMemo(() => {
-    const allConsumptions = [...consumptions.Inditex, ...consumptions['Grupo Axo']];
-    return allConsumptions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10);
-  }, [consumptions]);
+  }, [selectedCompanyId]);
 
   const resetInputAndFeedback = () => {
     setEmployeeNumber('');
@@ -88,42 +84,39 @@ export default function HomePage() {
   };
 
   const handleRegistration = () => {
-    if (!employeeNumber.trim()) return;
+    if (!employeeNumber.trim() || !firestore) return;
 
-    const companyEmployees = employees[selectedCompany];
-    const employee = companyEmployees.find(e => e.employee_number === employeeNumber.trim());
+    const employee = employees?.find(e => e.employeeNumber === employeeNumber.trim());
 
     if (employee) {
       if (!employee.active) {
-          setFeedback({ type: 'error', message: `Empleado Inactivo: ${employee.name} (#${employee.employee_number})` });
+          setFeedback({ type: 'error', message: `Empleado Inactivo: ${employee.name} (#${employee.employeeNumber})` });
           resetInputAndFeedback();
           return;
       }
 
-      const newConsumption: Consumption = {
-        id: generateId(),
-        employee_number: employee.employee_number,
+      const newConsumption: Omit<Consumption, 'id'> = {
+        employeeId: employee.id!,
+        employeeNumber: employee.employeeNumber,
         name: employee.name,
-        company: selectedCompany,
+        companyId: selectedCompanyId,
         timestamp: new Date().toISOString(),
         voided: false,
       };
 
-      setConsumptions(prev => ({
-        ...prev,
-        [selectedCompany]: [newConsumption, ...prev[selectedCompany]],
-      }));
+      const consumptionsCollection = collection(firestore, `companies/${selectedCompanyId}/consumptions`);
+      addDocumentNonBlocking(consumptionsCollection, newConsumption);
 
       const today = getTodayInMexicoCity();
-      const todayConsumptionsCount = consumptions[selectedCompany]
-        .filter(c => c.employee_number === employee.employee_number && c.timestamp.startsWith(today) && !c.voided)
+      const todayConsumptionsCount = (consumptions || [])
+        .filter(c => c.employeeNumber === employee.employeeNumber && c.timestamp.startsWith(today) && !c.voided)
         .length + 1;
       
       const timePart = formatTimestamp(newConsumption.timestamp);
 
       setFeedback({
         type: 'success',
-        message: `Acceso Registrado: ${employee.name} (#${employee.employee_number}) · ${employee.company} · ${timePart} · Registros de hoy: ${todayConsumptionsCount}`,
+        message: `Acceso Registrado: ${employee.name} (#${employee.employeeNumber}) · ${employee.companyId} · ${timePart} · Registros de hoy: ${todayConsumptionsCount}`,
       });
     } else {
       setFeedback({
@@ -137,43 +130,39 @@ export default function HomePage() {
   };
 
   const handleQuickActivate = (name: string) => {
-    if (!pendingEmployee || !name.trim()) {
+    if (!pendingEmployee || !name.trim() || !firestore) {
       toast({ variant: 'destructive', title: 'Error', description: 'Se requiere un nombre para la activación.' });
       return;
     }
 
-    const newEmployee: Employee = {
-      employee_number: pendingEmployee.number,
+    const newEmployee: Omit<Employee, 'id'> = {
+      employeeNumber: pendingEmployee.number,
       name,
-      company: selectedCompany,
+      companyId: selectedCompanyId,
       active: true,
     };
-    
-    setEmployees(prev => ({
-      ...prev,
-      [selectedCompany]: [...prev[selectedCompany], newEmployee],
-    }));
 
-    const newConsumption: Consumption = {
-      id: generateId(),
-      employee_number: newEmployee.employee_number,
-      name: newEmployee.name,
-      company: selectedCompany,
-      timestamp: new Date().toISOString(),
-      voided: false,
-    };
+    const employeesCollection = collection(firestore, `companies/${selectedCompanyId}/employees`);
+    addDocumentNonBlocking(employeesCollection, newEmployee).then(docRef => {
+        const newConsumption: Omit<Consumption, 'id'> = {
+            employeeId: docRef.id,
+            employeeNumber: newEmployee.employeeNumber,
+            name: newEmployee.name,
+            companyId: selectedCompanyId,
+            timestamp: new Date().toISOString(),
+            voided: false,
+        };
+        const consumptionsCollection = collection(firestore, `companies/${selectedCompanyId}/consumptions`);
+        addDocumentNonBlocking(consumptionsCollection, newConsumption);
+        
+        const timePart = formatTimestamp(newConsumption.timestamp);
 
-    setConsumptions(prev => ({
-      ...prev,
-      [selectedCompany]: [newConsumption, ...prev[selectedCompany]],
-    }));
-    
-    const timePart = formatTimestamp(newConsumption.timestamp);
-
-    setFeedback({
-      type: 'success',
-      message: `Activado y Registrado: ${newEmployee.name} (#${newEmployee.employee_number}) · ${newEmployee.company} · ${timePart} · Registros de hoy: 1`,
+        setFeedback({
+            type: 'success',
+            message: `Activado y Registrado: ${newEmployee.name} (#${newEmployee.employeeNumber}) · ${newEmployee.companyId} · ${timePart} · Registros de hoy: 1`,
+        });
     });
+
     setQuickAddOpen(false);
     setPendingEmployee(null);
     resetInputAndFeedback();
@@ -190,12 +179,12 @@ export default function HomePage() {
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
       <header className="flex justify-between items-center mb-8">
         <Logo />
-        <Select value={selectedCompany} onValueChange={(v) => setSelectedCompany(v as Company)}>
+        <Select value={selectedCompanyId} onValueChange={(v) => setSelectedCompanyId(v)}>
           <SelectTrigger className="w-[180px] text-lg h-12">
             <SelectValue placeholder="Seleccionar Empresa" />
           </SelectTrigger>
           <SelectContent>
-            {COMPANIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {COMPANIES.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
           </SelectContent>
         </Select>
       </header>
@@ -215,7 +204,7 @@ export default function HomePage() {
                   value={employeeNumber}
                   onChange={(e) => setEmployeeNumber(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={`Número de Empleado para ${selectedCompany}`}
+                  placeholder={`Número de Empleado para ${selectedCompanyId}`}
                   className="text-2xl h-16 flex-grow"
                 />
                 <Button onClick={handleRegistration} className="h-16 text-lg">
@@ -252,11 +241,11 @@ export default function HomePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {recentConsumptions.map(c => (
+                  {(recentConsumptions || []).map(c => (
                     <TableRow key={c.id}>
                       <TableCell>{c.name}</TableCell>
-                      <TableCell>{c.employee_number}</TableCell>
-                      <TableCell>{c.company}</TableCell>
+                      <TableCell>{c.employeeNumber}</TableCell>
+                      <TableCell>{c.companyId}</TableCell>
                       <TableCell>{formatTimestamp(c.timestamp)}</TableCell>
                     </TableRow>
                   ))}
@@ -268,11 +257,9 @@ export default function HomePage() {
 
         <div className="md:col-span-1">
           <AdminPanel 
-            employees={employees} 
-            setEmployees={setEmployees} 
-            consumptions={consumptions} 
-            setConsumptions={setConsumptions}
-            selectedCompany={selectedCompany} 
+            employees={employees || []} 
+            consumptions={consumptions || []}
+            selectedCompanyId={selectedCompanyId} 
           />
         </div>
       </main>
@@ -282,7 +269,7 @@ export default function HomePage() {
         setIsOpen={setQuickAddOpen}
         onActivate={handleQuickActivate}
         employeeNumber={pendingEmployee?.number ?? ''}
-        company={selectedCompany}
+        companyId={selectedCompanyId}
       />
     </div>
   );
@@ -290,27 +277,26 @@ export default function HomePage() {
 
 // Sub-components
 interface AdminPanelProps {
-  employees: EmployeesData;
-  setEmployees: (data: EmployeesData | ((d: EmployeesData) => EmployeesData)) => void;
-  consumptions: ConsumptionsData;
-  setConsumptions: (data: ConsumptionsData | ((d: ConsumptionsData) => ConsumptionsData)) => void;
-  selectedCompany: Company;
+  employees: Employee[];
+  consumptions: Consumption[];
+  selectedCompanyId: string;
 }
 
-const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions, setConsumptions, selectedCompany }) => {
+const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedCompanyId }) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { firestore } = useFirebase();
 
   const [date, setDate] = useState<DateRange | undefined>();
-  const [reportCompany, setReportCompany] = useState<Company>('Inditex');
+  const [reportCompanyId, setReportCompanyId] = useState<string>('Inditex');
 
   useEffect(() => {
-    setReportCompany(selectedCompany);
-  }, [selectedCompany]);
+    setReportCompanyId(selectedCompanyId);
+  }, [selectedCompanyId]);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !firestore) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -319,40 +305,46 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
         const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
         const header = lines.shift()?.split(',').map(h => h.trim().toLowerCase()) || [];
         
-        const requiredHeaders = ['employee_number', 'name', 'company', 'active'];
-        if (!requiredHeaders.every(h => header.includes(h))) {
-          throw new Error(`Encabezado de CSV inválido. Debe incluir: ${requiredHeaders.join(', ')}`);
+        const requiredHeaders = ['employeenumber', 'name', 'active'];
+        if (!header.includes('employeenumber') || !header.includes('name') || !header.includes('active')) {
+          throw new Error(`Encabezado de CSV inválido. Debe incluir: employeeNumber, name, active`);
         }
         
+        const employeeNumberIndex = header.indexOf('employeenumber');
+        const nameIndex = header.indexOf('name');
+        const activeIndex = header.indexOf('active');
+
         const newEmployees = lines.map(line => {
           const values = line.split(',');
-          const employeeObj: Partial<Employee> = {};
-          header.forEach((h, i) => {
-            (employeeObj as any)[h] = values[i];
-          });
-          employeeObj.active = String(employeeObj.active).toLowerCase() === 'true';
-          return employeeObj as Employee;
-        }).filter(e => e.company === selectedCompany);
+          return {
+            employeeNumber: values[employeeNumberIndex],
+            name: values[nameIndex],
+            active: String(values[activeIndex]).toLowerCase() === 'true',
+            companyId: selectedCompanyId,
+          } as Omit<Employee, 'id'>;
+        });
 
         let addedCount = 0;
         let updatedCount = 0;
 
-        setEmployees(prev => {
-          const companyEmployees = [...prev[selectedCompany!]];
-          newEmployees.forEach(newEmp => {
-            const index = companyEmployees.findIndex(e => e.employee_number === newEmp.employee_number);
-            if (index > -1) {
-              companyEmployees[index] = { ...companyEmployees[index], ...newEmp };
-              updatedCount++;
+        const employeesCollection = collection(firestore, `companies/${selectedCompanyId}/employees`);
+
+        newEmployees.forEach(async newEmp => {
+            const q = query(employeesCollection, where('employeeNumber', '==', newEmp.employeeNumber));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const docToUpdate = querySnapshot.docs[0];
+                updateDocumentNonBlocking(docToUpdate.ref, newEmp);
+                updatedCount++;
             } else {
-              companyEmployees.push(newEmp);
-              addedCount++;
+                addDocumentNonBlocking(employeesCollection, newEmp);
+                addedCount++;
             }
-          });
-          return { ...prev, [selectedCompany!]: companyEmployees };
         });
 
-        toast({ title: 'Importación Exitosa', description: `${addedCount} empleados agregados, ${updatedCount} actualizados para ${selectedCompany}.` });
+
+        toast({ title: 'Importación Exitosa', description: `${addedCount} empleados agregados, ${updatedCount} actualizados para ${selectedCompanyId}.` });
       } catch (error: any) {
         toast({ variant: 'destructive', title: 'Falló la Importación', description: error.message });
       }
@@ -361,14 +353,14 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
     e.target.value = ''; // Reset file input
   };
   
-  const handleExportEmployees = (company: Company) => {
-    const companyEmployees = employees[company];
-    const headers = ['employee_number', 'name', 'company', 'department', 'email', 'active'];
+  const handleExportEmployees = (companyId: string) => {
+    const companyEmployees = employees;
+    const headers = ['employeeNumber', 'name', 'companyId', 'department', 'email', 'active'];
     const rows = [
       headers,
-      ...companyEmployees.map(e => [e.employee_number, e.name, e.company, e.department || '', e.email || '', e.active])
+      ...companyEmployees.map(e => [e.employeeNumber, e.name, e.companyId, e.department || '', e.email || '', e.active])
     ];
-    exportToCsv(`${company}_empleados_${new Date().toISOString().split('T')[0]}.csv`, rows);
+    exportToCsv(`${companyId}_empleados_${new Date().toISOString().split('T')[0]}.csv`, rows);
   }
 
   const handleExportConsumptions = () => {
@@ -379,21 +371,28 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
     const from = date.from.getTime();
     const to = date.to.getTime() + (24 * 60 * 60 * 1000 - 1); // include full end day
 
-    const filteredConsumptions = consumptions[reportCompany].filter(c => {
+    const filteredConsumptions = consumptions.filter(c => {
         const c_time = new Date(c.timestamp).getTime();
         return c_time >= from && c_time <= to;
     });
 
-    const headers = ['id', 'employee_number', 'name', 'company', 'timestamp', 'voided'];
+    const headers = ['id', 'employeeNumber', 'name', 'companyId', 'timestamp', 'voided'];
     const rows = [
         headers,
-        ...filteredConsumptions.map(c => [c.id, c.employee_number, c.name, c.company, c.timestamp, c.voided])
+        ...filteredConsumptions.map(c => [c.id, c.employeeNumber, c.name, c.companyId, c.timestamp, c.voided])
     ];
 
-    const uniqueEmployees = new Set(filteredConsumptions.map(c => c.employee_number)).size;
+    const uniqueEmployees = new Set(filteredConsumptions.map(c => c.employeeNumber)).size;
 
-    exportToCsv(`${reportCompany}_consumos_${format(date.from, "yyyy-MM-dd")}_a_${format(date.to, "yyyy-MM-dd")}.csv`, rows);
+    exportToCsv(`${reportCompanyId}_consumos_${format(date.from, "yyyy-MM-dd")}_a_${format(date.to, "yyyy-MM-dd")}.csv`, rows);
     toast({ title: 'Reporte Generado', description: `Total: ${filteredConsumptions.length} consumos de ${uniqueEmployees} empleados únicos.` });
+  }
+
+  const handleAddEmployee = (employee: Omit<Employee, 'id'>) => {
+    if(!firestore) return;
+    const employeesCollection = collection(firestore, `companies/${employee.companyId}/employees`);
+    addDocumentNonBlocking(employeesCollection, employee);
+    toast({ title: 'Empleado Añadido', description: `${employee.name} añadido a ${employee.companyId}.` });
   }
 
   return (
@@ -408,29 +407,26 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
             <TabsTrigger value="consumptions">Reportes</TabsTrigger>
           </TabsList>
           <TabsContent value="employees" className="space-y-4 pt-4">
-            <h3 className="font-semibold">Importar Empleados (CSV) para {selectedCompany}</h3>
+            <h3 className="font-semibold">Importar Empleados (CSV) para {selectedCompanyId}</h3>
             <Button variant="outline" className="w-full" onClick={() => { fileInputRef.current?.click();}}>
-              <Upload className="mr-2 h-4 w-4" /> Importar para {selectedCompany}
+              <Upload className="mr-2 h-4 w-4" /> Importar para {selectedCompanyId}
             </Button>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
 
-            <h3 className="font-semibold">Exportar Empleados de {selectedCompany}</h3>
-            <Button variant="outline" className="w-full" onClick={() => handleExportEmployees(selectedCompany)}>
-              <Download className="mr-2 h-4 w-4" /> Exportar para {selectedCompany}
+            <h3 className="font-semibold">Exportar Empleados de {selectedCompanyId}</h3>
+            <Button variant="outline" className="w-full" onClick={() => handleExportEmployees(selectedCompanyId)}>
+              <Download className="mr-2 h-4 w-4" /> Exportar para {selectedCompanyId}
             </Button>
              <h3 className="font-semibold">Añadir Rápido Empleado</h3>
-              <QuickAddForm onAdd={(emp) => {
-                setEmployees(prev => ({ ...prev, [emp.company]: [...prev[emp.company], emp] }));
-                toast({ title: 'Empleado Añadido', description: `${emp.name} añadido a ${emp.company}.` });
-              }} />
+              <QuickAddForm onAdd={handleAddEmployee} />
           </TabsContent>
           <TabsContent value="consumptions" className="space-y-4 pt-4">
             <h3 className="font-semibold">Exportar Consumos</h3>
             <div className="space-y-2">
               <label>Empresa</label>
-              <Select value={reportCompany} onValueChange={(v) => setReportCompany(v as Company)}>
+              <Select value={reportCompanyId} onValueChange={(v) => setReportCompanyId(v)}>
                 <SelectTrigger><SelectValue/></SelectTrigger>
-                <SelectContent>{COMPANIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                <SelectContent>{COMPANIES.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
@@ -486,10 +482,10 @@ interface QuickAddDialogProps {
     setIsOpen: (open: boolean) => void;
     onActivate: (name: string) => void;
     employeeNumber: string;
-    company: Company;
+    companyId: string;
 }
 
-const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate, employeeNumber, company }) => {
+const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate, employeeNumber, companyId }) => {
     const [name, setName] = useState('');
 
     useEffect(() => {
@@ -512,7 +508,7 @@ const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
                         <label>Empresa</label>
-                        <Input value={company} readOnly disabled />
+                        <Input value={companyId} readOnly disabled />
                     </div>
                     <div className="space-y-2">
                         <label>Número de Empleado</label>
@@ -532,11 +528,11 @@ const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate
     )
 }
 
-const QuickAddForm: FC<{ onAdd: (employee: Employee) => void }> = ({ onAdd }) => {
+const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void }> = ({ onAdd }) => {
     const [open, setOpen] = useState(false);
     const [number, setNumber] = useState('');
     const [name, setName] = useState('');
-    const [company, setCompany] = useState<Company>('Inditex');
+    const [companyId, setCompanyId] = useState<string>('Inditex');
     const { toast } = useToast();
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -546,9 +542,9 @@ const QuickAddForm: FC<{ onAdd: (employee: Employee) => void }> = ({ onAdd }) =>
             return;
         }
         onAdd({
-            employee_number: number,
+            employeeNumber: number,
             name,
-            company,
+            companyId,
             active: true
         });
         setNumber('');
@@ -566,9 +562,9 @@ const QuickAddForm: FC<{ onAdd: (employee: Employee) => void }> = ({ onAdd }) =>
                  <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
                         <label>Empresa</label>
-                        <Select value={company} onValueChange={v => setCompany(v as Company)}>
+                        <Select value={companyId} onValueChange={v => setCompanyId(v)}>
                             <SelectTrigger><SelectValue/></SelectTrigger>
-                            <SelectContent>{COMPANIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                            <SelectContent>{COMPANIES.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                         </Select>
                     </div>
                     <div className="space-y-2">
@@ -588,6 +584,3 @@ const QuickAddForm: FC<{ onAdd: (employee: Employee) => void }> = ({ onAdd }) =>
         </Dialog>
     );
 }
-
-    
-    

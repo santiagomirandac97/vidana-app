@@ -1,29 +1,29 @@
-export type Company = "Inditex" | "Grupo Axo";
+export type Company = {
+  id: "Inditex" | "Grupo Axo";
+  name: string;
+};
 
-export const COMPANIES: Company[] = ["Inditex", "Grupo Axo"];
+export const COMPANIES: Company[] = [
+    { id: 'Inditex', name: 'Inditex' },
+    { id: 'Grupo Axo', name: 'Grupo Axo' },
+];
 
 export interface Employee {
-  employee_number: string;
+  id?: string;
+  employeeNumber: string;
   name: string;
-  company: Company;
+  companyId: string;
   department?: string;
   email?: string;
   active: boolean;
 }
 
-export type EmployeesData = {
-  [key in Company]: Employee[];
-};
-
 export interface Consumption {
-  id: string; // uuid
-  employee_number: string;
+  id?: string;
+  employeeId: string;
+  employeeNumber: string;
   name: string;
-  company: Company;
+  companyId: string;
   timestamp: string; // ISO-8601
   voided: boolean;
 }
-
-export type ConsumptionsData = {
-  [key in Company]: Consumption[];
-};

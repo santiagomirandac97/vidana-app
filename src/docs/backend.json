@@ -1,0 +1,120 @@
+{
+  "entities": {
+    "Employee": {
+      "title": "Employee",
+      "type": "object",
+      "description": "Represents an employee of Inditex or Grupo Axo.",
+      "properties": {
+        "employeeNumber": {
+          "type": "string",
+          "description": "The employee's number, as assigned by their company."
+        },
+        "name": {
+          "type": "string",
+          "description": "The employee's full name."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "Reference to Company. (Relationship: Company 1:N Employee)"
+        },
+        "department": {
+          "type": "string",
+          "description": "The employee's department within the company."
+        },
+        "email": {
+          "type": "string",
+          "description": "The employee's email address.",
+          "format": "email"
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Indicates whether the employee is currently active."
+        }
+      },
+      "required": [
+        "employeeNumber",
+        "name",
+        "companyId"
+      ]
+    },
+    "Consumption": {
+      "title": "Consumption",
+      "type": "object",
+      "description": "Represents a single instance of an employee accessing a meal.",
+      "properties": {
+        "employeeId": {
+          "type": "string",
+          "description": "Reference to Employee. (Relationship: Employee 1:N Consumption)"
+        },
+        "employeeNumber": {
+          "type": "string",
+          "description": "Denormalized employee number for easier querying."
+        },
+        "name": {
+          "type": "string",
+          "description": "Denormalized employee name."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "Denormalized company ID."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The date and time the consumption occurred.",
+          "format": "date-time"
+        },
+        "voided": {
+          "type": "boolean",
+          "description": "Indicates whether the consumption record has been voided."
+        }
+      },
+      "required": [
+        "employeeId",
+        "timestamp",
+        "employeeNumber",
+        "name",
+        "companyId"
+      ]
+    },
+    "Company": {
+      "title": "Company",
+      "type": "object",
+      "description": "Represents the company (Inditex, Grupo Axo).",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the company."
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "/companies/{companyId}": {
+      "schema": {
+        "$ref": "#/entities/Company"
+      },
+      "description": "Stores company information."
+    },
+    "/companies/{companyId}/employees/{employeeId}": {
+      "schema": {
+        "$ref": "#/entities/Employee"
+      },
+      "description": "Stores employee data for each company."
+    },
+    "/companies/{companyId}/consumptions/{consumptionId}": {
+      "schema": {
+        "$ref": "#/entities/Consumption"
+      },
+      "description": "Stores consumption records for each company."
+    }
+  }
+}

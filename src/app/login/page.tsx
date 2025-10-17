@@ -46,15 +46,12 @@ export default function LoginPage() {
     const companyKey = selectedCompanyId as keyof typeof companyCredentials;
     const credentials = companyCredentials[companyKey];
 
-    // Step 1: Check the user-entered password against the defined "userPassword".
     if (password !== credentials.userPassword) {
         setError('Contraseña incorrecta. Por favor, inténtelo de nuevo.');
         setIsLoading(false);
         return;
     }
 
-    // Step 2: If the user-entered password is correct, sign in with the actual Firebase credentials.
-    // NO MORE AUTOMATIC USER CREATION.
     try {
       await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
       router.push('/');

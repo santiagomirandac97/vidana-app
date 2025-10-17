@@ -1,6 +1,6 @@
-export type Company = "Inditex" | "Grupo Axo" | "Vidana";
+export type Company = "Inditex" | "Grupo Axo";
 
-export const COMPANIES: Company[] = ["Inditex", "Grupo Axo", "Vidana"];
+export const COMPANIES: Company[] = ["Inditex", "Grupo Axo"];
 
 export interface Employee {
   employee_number: string;

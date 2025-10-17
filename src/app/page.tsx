@@ -45,15 +45,10 @@ const SEED_EMPLOYEES: EmployeesData = {
     { employee_number: '2002', name: 'Elena Petrova', company: 'Grupo Axo', active: true },
     { employee_number: '2003', name: 'Frank Miller', company: 'Grupo Axo', active: true },
   ],
-  Vidana: [
-    { employee_number: '3001', name: 'Grace Hopper', company: 'Vidana', active: true },
-    { employee_number: '3002', name: 'Henry Ford', company: 'Vidana', active: true },
-    { employee_number: '3003', name: 'Isabel Allende', company: 'Vidana', active: true },
-  ],
 };
 
-const INITIAL_EMPLOYEES: EmployeesData = { Inditex: [], 'Grupo Axo': [], Vidana: [] };
-const INITIAL_CONSUMPTIONS: ConsumptionsData = { Inditex: [], 'Grupo Axo': [], Vidana: [] };
+const INITIAL_EMPLOYEES: EmployeesData = { Inditex: [], 'Grupo Axo': [] };
+const INITIAL_CONSUMPTIONS: ConsumptionsData = { Inditex: [], 'Grupo Axo': [] };
 
 export default function HomePage() {
   const [employees, setEmployees] = useLocalStorage<EmployeesData>('RGSTR_EMPLOYEES', INITIAL_EMPLOYEES);
@@ -83,7 +78,7 @@ export default function HomePage() {
   }, [selectedCompany]);
 
   const recentConsumptions = useMemo(() => {
-    const allConsumptions = [...consumptions.Inditex, ...consumptions['Grupo Axo'], ...consumptions.Vidana];
+    const allConsumptions = [...consumptions.Inditex, ...consumptions['Grupo Axo']];
     return allConsumptions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10);
   }, [consumptions]);
 
@@ -413,7 +408,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
           </TabsList>
           <TabsContent value="employees" className="space-y-4 pt-4">
             <h3 className="font-semibold">Importar Empleados (CSV)</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {COMPANIES.map(c => (
                 <Button key={c} variant="outline" onClick={() => { setActiveImportCompany(c); fileInputRef.current?.click();}}>
                   <Upload className="mr-2 h-4 w-4" /> {c}
@@ -423,7 +418,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
 
             <h3 className="font-semibold">Exportar Empleados</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {COMPANIES.map(c => (
                 <Button key={c} variant="outline" onClick={() => handleExportEmployees(c)}>
                   <Download className="mr-2 h-4 w-4" /> {c}

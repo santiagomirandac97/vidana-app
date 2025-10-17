@@ -16,8 +16,8 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, initiateAnonymousSignIn, useAuth, useUser } from '@/firebase';
+import { collection, doc, query, where, orderBy, limit, Timestamp, getDocs, updateDoc } from 'firebase/firestore';
 
 
 import { type Company, type Employee, type Consumption, COMPANIES } from '@/lib/types';
@@ -36,6 +36,8 @@ import { Logo } from '@/components/logo';
 
 export default function HomePage() {
   const { firestore } = useFirebase();
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('Inditex');
   
   const employeesQuery = useMemoFirebase(() => 
@@ -63,14 +65,20 @@ export default function HomePage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!isUserLoading && !user) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [auth, user, isUserLoading]);
+  
+  useEffect(() => {
     // Seed companies if they don't exist
-    if (firestore) {
+    if (firestore && user) {
       COMPANIES.forEach(company => {
         const companyRef = doc(firestore, 'companies', company.id);
         setDocumentNonBlocking(companyRef, { name: company.name }, { merge: true });
       });
     }
-  }, [firestore]);
+  }, [firestore, user]);
 
 
   useEffect(() => {
@@ -144,6 +152,7 @@ export default function HomePage() {
 
     const employeesCollection = collection(firestore, `companies/${selectedCompanyId}/employees`);
     addDocumentNonBlocking(employeesCollection, newEmployee).then(docRef => {
+        if (!docRef) return;
         const newConsumption: Omit<Consumption, 'id'> = {
             employeeId: docRef.id,
             employeeNumber: newEmployee.employeeNumber,
@@ -286,81 +295,78 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { firestore } = useFirebase();
+  const [isLoading, setIsLoading] = useState(false);
 
   const [date, setDate] = useState<DateRange | undefined>();
-  const [reportCompanyId, setReportCompanyId] = useState<string>('Inditex');
-
-  useEffect(() => {
-    setReportCompanyId(selectedCompanyId);
-  }, [selectedCompanyId]);
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !firestore) return;
-
+  
+    setIsLoading(true);
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const text = event.target?.result as string;
       try {
         const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
         const header = lines.shift()?.split(',').map(h => h.trim().toLowerCase()) || [];
         
         const requiredHeaders = ['employeenumber', 'name', 'active'];
-        if (!header.includes('employeenumber') || !header.includes('name') || !header.includes('active')) {
-          throw new Error(`Encabezado de CSV inválido. Debe incluir: employeeNumber, name, active`);
+        if (!requiredHeaders.every(h => header.includes(h))) {
+          throw new Error(`Encabezado de CSV inválido. Debe incluir: ${requiredHeaders.join(', ')}`);
         }
         
         const employeeNumberIndex = header.indexOf('employeenumber');
         const nameIndex = header.indexOf('name');
         const activeIndex = header.indexOf('active');
-
+  
         const newEmployees = lines.map(line => {
           const values = line.split(',');
           return {
-            employeeNumber: values[employeeNumberIndex],
-            name: values[nameIndex],
+            employeeNumber: values[employeeNumberIndex]?.trim(),
+            name: values[nameIndex]?.trim(),
             active: String(values[activeIndex]).toLowerCase() === 'true',
             companyId: selectedCompanyId,
           } as Omit<Employee, 'id'>;
-        });
-
+        }).filter(emp => emp.employeeNumber && emp.name);
+  
         let addedCount = 0;
         let updatedCount = 0;
-
+  
         const employeesCollection = collection(firestore, `companies/${selectedCompanyId}/employees`);
-
-        newEmployees.forEach(async newEmp => {
+        
+        for (const newEmp of newEmployees) {
             const q = query(employeesCollection, where('employeeNumber', '==', newEmp.employeeNumber));
             const querySnapshot = await getDocs(q);
 
             if (!querySnapshot.empty) {
                 const docToUpdate = querySnapshot.docs[0];
-                updateDocumentNonBlocking(docToUpdate.ref, newEmp);
+                await updateDoc(docToUpdate.ref, newEmp);
                 updatedCount++;
             } else {
-                addDocumentNonBlocking(employeesCollection, newEmp);
+                await addDocumentNonBlocking(employeesCollection, newEmp);
                 addedCount++;
             }
-        });
-
-
+        }
+  
         toast({ title: 'Importación Exitosa', description: `${addedCount} empleados agregados, ${updatedCount} actualizados para ${selectedCompanyId}.` });
       } catch (error: any) {
         toast({ variant: 'destructive', title: 'Falló la Importación', description: error.message });
+      } finally {
+        setIsLoading(false);
       }
     };
     reader.readAsText(file);
     e.target.value = ''; // Reset file input
   };
   
-  const handleExportEmployees = (companyId: string) => {
-    const companyEmployees = employees;
+  const handleExportEmployees = () => {
     const headers = ['employeeNumber', 'name', 'companyId', 'department', 'email', 'active'];
     const rows = [
       headers,
-      ...companyEmployees.map(e => [e.employeeNumber, e.name, e.companyId, e.department || '', e.email || '', e.active])
+      ...employees.map(e => [e.employeeNumber, e.name, e.companyId, e.department || '', e.email || '', e.active])
     ];
-    exportToCsv(`${companyId}_empleados_${new Date().toISOString().split('T')[0]}.csv`, rows);
+    exportToCsv(`${selectedCompanyId}_empleados_${new Date().toISOString().split('T')[0]}.csv`, rows);
   }
 
   const handleExportConsumptions = () => {
@@ -373,7 +379,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
 
     const filteredConsumptions = consumptions.filter(c => {
         const c_time = new Date(c.timestamp).getTime();
-        return c_time >= from && c_time <= to;
+        return c.companyId === selectedCompanyId && c_time >= from && c_time <= to;
     });
 
     const headers = ['id', 'employeeNumber', 'name', 'companyId', 'timestamp', 'voided'];
@@ -384,7 +390,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
 
     const uniqueEmployees = new Set(filteredConsumptions.map(c => c.employeeNumber)).size;
 
-    exportToCsv(`${reportCompanyId}_consumos_${format(date.from, "yyyy-MM-dd")}_a_${format(date.to, "yyyy-MM-dd")}.csv`, rows);
+    exportToCsv(`${selectedCompanyId}_consumos_${format(date.from, "yyyy-MM-dd")}_a_${format(date.to, "yyyy-MM-dd")}.csv`, rows);
     toast({ title: 'Reporte Generado', description: `Total: ${filteredConsumptions.length} consumos de ${uniqueEmployees} empleados únicos.` });
   }
 
@@ -408,27 +414,21 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
           </TabsList>
           <TabsContent value="employees" className="space-y-4 pt-4">
             <h3 className="font-semibold">Importar Empleados (CSV) para {selectedCompanyId}</h3>
-            <Button variant="outline" className="w-full" onClick={() => { fileInputRef.current?.click();}}>
-              <Upload className="mr-2 h-4 w-4" /> Importar para {selectedCompanyId}
+            <Button variant="outline" className="w-full" onClick={() => { fileInputRef.current?.click();}} disabled={isLoading}>
+              <Upload className="mr-2 h-4 w-4" /> {isLoading ? `Importando para ${selectedCompanyId}...` : `Importar para ${selectedCompanyId}`}
             </Button>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
 
             <h3 className="font-semibold">Exportar Empleados de {selectedCompanyId}</h3>
-            <Button variant="outline" className="w-full" onClick={() => handleExportEmployees(selectedCompanyId)}>
+            <Button variant="outline" className="w-full" onClick={handleExportEmployees}>
               <Download className="mr-2 h-4 w-4" /> Exportar para {selectedCompanyId}
             </Button>
              <h3 className="font-semibold">Añadir Rápido Empleado</h3>
-              <QuickAddForm onAdd={handleAddEmployee} />
+              <QuickAddForm onAdd={handleAddEmployee} defaultCompanyId={selectedCompanyId} />
           </TabsContent>
           <TabsContent value="consumptions" className="space-y-4 pt-4">
-            <h3 className="font-semibold">Exportar Consumos</h3>
-            <div className="space-y-2">
-              <label>Empresa</label>
-              <Select value={reportCompanyId} onValueChange={(v) => setReportCompanyId(v)}>
-                <SelectTrigger><SelectValue/></SelectTrigger>
-                <SelectContent>{COMPANIES.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
+            <h3 className="font-semibold">Exportar Consumos para {selectedCompanyId}</h3>
+            
             <div className="space-y-2">
               <label>Rango de Fechas</label>
               <Popover>
@@ -528,11 +528,10 @@ const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate
     )
 }
 
-const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void }> = ({ onAdd }) => {
+const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, defaultCompanyId: string }> = ({ onAdd, defaultCompanyId }) => {
     const [open, setOpen] = useState(false);
     const [number, setNumber] = useState('');
     const [name, setName] = useState('');
-    const [companyId, setCompanyId] = useState<string>('Inditex');
     const { toast } = useToast();
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -544,7 +543,7 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void }> = ({
         onAdd({
             employeeNumber: number,
             name,
-            companyId,
+            companyId: defaultCompanyId,
             active: true
         });
         setNumber('');
@@ -558,14 +557,11 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void }> = ({
                 <Button variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4"/> Añadir Manualmente</Button>
             </DialogTrigger>
             <DialogContent>
-                <DialogHeader><DialogTitle>Añadir Rápido Empleado</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Añadir Rápido Empleado a {defaultCompanyId}</DialogTitle></DialogHeader>
                  <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
                         <label>Empresa</label>
-                        <Select value={companyId} onValueChange={v => setCompanyId(v)}>
-                            <SelectTrigger><SelectValue/></SelectTrigger>
-                            <SelectContent>{COMPANIES.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                        </Select>
+                        <Input value={defaultCompanyId} readOnly disabled/>
                     </div>
                     <div className="space-y-2">
                         <label>Número de Empleado</label>

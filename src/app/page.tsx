@@ -15,6 +15,7 @@ import {
   Calendar as CalendarIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 
 import useLocalStorage from '@/hooks/use-local-storage';
@@ -100,7 +101,7 @@ export default function HomePage() {
 
     if (employee) {
       if (!employee.active) {
-          setFeedback({ type: 'error', message: `Employee Inactive: ${employee.name} (#${employee.employee_number})` });
+          setFeedback({ type: 'error', message: `Empleado Inactivo: ${employee.name} (#${employee.employee_number})` });
           resetInputAndFeedback();
           return;
       }
@@ -128,12 +129,12 @@ export default function HomePage() {
 
       setFeedback({
         type: 'success',
-        message: `Access Logged: ${employee.name} (#${employee.employee_number}) · ${employee.company} · ${timePart} · Today count: ${todayConsumptionsCount}`,
+        message: `Acceso Registrado: ${employee.name} (#${employee.employee_number}) · ${employee.company} · ${timePart} · Registros de hoy: ${todayConsumptionsCount}`,
       });
     } else {
       setFeedback({
         type: 'warning',
-        message: `Unknown Employee #${employeeNumber}. Quick activate?`,
+        message: `Empleado desconocido #${employeeNumber}. ¿Activar rápidamente?`,
       });
       setPendingEmployee({ number: employeeNumber, name: '' });
       setQuickAddOpen(true);
@@ -143,7 +144,7 @@ export default function HomePage() {
 
   const handleQuickActivate = (name: string) => {
     if (!pendingEmployee || !name.trim()) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Name is required for activation.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Se requiere un nombre para la activación.' });
       return;
     }
 
@@ -177,7 +178,7 @@ export default function HomePage() {
 
     setFeedback({
       type: 'success',
-      message: `Activated & Logged: ${newEmployee.name} (#${newEmployee.employee_number}) · ${newEmployee.company} · ${timePart} · Today count: 1`,
+      message: `Activado y Registrado: ${newEmployee.name} (#${newEmployee.employee_number}) · ${newEmployee.company} · ${timePart} · Registros de hoy: 1`,
     });
     setQuickAddOpen(false);
     setPendingEmployee(null);
@@ -197,7 +198,7 @@ export default function HomePage() {
         <Logo />
         <Select value={selectedCompany} onValueChange={(v) => setSelectedCompany(v as Company)}>
           <SelectTrigger className="w-[180px] text-lg h-12">
-            <SelectValue placeholder="Select Company" />
+            <SelectValue placeholder="Seleccionar Empresa" />
           </SelectTrigger>
           <SelectContent>
             {COMPANIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -209,8 +210,8 @@ export default function HomePage() {
         <div className="md:col-span-2 space-y-8">
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="text-2xl">Register Meal Access</CardTitle>
-              <CardDescription>Enter employee number and press Enter. Optimized for scanners.</CardDescription>
+              <CardTitle className="text-2xl">Registrar Acceso a Comida</CardTitle>
+              <CardDescription>Ingrese el número de empleado y presione Enter. Optimizado para escáneres.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex gap-4">
@@ -220,11 +221,11 @@ export default function HomePage() {
                   value={employeeNumber}
                   onChange={(e) => setEmployeeNumber(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={`Employee Number for ${selectedCompany}`}
+                  placeholder={`Número de Empleado para ${selectedCompany}`}
                   className="text-2xl h-16 flex-grow"
                 />
                 <Button onClick={handleRegistration} className="h-16 text-lg">
-                  <ChevronDown className="h-6 w-6 mr-2 rotate-90" /> Submit
+                  <ChevronDown className="h-6 w-6 mr-2 rotate-90" /> Enviar
                 </Button>
               </div>
               {feedback && (
@@ -244,16 +245,16 @@ export default function HomePage() {
 
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle>Recent 10 Consumptions</CardTitle>
+              <CardTitle>Últimos 10 Consumos</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Employee #</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Time</TableHead>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead># Empleado</TableHead>
+                    <TableHead>Empresa</TableHead>
+                    <TableHead>Hora</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -316,7 +317,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
         
         const requiredHeaders = ['employee_number', 'name', 'company', 'active'];
         if (!requiredHeaders.every(h => header.includes(h))) {
-          throw new Error(`Invalid CSV header. Must include: ${requiredHeaders.join(', ')}`);
+          throw new Error(`Encabezado de CSV inválido. Debe incluir: ${requiredHeaders.join(', ')}`);
         }
         
         const newEmployees = lines.map(line => {
@@ -347,9 +348,9 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
           return { ...prev, [activeImportCompany!]: companyEmployees };
         });
 
-        toast({ title: 'Import Successful', description: `${addedCount} employees added, ${updatedCount} updated for ${activeImportCompany}.` });
+        toast({ title: 'Importación Exitosa', description: `${addedCount} empleados agregados, ${updatedCount} actualizados para ${activeImportCompany}.` });
       } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Import Failed', description: error.message });
+        toast({ variant: 'destructive', title: 'Falló la Importación', description: error.message });
       }
     };
     reader.readAsText(file);
@@ -363,12 +364,12 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
       headers,
       ...companyEmployees.map(e => [e.employee_number, e.name, e.company, e.department || '', e.email || '', e.active])
     ];
-    exportToCsv(`${company}_employees_${new Date().toISOString().split('T')[0]}.csv`, rows);
+    exportToCsv(`${company}_empleados_${new Date().toISOString().split('T')[0]}.csv`, rows);
   }
 
   const handleExportConsumptions = () => {
     if (!date?.from || !date?.to) {
-        toast({variant: 'destructive', title: 'Please select a date range.'});
+        toast({variant: 'destructive', title: 'Por favor seleccione un rango de fechas.'});
         return;
     }
     const from = date.from.getTime();
@@ -387,31 +388,31 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
 
     const uniqueEmployees = new Set(filteredConsumptions.map(c => c.employee_number)).size;
 
-    exportToCsv(`${reportCompany}_consumptions_${format(date.from, "yyyy-MM-dd")}_to_${format(date.to, "yyyy-MM-dd")}.csv`, rows);
-    toast({ title: 'Report Generated', description: `Total: ${filteredConsumptions.length} consumptions from ${uniqueEmployees} unique employees.` });
+    exportToCsv(`${reportCompany}_consumos_${format(date.from, "yyyy-MM-dd")}_a_${format(date.to, "yyyy-MM-dd")}.csv`, rows);
+    toast({ title: 'Reporte Generado', description: `Total: ${filteredConsumptions.length} consumos de ${uniqueEmployees} empleados únicos.` });
   }
 
   const handleClearData = () => {
     setEmployees(INITIAL_EMPLOYEES);
     setConsumptions(INITIAL_CONSUMPTIONS);
     localStorage.removeItem('RGSTR_SEEDED');
-    toast({ title: "Local data cleared." });
+    toast({ title: "Datos locales borrados." });
   }
 
   return (
     <Card className="shadow-lg">
       <CardHeader>
-        <CardTitle>Admin Panel</CardTitle>
+        <CardTitle>Panel de Administración</CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="employees">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="employees">Employees</TabsTrigger>
-            <TabsTrigger value="consumptions">Reports</TabsTrigger>
-            <TabsTrigger value="system">System</TabsTrigger>
+            <TabsTrigger value="employees">Empleados</TabsTrigger>
+            <TabsTrigger value="consumptions">Reportes</TabsTrigger>
+            <TabsTrigger value="system">Sistema</TabsTrigger>
           </TabsList>
           <TabsContent value="employees" className="space-y-4 pt-4">
-            <h3 className="font-semibold">Import Employees (CSV)</h3>
+            <h3 className="font-semibold">Importar Empleados (CSV)</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {COMPANIES.map(c => (
                 <Button key={c} variant="outline" onClick={() => { setActiveImportCompany(c); fileInputRef.current?.click();}}>
@@ -421,7 +422,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
             </div>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
 
-            <h3 className="font-semibold">Export Employees</h3>
+            <h3 className="font-semibold">Exportar Empleados</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {COMPANIES.map(c => (
                 <Button key={c} variant="outline" onClick={() => handleExportEmployees(c)}>
@@ -429,23 +430,23 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
                 </Button>
               ))}
             </div>
-             <h3 className="font-semibold">Quick Add Employee</h3>
+             <h3 className="font-semibold">Añadir Rápido Empleado</h3>
               <QuickAddForm onAdd={(emp) => {
                 setEmployees(prev => ({ ...prev, [emp.company]: [...prev[emp.company], emp] }));
-                toast({ title: 'Employee Added', description: `${emp.name} added to ${emp.company}.` });
+                toast({ title: 'Empleado Añadido', description: `${emp.name} añadido a ${emp.company}.` });
               }} />
           </TabsContent>
           <TabsContent value="consumptions" className="space-y-4 pt-4">
-            <h3 className="font-semibold">Export Consumptions</h3>
+            <h3 className="font-semibold">Exportar Consumos</h3>
             <div className="space-y-2">
-              <label>Company</label>
+              <label>Empresa</label>
               <Select value={reportCompany} onValueChange={(v) => setReportCompany(v as Company)}>
                 <SelectTrigger><SelectValue/></SelectTrigger>
                 <SelectContent>{COMPANIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <label>Date range</label>
+              <label>Rango de Fechas</label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -459,14 +460,14 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
                     {date?.from ? (
                       date.to ? (
                         <>
-                          {format(date.from, "LLL dd, y")} -{" "}
-                          {format(date.to, "LLL dd, y")}
+                          {format(date.from, "LLL dd, y", { locale: es })} -{" "}
+                          {format(date.to, "LLL dd, y", { locale: es })}
                         </>
                       ) : (
-                        format(date.from, "LLL dd, y")
+                        format(date.from, "LLL dd, y", { locale: es })
                       )
                     ) : (
-                      <span>Pick a date</span>
+                      <span>Elige una fecha</span>
                     )}
                   </Button>
                 </PopoverTrigger>
@@ -478,25 +479,26 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, setEmployees, consumptions
                     selected={date}
                     onSelect={setDate}
                     numberOfMonths={2}
+                    locale={es}
                   />
                 </PopoverContent>
               </Popover>
             </div>
-            <Button className="w-full" onClick={handleExportConsumptions}><Download className="mr-2 h-4 w-4"/> Export Report</Button>
+            <Button className="w-full" onClick={handleExportConsumptions}><Download className="mr-2 h-4 w-4"/> Exportar Reporte</Button>
           </TabsContent>
           <TabsContent value="system" className="space-y-4 pt-4">
-             <h3 className="font-semibold text-destructive">Danger Zone</h3>
+             <h3 className="font-semibold text-destructive">Zona de Peligro</h3>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="w-full"><Trash2 className="mr-2 h-4 w-4"/> Clear All Local Data</Button>
+                <Button variant="destructive" className="w-full"><Trash2 className="mr-2 h-4 w-4"/> Borrar Todos los Datos Locales</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
-                <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>This will delete all employee and consumption data from your browser. This action cannot be undone.</AlertDialogDescription>
+                <AlertDialogHeader><AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                <AlertDialogDescription>Esto eliminará todos los datos de empleados y consumos de tu navegador. Esta acción no se puede deshacer.</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleClearData}>Yes, clear data</AlertDialogAction>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearData}>Sí, borrar datos</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -533,26 +535,26 @@ const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Quick Employee Activation</DialogTitle>
-                    <CardDescription>This employee is not in the database. Please provide a name to activate.</CardDescription>
+                    <DialogTitle>Activación Rápida de Empleado</DialogTitle>
+                    <CardDescription>Este empleado no está en la base de datos. Por favor, proporcione un nombre para activar.</CardDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <label>Company</label>
+                        <label>Empresa</label>
                         <Input value={company} readOnly disabled />
                     </div>
                     <div className="space-y-2">
-                        <label>Employee Number</label>
+                        <label>Número de Empleado</label>
                         <Input value={employeeNumber} readOnly disabled />
                     </div>
                     <div className="space-y-2">
-                        <label htmlFor="quick-add-name">Full Name</label>
-                        <Input id="quick-add-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., John Doe" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleActivateClick()} />
+                        <label htmlFor="quick-add-name">Nombre Completo</label>
+                        <Input id="quick-add-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej., Juan Pérez" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleActivateClick()} />
                     </div>
                 </div>
                 <DialogFooter>
-                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                    <Button onClick={handleActivateClick}><UserPlus className="mr-2 h-4 w-4"/> Activate & Log</Button>
+                    <DialogClose asChild><Button variant="ghost">Cancelar</Button></DialogClose>
+                    <Button onClick={handleActivateClick}><UserPlus className="mr-2 h-4 w-4"/> Activar y Registrar</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -569,7 +571,7 @@ const QuickAddForm: FC<{ onAdd: (employee: Employee) => void }> = ({ onAdd }) =>
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if(!number || !name) {
-            toast({ variant: "destructive", title: "Error", description: "Number and Name are required." });
+            toast({ variant: "destructive", title: "Error", description: "Se requiere número y nombre." });
             return;
         }
         onAdd({
@@ -586,36 +588,32 @@ const QuickAddForm: FC<{ onAdd: (employee: Employee) => void }> = ({ onAdd }) =>
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4"/> Add Manually</Button>
+                <Button variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4"/> Añadir Manualmente</Button>
             </DialogTrigger>
             <DialogContent>
-                <DialogHeader><DialogTitle>Quick Add Employee</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Añadir Rápido Empleado</DialogTitle></DialogHeader>
                  <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <label>Company</label>
+                        <label>Empresa</label>
                         <Select value={company} onValueChange={v => setCompany(v as Company)}>
                             <SelectTrigger><SelectValue/></SelectTrigger>
                             <SelectContent>{COMPANIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                         </Select>
                     </div>
                     <div className="space-y-2">
-                        <label>Employee Number</label>
+                        <label>Número de Empleado</label>
                         <Input value={number} onChange={e => setNumber(e.target.value)} required />
                     </div>
                     <div className="space-y-2">
-                        <label>Full Name</label>
+                        <label>Nombre Completo</label>
                         <Input value={name} onChange={e => setName(e.target.value)} required />
                     </div>
                     <DialogFooter>
-                      <Button variant="ghost" type="button" onClick={() => setOpen(false)}>Cancel</Button>
-                      <Button type="submit">Add Employee</Button>
+                      <Button variant="ghost" type="button" onClick={() => setOpen(false)}>Cancelar</Button>
+                      <Button type="submit">Añadir Empleado</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
         </Dialog>
     );
 }
-
-    
-
-    

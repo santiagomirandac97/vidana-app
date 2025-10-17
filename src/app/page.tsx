@@ -16,8 +16,8 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, initiateAnonymousSignIn, useAuth, useUser } from '@/firebase';
-import { collection, doc, query, where, orderBy, limit, Timestamp, getDocs, updateDoc } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, initiateAnonymousSignIn, useAuth, useUser } from '@/firebase';
+import { collection, query, where, orderBy, limit, getDocs, updateDoc } from 'firebase/firestore';
 
 
 import { type Company, type Employee, type Consumption, COMPANIES } from '@/lib/types';
@@ -70,17 +70,6 @@ export default function HomePage() {
     }
   }, [auth, user, isUserLoading]);
   
-  useEffect(() => {
-    // Seed companies if they don't exist
-    if (firestore && user) {
-      COMPANIES.forEach(company => {
-        const companyRef = doc(firestore, 'companies', company.id);
-        setDocumentNonBlocking(companyRef, { name: company.name }, { merge: true });
-      });
-    }
-  }, [firestore, user]);
-
-
   useEffect(() => {
     inputRef.current?.focus();
   }, [selectedCompanyId]);

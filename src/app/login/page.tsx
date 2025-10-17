@@ -61,19 +61,22 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
       router.push('/');
     } catch (err: any) {
-      console.error(err);
-       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-         // This is a setup issue. Let's try to create the user.
+       // Catches errors for user not found or invalid credentials, which can happen on first login
+       if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
          try {
+            // Attempt to create the user if it doesn't exist
             await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
-            // Now try signing in again
+            // Now, try signing in again after successful creation
             await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
             router.push('/');
          } catch (setupError: any) {
             setError('Error de configuración de la cuenta. Contacte al administrador.');
             console.error("Account setup error:", setupError);
          }
+       } else if (err.code === 'auth/wrong-password') {
+          setError('Contraseña incorrecta. Por favor, inténtelo de nuevo.');
        } else {
+        console.error(err);
         setError('Ocurrió un error inesperado durante el inicio de sesión.');
       }
     } finally {

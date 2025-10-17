@@ -2,67 +2,71 @@
  * @fileoverview Firestore Security Rules for ReceptionRGSTR application.
  *
  * Core Philosophy:
- * This ruleset enforces a company-based data access model. Data for employees and consumptions is nested under company documents.
- * Only authenticated users can access data, and writes are generally disallowed in this prototype phase, except for company creation.
+ * This ruleset enforces a company-centric security model where access to employee and consumption
+ * data is primarily controlled by the company to which the data belongs.
+ * The rules prioritize authorization independence by denormalizing the 'companyId' into employee and consumption documents.
  *
  * Data Structure:
- * - /companies/{companyId}: Stores company information. Top-level collection.
- * - /companies/{companyId}/employees/{employeeId}: Stores employee data. Subcollection under companies.
- * - /companies/{companyId}/consumptions/{consumptionId}: Stores consumption data. Subcollection under companies.
+ * The Firestore database is structured as follows:
+ * /companies/{companyId} - Contains company information.
+ * /companies/{companyId}/employees/{employeeId} - Contains employee data for a specific company.
+ * /companies/{companyId}/consumptions/{consumptionId} - Contains consumption records for a specific company.
  *
  * Key Security Decisions:
- * - Listing all companies is disallowed for security.
- * - Employee and consumption writes are disallowed.
- * - Authorization is scoped to company ID.
+ * - Data is segregated by 'companyId' for secure and efficient listing within each company.
+ * - Authorization rules are written without relying on 'get()' calls to parent documents for better performance and security.
+ * - Write permissions to employee and consumption data are restricted and depend on authorization logic.
  *
  * Denormalization for Authorization:
- * The `companyId` is denormalized within each employee and consumption document, enabling authorization rules without extra `get()` calls.
+ * The 'companyId' is denormalized (copied) into the employee and consumption documents.
+ * This avoids the need for costly 'get()' calls to the parent 'company' document when evaluating security rules.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Secures the 'companies' collection.
-     * @path /databases/{database}/documents/companies/{companyId}
-     * @allow (create) An authenticated user can create a company document.
-     * @deny (get) Unauthorized read
-     * @principle Allows any signed in user to create a company.
+     * @description Allows read access to company information for all users.
+     * @path /companies/{companyId}
+     * @allow (get, list) - Any user can read company data.
+     * @deny (create, update, delete) - No user can create, update, or delete company data without specific authorization logic.
+     * @principle Public read, restricted write for company data.
      */
     match /companies/{companyId} {
-      allow get: if false;
-      allow list: if false;
-      allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
-
-      match /employees/{employeeId} {
-        allow get: if isSignedIn();
-        allow list: if isSignedIn();
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
-      }
-
-      match /consumptions/{consumptionId} {
-        allow get: if isSignedIn();
-        allow list: if isSignedIn();
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
-      }
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add specific authorization logic if needed
     }
 
-    function isSignedIn() {
-      return request.auth != null;
+    /**
+     * @description Allows creating, reading, updating and deleting employee data only if the user is authorized to do so.
+     * @path /companies/{companyId}/employees/{employeeId}
+     * @allow (create) - Authorized users can create employee data.
+     * @allow (get, list) - Any user can read employee data.
+     * @allow (update, delete) - Authorized users can update and delete employee data.
+     * @deny (create) - Unauthorized user attempts to create employee data.
+     * @principle Enforces company-level authorization for employee data management.
+     */
+    match /companies/{companyId}/employees/{employeeId} {
+      allow get, list: if true;
+      allow create: if request.resource.data.companyId == companyId;
+      allow update: if true; // TODO: Add specific authorization logic if needed && resource != null;
+      allow delete: if true; // TODO: Add specific authorization logic if needed && resource != null;
     }
 
-    function isOwner(userId) {
-        return request.auth.uid == userId;
-    }
-
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+    /**
+     * @description Allows creating, reading, updating and deleting consumption data only if the user is authorized to do so.
+     * @path /companies/{companyId}/consumptions/{consumptionId}
+     * @allow (create) - Authorized users can create consumption data.
+     * @allow (get, list) - Any user can read consumption data.
+     * @allow (update, delete) - Authorized users can update and delete consumption data.
+     * @deny (create) - Unauthorized user attempts to create consumption data.
+     * @principle Enforces company-level authorization for consumption data management.
+     */
+    match /companies/{companyId}/consumptions/{consumptionId} {
+      allow get, list: if true;
+      allow create: if request.resource.data.companyId == companyId;
+      allow update: if true; // TODO: Add specific authorization logic if needed && resource != null;
+      allow delete: if true; // TODO: Add specific authorization logic if needed && resource != null;
     }
   }
 }

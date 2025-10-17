@@ -230,7 +230,7 @@ export default function HomePage() {
               {feedback && (
                 <div className={cn("mt-4 p-3 rounded-md flex items-center gap-2 text-lg", {
                   'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300': feedback.type === 'success',
-                  'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300': feedback.type === 'warning',
+                  'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300': feedback.type === 'warning',
                   'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300': feedback.type === 'error',
                 })}>
                   {feedback.type === 'success' && <CheckCircle className="h-6 w-6" />}

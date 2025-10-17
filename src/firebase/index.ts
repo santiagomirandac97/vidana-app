@@ -1,3 +1,4 @@
+
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
@@ -26,7 +27,7 @@ export function initializeFirebase() {
   // This is a simplified user setup for the demo.
   // In a real app, you'd manage this through a backend or admin panel.
   const companyUsers = {
-    'inditex@rgstr.app': 'AIFA',
+    'inditex@rgstr.app': 'AIFACOM01',
     'grupoaxo@rgstr.app': 'Piso 22'
   };
 

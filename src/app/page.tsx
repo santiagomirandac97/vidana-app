@@ -41,18 +41,18 @@ export default function HomePage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('Inditex');
   
   const employeesQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, `companies/${selectedCompanyId}/employees`)) : null
-  , [firestore, selectedCompanyId]);
+    firestore && user ? query(collection(firestore, `companies/${selectedCompanyId}/employees`)) : null
+  , [firestore, user, selectedCompanyId]);
   const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
 
   const consumptionsQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc')) : null
-  , [firestore, selectedCompanyId]);
+    firestore && user ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc')) : null
+  , [firestore, user, selectedCompanyId]);
   const { data: consumptions, isLoading: isLoadingConsumptions } = useCollection<Consumption>(consumptionsQuery);
   
   const recentConsumptionsQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc'), limit(10)) : null
-  , [firestore, selectedCompanyId]);
+    firestore && user ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc'), limit(10)) : null
+  , [firestore, user, selectedCompanyId]);
   const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
 
   const [employeeNumber, setEmployeeNumber] = useState('');
@@ -215,8 +215,9 @@ export default function HomePage() {
                   onKeyDown={handleKeyDown}
                   placeholder={`Número de Empleado para ${selectedCompanyId}`}
                   className="text-2xl h-16 flex-grow"
+                  disabled={isUserLoading || !user}
                 />
-                <Button onClick={handleRegistration} className="h-16 text-lg">
+                <Button onClick={handleRegistration} className="h-16 text-lg" disabled={isUserLoading || !user}>
                   <ChevronDown className="h-6 w-6 mr-2 rotate-90" /> Enviar
                 </Button>
               </div>

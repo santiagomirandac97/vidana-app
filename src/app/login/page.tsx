@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -62,10 +62,10 @@ export default function LoginPage() {
       router.push('/');
     } catch (err: any) {
       console.error(err);
-       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
          // This is a setup issue. Let's try to create the user.
          try {
-            await auth.createUserWithEmailAndPassword(credentials.email, credentials.password);
+            await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
             // Now try signing in again
             await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
             router.push('/');

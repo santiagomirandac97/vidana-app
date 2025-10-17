@@ -22,25 +22,6 @@ export function initializeFirebase() {
     firebaseApp = getApp();
   }
 
-  const auth = getAuth(firebaseApp);
-  
-  // This is a simplified user setup for the demo.
-  // In a real app, you'd manage this through a backend or admin panel.
-  const companyUsers = {
-    'inditex@rgstr.app': 'AIFACOM01',
-    'grupoaxo@rgstr.app': 'TOREOCOM01'
-  };
-
-  for (const [email, password] of Object.entries(companyUsers)) {
-    createUserWithEmailAndPassword(auth, email, password).catch((error) => {
-        // We expect 'auth/email-already-in-use' if the user exists, which is fine.
-        if (error.code !== 'auth/email-already-in-use') {
-            console.error(`Failed to ensure user ${email} exists:`, error);
-        }
-    });
-  }
-
-
   return getSdks(firebaseApp);
 }
 

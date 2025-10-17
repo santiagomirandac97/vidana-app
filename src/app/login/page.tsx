@@ -68,8 +68,19 @@ export default function LoginPage() {
             await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
             router.push('/');
          } catch (setupError: any) {
-            setError('Error de configuración de la cuenta. Contacte al administrador.');
-            console.error("Account setup error:", setupError);
+            // If creation fails because it already exists, just sign in
+            if (setupError.code === 'auth/email-already-in-use') {
+              try {
+                await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
+                router.push('/');
+              } catch (finalSignInError) {
+                setError('Ocurrió un error inesperado durante el inicio de sesión.');
+                console.error("Final sign-in error:", finalSignInError);
+              }
+            } else {
+              setError('Error de configuración de la cuenta. Contacte al administrador.');
+              console.error("Account setup error:", setupError);
+            }
          }
        } else {
         console.error(err);

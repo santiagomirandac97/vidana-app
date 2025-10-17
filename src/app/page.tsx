@@ -12,13 +12,15 @@ import {
   UserPlus,
   XCircle,
   Calendar as CalendarIcon,
+  LogOut,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, initiateAnonymousSignIn, useAuth, useUser } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, useAuth, useUser } from '@/firebase';
 import { collection, query, where, orderBy, limit, getDocs, updateDoc } from 'firebase/firestore';
-
+import { signOut } from 'firebase/auth';
 
 import { type Company, type Employee, type Consumption, COMPANIES } from '@/lib/types';
 import { cn, exportToCsv, getTodayInMexicoCity, formatTimestamp } from '@/lib/utils';
@@ -38,6 +40,8 @@ export default function HomePage() {
   const { firestore } = useFirebase();
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('Inditex');
   
   const employeesQuery = useMemoFirebase(() => 
@@ -66,10 +70,10 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!isUserLoading && !user) {
-      initiateAnonymousSignIn(auth);
+      router.push('/login');
     }
-  }, [auth, user, isUserLoading]);
-  
+  }, [user, isUserLoading, router]);
+
   useEffect(() => {
     inputRef.current?.focus();
   }, [selectedCompanyId]);
@@ -81,7 +85,7 @@ export default function HomePage() {
   };
 
   const handleRegistration = () => {
-    if (!employeeNumber.trim() || !firestore) return;
+    if (!employeeNumber.trim() || !firestore || !user) return;
 
     const employee = employees?.find(e => e.employeeNumber === employeeNumber.trim());
 
@@ -127,7 +131,7 @@ export default function HomePage() {
   };
 
   const handleQuickActivate = (name: string) => {
-    if (!pendingEmployee || !name.trim() || !firestore) {
+    if (!pendingEmployee || !name.trim() || !firestore || !user) {
       toast({ variant: 'destructive', title: 'Error', description: 'Se requiere un nombre para la activación.' });
       return;
     }
@@ -165,26 +169,53 @@ export default function HomePage() {
     setPendingEmployee(null);
     resetInputAndFeedback();
   };
-  
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleRegistration();
     }
   };
+  
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out: ', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo cerrar la sesión. Inténtalo de nuevo.',
+      });
+    }
+  };
+  
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p>Cargando...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
       <header className="flex justify-between items-center mb-8">
         <Logo />
-        <Select value={selectedCompanyId} onValueChange={(v) => setSelectedCompanyId(v)}>
-          <SelectTrigger className="w-[180px] text-lg h-12">
-            <SelectValue placeholder="Seleccionar Empresa" />
-          </SelectTrigger>
-          <SelectContent>
-            {COMPANIES.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-4">
+          <Select value={selectedCompanyId} onValueChange={(v) => setSelectedCompanyId(v)}>
+            <SelectTrigger className="w-[180px] text-lg h-12">
+              <SelectValue placeholder="Seleccionar Empresa" />
+            </SelectTrigger>
+            <SelectContent>
+              {COMPANIES.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+           <Button variant="outline" onClick={handleSignOut}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Cerrar Sesión
+          </Button>
+        </div>
       </header>
 
       <main className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -331,7 +362,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
 
             if (!querySnapshot.empty) {
                 const docToUpdate = querySnapshot.docs[0];
-                await updateDoc(docToUpdate.ref, newEmp);
+                await updateDoc(docToUpdate.ref, { ...newEmp });
                 updatedCount++;
             } else {
                 await addDocumentNonBlocking(employeesCollection, newEmp);
@@ -578,3 +609,5 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, defaul
         </Dialog>
     );
 }
+
+    

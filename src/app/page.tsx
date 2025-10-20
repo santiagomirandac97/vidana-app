@@ -7,6 +7,7 @@ import {
   CheckCircle,
   ChevronDown,
   Download,
+  KeyRound,
   PlusCircle,
   Upload,
   UserPlus,
@@ -99,6 +100,11 @@ export default function HomePage() {
     firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc'), limit(10)) : null
   , [firestore, selectedCompanyId]);
   const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
+  
+  const allCompaniesQuery = useMemoFirebase(() => 
+    firestore ? collection(firestore, 'companies') : null,
+  [firestore]);
+  const { data: allCompanies } = useCollection<Company>(allCompaniesQuery);
 
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [nameSearch, setNameSearch] = useState('');
@@ -376,6 +382,7 @@ export default function HomePage() {
             consumptions={consumptions || []}
             selectedCompanyId={selectedCompanyId} 
             company={company}
+            allCompanies={allCompanies || []}
           />
         </div>
       </main>
@@ -410,9 +417,10 @@ interface AdminPanelProps {
   consumptions: Consumption[];
   selectedCompanyId: string;
   company: Company | null;
+  allCompanies: Company[];
 }
 
-const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedCompanyId, company }) => {
+const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedCompanyId, company, allCompanies }) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { firestore } = useFirebase();
@@ -562,9 +570,10 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="employees">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="employees">Empleados</TabsTrigger>
               <TabsTrigger value="consumptions">Reportes</TabsTrigger>
+              <TabsTrigger value="accessCodes">Acceso</TabsTrigger>
             </TabsList>
             <TabsContent value="employees" className="space-y-4 pt-4">
               <h3 className="font-semibold">Importar Empleados (CSV)</h3>
@@ -624,12 +633,42 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
               </div>
               <Button className="w-full" onClick={handleExportConsumptions}><Download className="mr-2 h-4 w-4"/> Exportar Reporte</Button>
             </TabsContent>
+            <TabsContent value="accessCodes" className="space-y-4 pt-4">
+              <h3 className="font-semibold">Códigos de Acceso de Empresas</h3>
+              <AccessCodeTable companies={allCompanies} />
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
     </>
   )
 }
+
+const AccessCodeTable: FC<{ companies: Company[] }> = ({ companies }) => {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Empresa</TableHead>
+          <TableHead>Código de Acceso</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {companies.map((company) => (
+          <TableRow key={company.id}>
+            <TableCell className="font-medium">{company.name}</TableCell>
+            <TableCell>
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-muted-foreground" />
+                <code>{company.accessCode}</code>
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+};
 
 
 interface QuickAddDialogProps {
@@ -878,3 +917,5 @@ const PaymentDialog: FC<PaymentDialogProps> = ({ isOpen, onClose, onConfirm, amo
     </AlertDialog>
   );
 };
+
+    

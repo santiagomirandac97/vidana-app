@@ -17,6 +17,7 @@ export interface Employee {
   department?: string;
   email?: string;
   active: boolean;
+  paymentAmount?: number;
 }
 
 export interface Consumption {

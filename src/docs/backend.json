@@ -30,6 +30,10 @@
         "active": {
           "type": "boolean",
           "description": "Indicates whether the employee is currently active."
+        },
+        "paymentAmount": {
+          "type": "number",
+          "description": "The amount the employee has to pay for a meal."
         }
       },
       "required": [

@@ -17,6 +17,7 @@ import {
   Search,
   Printer,
   Users,
+  DollarSign,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -41,6 +42,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 export default function HomePage() {
   const { app, firestore } = useFirebase();
@@ -52,6 +54,7 @@ export default function HomePage() {
 
   const [confirmationData, setConfirmationData] = useState<Consumption | null>(null);
   const [isConfirmationOpen, setConfirmationOpen] = useState(false);
+  const [paymentDue, setPaymentDue] = useState<{employee: Employee, amount: number} | null>(null);
 
 
   useEffect(() => {
@@ -113,14 +116,8 @@ export default function HomePage() {
     setTimeout(() => setFeedback(null), 4000);
   };
 
-  const registerConsumption = (employee: Employee) => {
+  const proceedWithConsumption = (employee: Employee) => {
     if (!firestore || !selectedCompanyId) return;
-
-    if (!employee.active) {
-        setFeedback({ type: 'error', message: `Empleado Inactivo: ${employee.name} (#${employee.employeeNumber})` });
-        resetInputAndFeedback();
-        return;
-    }
 
     const newConsumptionData: Omit<Consumption, 'id'> = {
       employeeId: employee.id!,
@@ -144,6 +141,28 @@ export default function HomePage() {
     
     resetInputAndFeedback();
   }
+
+  const registerConsumption = (employee: Employee) => {
+    if (!employee.active) {
+        setFeedback({ type: 'error', message: `Empleado Inactivo: ${employee.name} (#${employee.employeeNumber})` });
+        resetInputAndFeedback();
+        return;
+    }
+
+    if (employee.paymentAmount && employee.paymentAmount > 0) {
+        setPaymentDue({employee, amount: employee.paymentAmount});
+    } else {
+        proceedWithConsumption(employee);
+    }
+  }
+
+  const handlePaymentCollected = () => {
+    if (paymentDue) {
+        proceedWithConsumption(paymentDue.employee);
+        setPaymentDue(null);
+    }
+  };
+
 
   const handleRegistrationByNumber = () => {
     if (!employeeNumber.trim() || !firestore || !selectedCompanyId) return;
@@ -173,6 +192,7 @@ export default function HomePage() {
       name,
       companyId: selectedCompanyId,
       active: true,
+      paymentAmount: 0,
     };
 
     const employeesCollection = collection(firestore, `companies/${selectedCompanyId}/employees`);
@@ -312,6 +332,12 @@ export default function HomePage() {
                                             <p className="font-medium">{employee.name}</p>
                                             <p className="text-sm text-gray-500">#{employee.employeeNumber}</p>
                                         </div>
+                                        {employee.paymentAmount && employee.paymentAmount > 0 && (
+                                            <div className="flex items-center text-yellow-600">
+                                                <DollarSign className="h-4 w-4 mr-1" />
+                                                {employee.paymentAmount.toFixed(2)}
+                                            </div>
+                                        )}
                                         <Button size="sm" variant="outline">Registrar</Button>
                                     </div>
                                     ))
@@ -389,6 +415,13 @@ export default function HomePage() {
         setIsOpen={setConfirmationOpen}
         consumption={confirmationData}
       />
+       <PaymentDialog 
+        isOpen={!!paymentDue}
+        onClose={() => setPaymentDue(null)}
+        onConfirm={handlePaymentCollected}
+        amount={paymentDue?.amount ?? 0}
+        employeeName={paymentDue?.employee.name ?? ''}
+      />
     </div>
   );
 }
@@ -436,6 +469,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
         const employeeNumberIndex = header.indexOf('employeenumber');
         const nameIndex = header.indexOf('name');
         const activeIndex = header.indexOf('active');
+        const paymentAmountIndex = header.indexOf('paymentamount');
   
         const newEmployees = lines.map(line => {
           const values = line.split(',');
@@ -444,6 +478,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
             name: values[nameIndex]?.trim(),
             active: String(values[activeIndex]).toLowerCase() === 'true',
             companyId: selectedCompanyId,
+            paymentAmount: paymentAmountIndex > -1 ? parseFloat(values[paymentAmountIndex]?.trim()) || 0 : 0,
           } as Omit<Employee, 'id'>;
         }).filter(emp => emp.employeeNumber && emp.name);
   
@@ -478,10 +513,10 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
   };
   
   const handleExportEmployees = () => {
-    const headers = ['employeeNumber', 'name', 'companyId', 'department', 'email', 'active'];
+    const headers = ['employeeNumber', 'name', 'companyId', 'department', 'email', 'active', 'paymentAmount'];
     const rows = [
       headers,
-      ...employees.map(e => [e.employeeNumber, e.name, e.companyId, e.department || '', e.email || '', e.active])
+      ...employees.map(e => [e.employeeNumber, e.name, e.companyId, e.department || '', e.email || '', e.active, e.paymentAmount || 0])
     ];
     exportToCsv(`${selectedCompanyId}_empleados_${new Date().toISOString().split('T')[0]}.csv`, rows);
   }
@@ -673,6 +708,7 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, defaul
     const [open, setOpen] = useState(false);
     const [number, setNumber] = useState('');
     const [name, setName] = useState('');
+    const [paymentAmount, setPaymentAmount] = useState('0');
     const { toast } = useToast();
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -685,10 +721,12 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, defaul
             employeeNumber: number,
             name,
             companyId: defaultCompanyId,
-            active: true
+            active: true,
+            paymentAmount: parseFloat(paymentAmount) || 0
         });
         setNumber('');
         setName('');
+        setPaymentAmount('0');
         setOpen(false);
     }
 
@@ -711,6 +749,10 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, defaul
                     <div className="space-y-2">
                         <label>Nombre Completo</label>
                         <Input value={name} onChange={e => setName(e.target.value)} required />
+                    </div>
+                     <div className="space-y-2">
+                        <label>Monto de Pago (si aplica)</label>
+                        <Input type="number" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="0.00" />
                     </div>
                     <DialogFooter>
                       <Button variant="ghost" type="button" onClick={() => setOpen(false)}>Cancelar</Button>
@@ -823,4 +865,36 @@ const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, setIsOpen, co
             </DialogContent>
         </Dialog>
     );
+};
+
+interface PaymentDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  amount: number;
+  employeeName: string;
+}
+
+const PaymentDialog: FC<PaymentDialogProps> = ({ isOpen, onClose, onConfirm, amount, employeeName }) => {
+  return (
+    <AlertDialog open={isOpen} onOpenChange={onClose}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <DollarSign className="h-7 w-7 text-yellow-500" />
+            Cobro Requerido
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-lg pt-4">
+            Por favor, cobre la cantidad de <span className="font-bold">${amount.toFixed(2)}</span> a <span className="font-bold">{employeeName}</span>.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <AlertDialogAction onClick={onConfirm} className="bg-yellow-500 hover:bg-yellow-600">
+            Cobrado y Continuar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 };

@@ -14,6 +14,7 @@ import {
   Calendar as CalendarIcon,
   LogOut,
   Building,
+  Search,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -35,6 +36,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function HomePage() {
   const { app, firestore } = useFirebase();
@@ -81,6 +83,7 @@ export default function HomePage() {
   const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
 
   const [employeeNumber, setEmployeeNumber] = useState('');
+  const [nameSearch, setNameSearch] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'warning' | 'error'; message: string } | null>(null);
 
   const [isQuickAddOpen, setQuickAddOpen] = useState(false);
@@ -97,45 +100,53 @@ export default function HomePage() {
 
   const resetInputAndFeedback = () => {
     setEmployeeNumber('');
+    setNameSearch('');
     inputRef.current?.focus();
     setTimeout(() => setFeedback(null), 4000);
   };
 
-  const handleRegistration = () => {
+  const registerConsumption = (employee: Employee) => {
+    if (!firestore || !selectedCompanyId) return;
+
+    if (!employee.active) {
+        setFeedback({ type: 'error', message: `Empleado Inactivo: ${employee.name} (#${employee.employeeNumber})` });
+        resetInputAndFeedback();
+        return;
+    }
+
+    const newConsumption: Omit<Consumption, 'id'> = {
+      employeeId: employee.id!,
+      employeeNumber: employee.employeeNumber,
+      name: employee.name,
+      companyId: selectedCompanyId,
+      timestamp: new Date().toISOString(),
+      voided: false,
+    };
+
+    const consumptionsCollection = collection(firestore, `companies/${selectedCompanyId}/consumptions`);
+    addDocumentNonBlocking(consumptionsCollection, newConsumption);
+
+    const today = getTodayInMexicoCity();
+    const todayConsumptionsCount = (consumptions || [])
+      .filter(c => c.employeeNumber === employee.employeeNumber && c.timestamp.startsWith(today) && !c.voided)
+      .length + 1;
+
+    const timePart = formatTimestamp(newConsumption.timestamp);
+
+    setFeedback({
+      type: 'success',
+      message: `Acceso Registrado: ${employee.name} (#${employee.employeeNumber}) · ${employee.companyId} · ${timePart} · Registros de hoy: ${todayConsumptionsCount}`,
+    });
+    resetInputAndFeedback();
+  }
+
+  const handleRegistrationByNumber = () => {
     if (!employeeNumber.trim() || !firestore || !selectedCompanyId) return;
 
     const employee = employees?.find(e => e.employeeNumber === employeeNumber.trim());
 
     if (employee) {
-      if (!employee.active) {
-          setFeedback({ type: 'error', message: `Empleado Inactivo: ${employee.name} (#${employee.employeeNumber})` });
-          resetInputAndFeedback();
-          return;
-      }
-
-      const newConsumption: Omit<Consumption, 'id'> = {
-        employeeId: employee.id!,
-        employeeNumber: employee.employeeNumber,
-        name: employee.name,
-        companyId: selectedCompanyId,
-        timestamp: new Date().toISOString(),
-        voided: false,
-      };
-
-      const consumptionsCollection = collection(firestore, `companies/${selectedCompanyId}/consumptions`);
-      addDocumentNonBlocking(consumptionsCollection, newConsumption);
-
-      const today = getTodayInMexicoCity();
-      const todayConsumptionsCount = (consumptions || [])
-        .filter(c => c.employeeNumber === employee.employeeNumber && c.timestamp.startsWith(today) && !c.voided)
-        .length + 1;
-
-      const timePart = formatTimestamp(newConsumption.timestamp);
-
-      setFeedback({
-        type: 'success',
-        message: `Acceso Registrado: ${employee.name} (#${employee.employeeNumber}) · ${employee.companyId} · ${timePart} · Registros de hoy: ${todayConsumptionsCount}`,
-      });
+      registerConsumption(employee);
     } else {
       setFeedback({
         type: 'warning',
@@ -144,7 +155,6 @@ export default function HomePage() {
       setPendingEmployee({ number: employeeNumber, name: '' });
       setQuickAddOpen(true);
     }
-    resetInputAndFeedback();
   };
 
   const handleQuickActivate = (name: string) => {
@@ -153,7 +163,7 @@ export default function HomePage() {
       return;
     }
 
-    const newEmployee: Omit<Employee, 'id'> = {
+    const newEmployeeData: Omit<Employee, 'id'> = {
       employeeNumber: pendingEmployee.number,
       name,
       companyId: selectedCompanyId,
@@ -161,25 +171,10 @@ export default function HomePage() {
     };
 
     const employeesCollection = collection(firestore, `companies/${selectedCompanyId}/employees`);
-    addDocumentNonBlocking(employeesCollection, newEmployee).then(docRef => {
+    addDocumentNonBlocking(employeesCollection, newEmployeeData).then(docRef => {
         if (!docRef) return;
-        const newConsumption: Omit<Consumption, 'id'> = {
-            employeeId: docRef.id,
-            employeeNumber: newEmployee.employeeNumber,
-            name: newEmployee.name,
-            companyId: selectedCompanyId!,
-            timestamp: new Date().toISOString(),
-            voided: false,
-        };
-        const consumptionsCollection = collection(firestore, `companies/${selectedCompanyId}/consumptions`);
-        addDocumentNonBlocking(consumptionsCollection, newConsumption);
-
-        const timePart = formatTimestamp(newConsumption.timestamp);
-
-        setFeedback({
-            type: 'success',
-            message: `Activado y Registrado: ${newEmployee.name} (#${newEmployee.employeeNumber}) · ${newEmployee.companyId} · ${timePart} · Registros de hoy: 1`,
-        });
+        const newEmployee = { ...newEmployeeData, id: docRef.id };
+        registerConsumption(newEmployee);
     });
 
     setQuickAddOpen(false);
@@ -189,7 +184,7 @@ export default function HomePage() {
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      handleRegistration();
+      handleRegistrationByNumber();
     }
   };
 
@@ -202,6 +197,15 @@ export default function HomePage() {
     localStorage.removeItem('companyId');
     setSelectedCompanyId(null);
   };
+
+  const filteredEmployees = useMemo(() => {
+    if (!nameSearch) return [];
+    return (employees || []).filter(
+      (employee) =>
+        employee.name.toLowerCase().includes(nameSearch.toLowerCase()) ||
+        employee.employeeNumber.includes(nameSearch)
+    );
+  }, [nameSearch, employees]);
 
   if (isLoading || !isAuthenticated) {
     return (
@@ -259,23 +263,62 @@ export default function HomePage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="text-2xl">Registrar Acceso a Comida</CardTitle>
-              <CardDescription>Ingrese el número de empleado y presione Enter. Optimizado para escáneres.</CardDescription>
+              <CardDescription>Usa las pestañas para registrar por número de empleado o buscar por nombre.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4">
-                <Input
-                  ref={inputRef}
-                  autoFocus
-                  value={employeeNumber}
-                  onChange={(e) => setEmployeeNumber(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={`Número de Empleado para ${selectedCompanyId}`}
-                  className="text-2xl h-16 flex-grow"
-                />
-                <Button onClick={handleRegistration} className="h-16 text-lg">
-                  <ChevronDown className="h-6 w-6 mr-2 rotate-90" /> Enviar
-                </Button>
-              </div>
+               <Tabs defaultValue="number">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="number">Por Número (Escaner)</TabsTrigger>
+                  <TabsTrigger value="name">Por Nombre</TabsTrigger>
+                </TabsList>
+                <TabsContent value="number" className="pt-4">
+                  <div className="flex gap-4">
+                    <Input
+                      ref={inputRef}
+                      autoFocus
+                      value={employeeNumber}
+                      onChange={(e) => setEmployeeNumber(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={`Número de Empleado para ${selectedCompanyId}`}
+                      className="text-2xl h-16 flex-grow"
+                    />
+                    <Button onClick={handleRegistrationByNumber} className="h-16 text-lg">
+                      <ChevronDown className="h-6 w-6 mr-2 rotate-90" /> Enviar
+                    </Button>
+                  </div>
+                </TabsContent>
+                <TabsContent value="name" className="pt-4">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <Input
+                        placeholder="Buscar por nombre o número de empleado..."
+                        value={nameSearch}
+                        onChange={(e) => setNameSearch(e.target.value)}
+                        className="text-lg h-16 pl-10"
+                        />
+                    </div>
+                    {nameSearch && (
+                        <ScrollArea className="mt-4 h-72 w-full rounded-md border">
+                            <div className="p-4">
+                                {filteredEmployees.length > 0 ? (
+                                    filteredEmployees.map((employee) => (
+                                    <div key={employee.id} onClick={() => registerConsumption(employee)} className="flex justify-between items-center p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                                        <div>
+                                            <p className="font-medium">{employee.name}</p>
+                                            <p className="text-sm text-gray-500">#{employee.employeeNumber}</p>
+                                        </div>
+                                        <Button size="sm" variant="outline">Registrar</Button>
+                                    </div>
+                                    ))
+                                ) : (
+                                    <p className="p-4 text-center text-gray-500">No se encontraron empleados.</p>
+                                )}
+                            </div>
+                        </ScrollArea>
+                    )}
+                </TabsContent>
+              </Tabs>
+
               {feedback && (
                 <div className={cn("mt-4 p-3 rounded-md flex items-center gap-2 text-lg", {
                   'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300': feedback.type === 'success',
@@ -644,5 +687,7 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, defaul
         </Dialog>
     );
 }
+
+    
 
     

@@ -15,6 +15,7 @@ import {
   LogOut,
   Building,
   Search,
+  Printer,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -45,6 +46,10 @@ export default function HomePage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const [confirmationData, setConfirmationData] = useState<Consumption | null>(null);
+  const [isConfirmationOpen, setConfirmationOpen] = useState(false);
+
 
   useEffect(() => {
     const companyId = localStorage.getItem('companyId');
@@ -114,7 +119,7 @@ export default function HomePage() {
         return;
     }
 
-    const newConsumption: Omit<Consumption, 'id'> = {
+    const newConsumptionData: Omit<Consumption, 'id'> = {
       employeeId: employee.id!,
       employeeNumber: employee.employeeNumber,
       name: employee.name,
@@ -122,21 +127,18 @@ export default function HomePage() {
       timestamp: new Date().toISOString(),
       voided: false,
     };
+    
+    const newConsumption: Consumption = {
+        ...newConsumptionData,
+        id: `temp-${Date.now()}` // temporary id
+    }
 
     const consumptionsCollection = collection(firestore, `companies/${selectedCompanyId}/consumptions`);
-    addDocumentNonBlocking(consumptionsCollection, newConsumption);
-
-    const today = getTodayInMexicoCity();
-    const todayConsumptionsCount = (consumptions || [])
-      .filter(c => c.employeeNumber === employee.employeeNumber && c.timestamp.startsWith(today) && !c.voided)
-      .length + 1;
-
-    const timePart = formatTimestamp(newConsumption.timestamp);
-
-    setFeedback({
-      type: 'success',
-      message: `Acceso Registrado: ${employee.name} (#${employee.employeeNumber}) · ${employee.companyId} · ${timePart} · Registros de hoy: ${todayConsumptionsCount}`,
-    });
+    addDocumentNonBlocking(consumptionsCollection, newConsumptionData);
+    
+    setConfirmationData(newConsumption);
+    setConfirmationOpen(true);
+    
     resetInputAndFeedback();
   }
 
@@ -378,6 +380,11 @@ export default function HomePage() {
         onActivate={handleQuickActivate}
         employeeNumber={pendingEmployee?.number ?? ''}
         companyId={selectedCompanyId}
+      />
+      <ConfirmationDialog
+        isOpen={isConfirmationOpen}
+        setIsOpen={setConfirmationOpen}
+        consumption={confirmationData}
       />
     </div>
   );
@@ -688,6 +695,80 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, defaul
     );
 }
 
-    
+interface ConfirmationDialogProps {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  consumption: Consumption | null;
+}
 
-    
+const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, setIsOpen, consumption }) => {
+    const receiptRef = useRef<HTMLDivElement>(null);
+
+    const handlePrint = () => {
+        const printContent = receiptRef.current;
+        if (printContent) {
+            const receiptWindow = window.open('', '_blank', 'height=400,width=600');
+            receiptWindow?.document.write('<html><head><title>Recibo de Comida</title>');
+            receiptWindow?.document.write(`
+                <style>
+                    body { font-family: monospace; padding: 20px; }
+                    .receipt-container { width: 300px; margin: 0 auto; }
+                    .header { text-align: center; margin-bottom: 20px; }
+                    .item { display: flex; justify-content: space-between; margin-bottom: 8px; }
+                    .item span:first-child { font-weight: bold; }
+                    .footer { text-align: center; margin-top: 20px; font-size: 12px; }
+                </style>
+            `);
+            receiptWindow?.document.write('</head><body>');
+            receiptWindow?.document.write(printContent.innerHTML);
+            receiptWindow?.document.write('</body></html>');
+            receiptWindow?.document.close();
+            receiptWindow?.focus();
+            receiptWindow?.print();
+            receiptWindow?.close();
+        }
+    };
+
+    if (!consumption) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogContent className="sm:max-w-[480px]">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <CheckCircle className="h-7 w-7 text-green-500" />
+                        Registro Exitoso
+                    </DialogTitle>
+                </DialogHeader>
+                <div className="py-4" ref={receiptRef}>
+                    <div className="space-y-3 text-lg">
+                        <div className="flex justify-between items-center">
+                            <span className="font-semibold text-gray-500">Nombre:</span>
+                            <span className="font-bold">{consumption.name}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                             <span className="font-semibold text-gray-500"># Empleado:</span>
+                             <span>{consumption.employeeNumber}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                             <span className="font-semibold text-gray-500">Empresa:</span>
+                             <span>{consumption.companyId}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                             <span className="font-semibold text-gray-500">Fecha y Hora:</span>
+                             <span>{formatTimestamp(consumption.timestamp)}</span>
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter className="sm:justify-between">
+                    <Button onClick={handlePrint} variant="outline">
+                        <Printer className="mr-2 h-4 w-4" /> Imprimir Recibo
+                    </Button>
+                    <DialogClose asChild>
+                        <Button>Cerrar</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};

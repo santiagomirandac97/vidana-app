@@ -61,9 +61,11 @@ export default function HomePage() {
     const companyId = localStorage.getItem('companyId');
     if (companyId) {
       setSelectedCompanyId(companyId);
+      setIsLoading(false);
+    } else {
+      router.push('/login');
     }
-    setIsLoading(false);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (app) {
@@ -212,15 +214,11 @@ export default function HomePage() {
       handleRegistrationByNumber();
     }
   };
-
-  const handleCompanySelect = (companyId: string) => {
-    localStorage.setItem('companyId', companyId);
-    setSelectedCompanyId(companyId);
-  };
   
   const handleSignOut = () => {
     localStorage.removeItem('companyId');
     setSelectedCompanyId(null);
+    router.push('/login');
   };
 
   const filteredEmployees = useMemo(() => {
@@ -232,37 +230,10 @@ export default function HomePage() {
     );
   }, [nameSearch, employees]);
 
-  if (isLoading || !isAuthenticated) {
+  if (isLoading || !isAuthenticated || !selectedCompanyId) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p>Cargando y autenticando...</p>
-      </div>
-    );
-  }
-
-  if (!selectedCompanyId) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Card className="w-full max-w-md mx-4 shadow-xl">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4">
-              <Logo />
-            </div>
-            <CardTitle className="text-2xl">Seleccionar Empresa</CardTitle>
-            <CardDescription>Elija la empresa para la que desea registrar.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {COMPANIES.map(company => (
-              <Button 
-                key={company.id} 
-                onClick={() => handleCompanySelect(company.id)}
-                className="w-full h-12 text-lg"
-              >
-                {company.name}
-              </Button>
-            ))}
-          </CardContent>
-        </Card>
+        <p>Cargando...</p>
       </div>
     );
   }
@@ -278,7 +249,7 @@ export default function HomePage() {
           </div>
            <Button variant="outline" onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
-            Cambiar Empresa
+            Cerrar Sesión
           </Button>
         </div>
       </header>

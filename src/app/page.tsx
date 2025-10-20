@@ -23,13 +23,13 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, getDocs, doc } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { formatInTimeZone } from 'date-fns-tz';
 
-import { type Company, type Employee, type Consumption, COMPANIES } from '@/lib/types';
+import { type Company, type Employee, type Consumption } from '@/lib/types';
 import { cn, exportToCsv, getTodayInMexicoCity, formatTimestamp } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,6 +79,11 @@ export default function HomePage() {
         });
     }
   }, [app]);
+
+  const companyDocRef = useMemoFirebase(() => 
+    firestore && selectedCompanyId ? doc(firestore, `companies/${selectedCompanyId}`) : null
+  , [firestore, selectedCompanyId]);
+  const { data: company } = useDoc<Company>(companyDocRef);
 
   const employeesQuery = useMemoFirebase(() =>
     firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/employees`)) : null
@@ -230,7 +235,7 @@ export default function HomePage() {
     );
   }, [nameSearch, employees]);
 
-  if (isLoading || !isAuthenticated || !selectedCompanyId) {
+  if (isLoading || !isAuthenticated || !selectedCompanyId || !company) {
     return (
       <div className="flex h-screen items-center justify-center">
         <p>Cargando...</p>
@@ -245,7 +250,7 @@ export default function HomePage() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 h-12 px-4 border rounded-md bg-gray-100 dark:bg-gray-800">
             <Building className="h-5 w-5 text-gray-500" />
-            <span className="text-lg font-medium">{COMPANIES.find(c => c.id === selectedCompanyId)?.name}</span>
+            <span className="text-lg font-medium">{company?.name}</span>
           </div>
            <Button variant="outline" onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
@@ -275,7 +280,7 @@ export default function HomePage() {
                       value={employeeNumber}
                       onChange={(e) => setEmployeeNumber(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder={`Número de Empleado para ${selectedCompanyId}`}
+                      placeholder={`Número de Empleado para ${company?.name}`}
                       className="text-2xl h-16 flex-grow"
                     />
                     <Button onClick={handleRegistrationByNumber} className="h-16 text-lg">
@@ -355,7 +360,7 @@ export default function HomePage() {
                     <TableRow key={c.id}>
                       <TableCell>{c.name}</TableCell>
                       <TableCell>{c.employeeNumber}</TableCell>
-                      <TableCell>{c.companyId}</TableCell>
+                      <TableCell>{company?.name}</TableCell>
                       <TableCell>{formatTimestamp(c.timestamp)}</TableCell>
                     </TableRow>
                   ))}
@@ -370,6 +375,7 @@ export default function HomePage() {
             employees={employees || []} 
             consumptions={consumptions || []}
             selectedCompanyId={selectedCompanyId} 
+            company={company}
           />
         </div>
       </main>
@@ -379,12 +385,13 @@ export default function HomePage() {
         setIsOpen={setQuickAddOpen}
         onActivate={handleQuickActivate}
         employeeNumber={pendingEmployee?.number ?? ''}
-        companyId={selectedCompanyId}
+        company={company}
       />
       <ConfirmationDialog
         isOpen={isConfirmationOpen}
         setIsOpen={setConfirmationOpen}
         consumption={confirmationData}
+        company={company}
       />
        <PaymentDialog 
         isOpen={!!paymentDue}
@@ -402,9 +409,10 @@ interface AdminPanelProps {
   employees: Employee[];
   consumptions: Consumption[];
   selectedCompanyId: string;
+  company: Company | null;
 }
 
-const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedCompanyId }) => {
+const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedCompanyId, company }) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { firestore } = useFirebase();
@@ -472,7 +480,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
             }
         }
   
-        toast({ title: 'Importación Exitosa', description: `${addedCount} empleados agregados, ${updatedCount} actualizados para ${selectedCompanyId}.` });
+        toast({ title: 'Importación Exitosa', description: `${addedCount} empleados agregados, ${updatedCount} actualizados para ${company?.name}.` });
       } catch (error: any) {
         toast({ variant: 'destructive', title: 'Falló la Importación', description: error.message });
       } finally {
@@ -529,7 +537,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
     if(!firestore) return;
     const employeesCollection = collection(firestore, `companies/${employee.companyId}/employees`);
     addDocumentNonBlocking(employeesCollection, employee);
-    toast({ title: 'Empleado Añadido', description: `${employee.name} añadido a ${employee.companyId}.` });
+    toast({ title: 'Empleado Añadido', description: `${employee.name} añadido a ${company?.name}.` });
   }
   
   const todayStr = format(new Date(), 'dd/MM/yyyy');
@@ -544,7 +552,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
         <CardContent>
           <div className="text-2xl font-bold">{dailyConsumptionCount}</div>
           <p className="text-xs text-muted-foreground">
-            Total de registros para {COMPANIES.find(c => c.id === selectedCompanyId)?.name} hoy.
+            Total de registros para {company?.name} hoy.
           </p>
         </CardContent>
       </Card>
@@ -561,16 +569,16 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
             <TabsContent value="employees" className="space-y-4 pt-4">
               <h3 className="font-semibold">Importar Empleados (CSV)</h3>
               <Button variant="outline" className="w-full" onClick={() => { fileInputRef.current?.click();}} disabled={isLoading}>
-                <Upload className="mr-2 h-4 w-4" /> {isLoading ? `Importando...` : `Importar para ${selectedCompanyId}`}
+                <Upload className="mr-2 h-4 w-4" /> {isLoading ? `Importando...` : `Importar para ${company?.name}`}
               </Button>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
 
               <h3 className="font-semibold">Exportar Empleados</h3>
               <Button variant="outline" className="w-full" onClick={handleExportEmployees}>
-                <Download className="mr-2 h-4 w-4" /> Exportar para {selectedCompanyId}
+                <Download className="mr-2 h-4 w-4" /> Exportar para {company?.name}
               </Button>
               <h3 className="font-semibold">Añadir Rápido Empleado</h3>
-              <QuickAddForm onAdd={handleAddEmployee} defaultCompanyId={selectedCompanyId} />
+              <QuickAddForm onAdd={handleAddEmployee} company={company} />
             </TabsContent>
             <TabsContent value="consumptions" className="space-y-4 pt-4">
               <h3 className="font-semibold">Exportar Consumos</h3>
@@ -629,10 +637,10 @@ interface QuickAddDialogProps {
     setIsOpen: (open: boolean) => void;
     onActivate: (name: string) => void;
     employeeNumber: string;
-    companyId: string;
+    company: Company | null;
 }
 
-const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate, employeeNumber, companyId }) => {
+const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate, employeeNumber, company }) => {
     const [name, setName] = useState('');
 
     useEffect(() => {
@@ -655,7 +663,7 @@ const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
                         <label>Empresa</label>
-                        <Input value={COMPANIES.find(c => c.id === companyId)?.name} readOnly disabled />
+                        <Input value={company?.name} readOnly disabled />
                     </div>
                     <div className="space-y-2">
                         <label>Número de Empleado</label>
@@ -675,7 +683,7 @@ const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate
     )
 }
 
-const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, defaultCompanyId: string }> = ({ onAdd, defaultCompanyId }) => {
+const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, company: Company | null }> = ({ onAdd, company }) => {
     const [open, setOpen] = useState(false);
     const [number, setNumber] = useState('');
     const [name, setName] = useState('');
@@ -684,14 +692,14 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, defaul
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if(!number || !name) {
-            toast({ variant: "destructive", title: "Error", description: "Se requiere número y nombre." });
+        if(!number || !name || !company) {
+            toast({ variant: "destructive", title: "Error", description: "Se requiere número, nombre y empresa." });
             return;
         }
         onAdd({
             employeeNumber: number,
             name,
-            companyId: defaultCompanyId,
+            companyId: company.id,
             active: true,
             paymentAmount: parseFloat(paymentAmount) || 0
         });
@@ -704,14 +712,14 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, defaul
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4"/> Añadir Manualmente</Button>
+                <Button variant="outline" className="w-full" disabled={!company}><PlusCircle className="mr-2 h-4 w-4"/> Añadir Manualmente</Button>
             </DialogTrigger>
             <DialogContent>
-                <DialogHeader><DialogTitle>Añadir Rápido Empleado a {COMPANIES.find(c => c.id === defaultCompanyId)?.name}</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Añadir Rápido Empleado a {company?.name}</DialogTitle></DialogHeader>
                  <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
                         <label>Empresa</label>
-                        <Input value={COMPANIES.find(c => c.id === defaultCompanyId)?.name} readOnly disabled/>
+                        <Input value={company?.name} readOnly disabled/>
                     </div>
                     <div className="space-y-2">
                         <label>Número de Empleado</label>
@@ -739,9 +747,10 @@ interface ConfirmationDialogProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   consumption: Consumption | null;
+  company: Company | null;
 }
 
-const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, setIsOpen, consumption }) => {
+const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, setIsOpen, consumption, company }) => {
     const receiptRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = () => {
@@ -789,7 +798,7 @@ const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, setIsOpen, co
 
     if (!consumption) return null;
 
-    const companyName = COMPANIES.find(c => c.id === consumption.companyId)?.name || consumption.companyId;
+    const companyName = company?.name || consumption.companyId;
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>

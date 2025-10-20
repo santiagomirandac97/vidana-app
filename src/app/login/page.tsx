@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,21 +9,41 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Logo } from '@/components/logo';
-import { COMPANIES } from '@/lib/types';
+import { type Company } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { app, firestore } = useFirebase();
+
   const [companyId, setCompanyId] = useState<string>("");
   const [accessCode, setAccessCode] = useState('');
   const [error, setError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    if (app) {
+      const auth = getAuth(app);
+      signInAnonymously(auth)
+        .then(() => setIsAuthenticated(true))
+        .catch((error) => console.error("Anonymous auth failed:", error));
+    }
+  }, [app]);
+
+  const companiesQuery = useMemoFirebase(() => 
+    firestore ? collection(firestore, 'companies') : null
+  , [firestore]);
+  const { data: companies, isLoading } = useCollection<Company>(companiesQuery);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    const company = COMPANIES.find(c => c.id === companyId);
+    const company = companies?.find(c => c.id === companyId);
 
     if (!company) {
       setError("Por favor seleccione una empresa.");
@@ -43,6 +63,14 @@ export default function LoginPage() {
     }
   };
 
+  if (!isAuthenticated) {
+      return (
+          <div className="flex h-screen items-center justify-center">
+              <p>Conectando...</p>
+          </div>
+      )
+  }
+
   return (
     <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
       <Card className="w-full max-w-md mx-4 shadow-xl">
@@ -57,12 +85,12 @@ export default function LoginPage() {
             <CardContent className="space-y-4">
             <div className="space-y-2">
                 <Label htmlFor="company">Empresa</Label>
-                <Select onValueChange={setCompanyId} value={companyId}>
+                <Select onValueChange={setCompanyId} value={companyId} disabled={isLoading}>
                     <SelectTrigger id="company">
-                        <SelectValue placeholder="Seleccione una empresa" />
+                        <SelectValue placeholder={isLoading ? "Cargando empresas..." : "Seleccione una empresa"} />
                     </SelectTrigger>
                     <SelectContent>
-                        {COMPANIES.map(company => (
+                        {companies?.map(company => (
                             <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>
                         ))}
                     </SelectContent>
@@ -82,7 +110,9 @@ export default function LoginPage() {
             {error && <p className="text-sm text-red-600">{error}</p>}
             </CardContent>
             <CardFooter>
-                <Button type="submit" className="w-full">Acceder</Button>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Cargando..." : "Acceder"}
+                </Button>
             </CardFooter>
         </form>
       </Card>

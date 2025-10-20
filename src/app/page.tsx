@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
 import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, orderBy, limit, getDocs, updateDoc } from 'firebase/firestore';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 
 import { type Company, type Employee, type Consumption, COMPANIES } from '@/lib/types';
 import { cn, exportToCsv, getTodayInMexicoCity, formatTimestamp } from '@/lib/utils';
@@ -36,23 +37,35 @@ import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
 
 export default function HomePage() {
-  const { firestore } = useFirebase();
+  const { app, firestore } = useFirebase();
   const router = useRouter();
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     const companyId = localStorage.getItem('companyId');
     if (companyId) {
       setSelectedCompanyId(companyId);
-      setIsLoading(false);
-    } else {
-      router.push('/login');
     }
-  }, [router]);
-  
-  const employeesQuery = useMemoFirebase(() => 
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (app) {
+      const auth = getAuth(app);
+      signInAnonymously(auth)
+        .then(() => {
+          setIsAuthenticated(true);
+        })
+        .catch((error) => {
+          console.error("Anonymous auth failed:", error);
+        });
+    }
+  }, [app]);
+
+  const employeesQuery = useMemoFirebase(() =>
     firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/employees`)) : null
   , [firestore, selectedCompanyId]);
   const { data: employees } = useCollection<Employee>(employeesQuery);
@@ -61,7 +74,7 @@ export default function HomePage() {
     firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc')) : null
   , [firestore, selectedCompanyId]);
   const { data: consumptions } = useCollection<Consumption>(consumptionsQuery);
-  
+
   const recentConsumptionsQuery = useMemoFirebase(() =>
     firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc'), limit(10)) : null
   , [firestore, selectedCompanyId]);
@@ -77,7 +90,9 @@ export default function HomePage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    inputRef.current?.focus();
+    if (selectedCompanyId) {
+      inputRef.current?.focus();
+    }
   }, [selectedCompanyId]);
 
   const resetInputAndFeedback = () => {
@@ -114,7 +129,7 @@ export default function HomePage() {
       const todayConsumptionsCount = (consumptions || [])
         .filter(c => c.employeeNumber === employee.employeeNumber && c.timestamp.startsWith(today) && !c.voided)
         .length + 1;
-      
+
       const timePart = formatTimestamp(newConsumption.timestamp);
 
       setFeedback({
@@ -158,7 +173,7 @@ export default function HomePage() {
         };
         const consumptionsCollection = collection(firestore, `companies/${selectedCompanyId}/consumptions`);
         addDocumentNonBlocking(consumptionsCollection, newConsumption);
-        
+
         const timePart = formatTimestamp(newConsumption.timestamp);
 
         setFeedback({
@@ -177,16 +192,48 @@ export default function HomePage() {
       handleRegistration();
     }
   };
+
+  const handleCompanySelect = (companyId: string) => {
+    localStorage.setItem('companyId', companyId);
+    setSelectedCompanyId(companyId);
+  };
   
   const handleSignOut = () => {
     localStorage.removeItem('companyId');
-    router.push('/login');
+    setSelectedCompanyId(null);
   };
-  
-  if (isLoading || !selectedCompanyId) {
+
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p>Cargando...</p>
+        <p>Cargando y autenticando...</p>
+      </div>
+    );
+  }
+
+  if (!selectedCompanyId) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <Card className="w-full max-w-md mx-4 shadow-xl">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4">
+              <Logo />
+            </div>
+            <CardTitle className="text-2xl">Seleccionar Empresa</CardTitle>
+            <CardDescription>Elija la empresa para la que desea registrar.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {COMPANIES.map(company => (
+              <Button 
+                key={company.id} 
+                onClick={() => handleCompanySelect(company.id)}
+                className="w-full h-12 text-lg"
+              >
+                {company.name}
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -202,7 +249,7 @@ export default function HomePage() {
           </div>
            <Button variant="outline" onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
-            Cerrar Sesión
+            Cambiar Empresa
           </Button>
         </div>
       </header>
@@ -597,3 +644,5 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, defaul
         </Dialog>
     );
 }
+
+    

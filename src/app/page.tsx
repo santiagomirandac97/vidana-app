@@ -19,16 +19,14 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, useAuth, useUser } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, orderBy, limit, getDocs, updateDoc } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
 
 import { type Company, type Employee, type Consumption, COMPANIES } from '@/lib/types';
 import { cn, exportToCsv, getTodayInMexicoCity, formatTimestamp } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -37,44 +35,36 @@ import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
 
-const companyEmails: Record<string, string> = {
-  'inditex@rgstr.app': 'Inditex',
-  'grupoaxo@rgstr.app': 'Grupo Axo',
-};
-
 export default function HomePage() {
   const { firestore } = useFirebase();
-  const auth = useAuth();
-  const { user, isUserLoading } = useUser();
   const router = useRouter();
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!isUserLoading && user?.email) {
-      const companyId = companyEmails[user.email];
-      if (companyId) {
-        setSelectedCompanyId(companyId);
-      } else {
-        // Handle case where user email doesn't match a company, maybe sign out
-        handleSignOut();
-      }
+    const companyId = localStorage.getItem('companyId');
+    if (companyId) {
+      setSelectedCompanyId(companyId);
+      setIsLoading(false);
+    } else {
+      router.push('/login');
     }
-  }, [user, isUserLoading]);
+  }, [router]);
   
   const employeesQuery = useMemoFirebase(() => 
-    firestore && user && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/employees`)) : null
-  , [firestore, user, selectedCompanyId]);
-  const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
+    firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/employees`)) : null
+  , [firestore, selectedCompanyId]);
+  const { data: employees } = useCollection<Employee>(employeesQuery);
 
   const consumptionsQuery = useMemoFirebase(() =>
-    firestore && user && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc')) : null
-  , [firestore, user, selectedCompanyId]);
-  const { data: consumptions, isLoading: isLoadingConsumptions } = useCollection<Consumption>(consumptionsQuery);
+    firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc')) : null
+  , [firestore, selectedCompanyId]);
+  const { data: consumptions } = useCollection<Consumption>(consumptionsQuery);
   
   const recentConsumptionsQuery = useMemoFirebase(() =>
-    firestore && user && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc'), limit(10)) : null
-  , [firestore, user, selectedCompanyId]);
+    firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc'), limit(10)) : null
+  , [firestore, selectedCompanyId]);
   const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
 
   const [employeeNumber, setEmployeeNumber] = useState('');
@@ -87,12 +77,6 @@ export default function HomePage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router]);
-
-  useEffect(() => {
     inputRef.current?.focus();
   }, [selectedCompanyId]);
 
@@ -103,7 +87,7 @@ export default function HomePage() {
   };
 
   const handleRegistration = () => {
-    if (!employeeNumber.trim() || !firestore || !user || !selectedCompanyId) return;
+    if (!employeeNumber.trim() || !firestore || !selectedCompanyId) return;
 
     const employee = employees?.find(e => e.employeeNumber === employeeNumber.trim());
 
@@ -149,7 +133,7 @@ export default function HomePage() {
   };
 
   const handleQuickActivate = (name: string) => {
-    if (!pendingEmployee || !name.trim() || !firestore || !user || !selectedCompanyId) {
+    if (!pendingEmployee || !name.trim() || !firestore || !selectedCompanyId) {
       toast({ variant: 'destructive', title: 'Error', description: 'Se requiere un nombre para la activación.' });
       return;
     }
@@ -194,21 +178,12 @@ export default function HomePage() {
     }
   };
   
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      router.push('/login');
-    } catch (error) {
-      console.error('Error signing out: ', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'No se pudo cerrar la sesión. Inténtalo de nuevo.',
-      });
-    }
+  const handleSignOut = () => {
+    localStorage.removeItem('companyId');
+    router.push('/login');
   };
   
-  if (isUserLoading || !user || !selectedCompanyId) {
+  if (isLoading || !selectedCompanyId) {
     return (
       <div className="flex h-screen items-center justify-center">
         <p>Cargando...</p>
@@ -249,9 +224,8 @@ export default function HomePage() {
                   onKeyDown={handleKeyDown}
                   placeholder={`Número de Empleado para ${selectedCompanyId}`}
                   className="text-2xl h-16 flex-grow"
-                  disabled={isUserLoading || !user}
                 />
-                <Button onClick={handleRegistration} className="h-16 text-lg" disabled={isUserLoading || !user}>
+                <Button onClick={handleRegistration} className="h-16 text-lg">
                   <ChevronDown className="h-6 w-6 mr-2 rotate-90" /> Enviar
                 </Button>
               </div>

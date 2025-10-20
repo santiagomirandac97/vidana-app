@@ -3,87 +3,91 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Logo } from '@/components/logo';
-import { COMPANIES } from '@/lib/types';
 import { AlertCircle } from 'lucide-react';
+import { useFirebase } from '@/firebase';
 
-const companyCredentials = {
-  'Inditex': { email: 'inditex@rgstr.app', password: 'AIFACOM01', userPassword: 'AIFACOM01' },
-  'Grupo Axo': { email: 'grupoaxo@rgstr.app', password: 'TOREOCOM01', userPassword: 'Toreo' },
+// User-facing access codes
+const userAccessCodes: Record<string, string> = {
+  'INDITEX2024': 'Inditex',
+  'AXO2024': 'Grupo Axo',
+  'VIDANA2024': 'Vidana',
 };
 
+// Internal Firebase credentials
+const firebaseCredentials: Record<string, { email: string, pass: string }> = {
+  'Inditex': { email: 'inditex@rgstr.app', pass: 'AIFACOM01' },
+  'Grupo Axo': { email: 'grupoaxo@rgstr.app', pass: 'TOREOCOM01' },
+  'Vidana': { email: 'vidana@rgstr.app', pass: 'PLAZAVIDANA01' },
+};
+
+
 export default function LoginPage() {
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('Inditex');
-  const [password, setPassword] = useState('');
+  const [accessCode, setAccessCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const auth = useAuth();
-  const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const { app } = useFirebase();
 
   useEffect(() => {
-    if (!isUserLoading && user) {
+    if (localStorage.getItem('companyId')) {
       router.push('/');
     }
-  }, [user, isUserLoading, router]);
+  }, [router]);
 
   const handleLogin = async () => {
-    if (!selectedCompanyId || !password) {
-      setError('Por favor, seleccione una empresa e ingrese la contraseña.');
+    if (!app) {
+      setError('Firebase no está inicializado. Por favor, recargue la página.');
       return;
     }
-
     setIsLoading(true);
     setError(null);
 
-    const companyKey = selectedCompanyId as keyof typeof companyCredentials;
-    const credentials = companyCredentials[companyKey];
+    const upperCaseAccessCode = accessCode.toUpperCase();
+    const companyId = userAccessCodes[upperCaseAccessCode];
 
-    if (password !== credentials.userPassword) {
-        setError('Contraseña incorrecta. Por favor, inténtelo de nuevo.');
-        setIsLoading(false);
-        return;
+    if (!companyId) {
+      setError('Código de acceso incorrecto. Por favor, inténtelo de nuevo.');
+      setIsLoading(false);
+      return;
+    }
+    
+    const credentials = firebaseCredentials[companyId];
+    if (!credentials) {
+       setError('Credenciales de la empresa no encontradas. Contacte a soporte.');
+       setIsLoading(false);
+       return;
     }
 
+    const auth = getAuth(app);
+
     try {
-      await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
+      await signInWithEmailAndPassword(auth, credentials.email, credentials.pass);
+      localStorage.setItem('companyId', companyId);
       router.push('/');
     } catch (err: any) {
-       console.error("Firebase sign-in error:", err);
-
-       if (err.code === 'auth/user-not-found') {
-          try {
-             await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
-             await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
-             router.push('/');
-          } catch (createErr: any) {
-            console.error("Firebase user creation failed after initial sign-in failure:", createErr);
-            setError('Error de configuración de la cuenta. Contacte al administrador.');
-          }
-       } else if (err.code === 'auth/invalid-credential') {
-            setError('Error de credenciales internas. Por favor, contacte al administrador.');
-       } else {
-            setError('Ocurrió un error inesperado al iniciar sesión.');
-       }
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+        try {
+          await createUserWithEmailAndPassword(auth, credentials.email, credentials.pass);
+          await signInWithEmailAndPassword(auth, credentials.email, credentials.pass);
+          localStorage.setItem('companyId', companyId);
+          router.push('/');
+        } catch (createErr: any) {
+          console.error("Firebase creation error:", createErr);
+          setError(`Error al configurar la cuenta: ${createErr.message}`);
+        }
+      } else {
+         console.error("Firebase sign-in error:", err);
+         setError(`Error de inicio de sesión: ${err.message}.`);
+      }
     } finally {
       setIsLoading(false);
     }
   };
-
-  if (isUserLoading || user) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <p>Cargando...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -92,31 +96,20 @@ export default function LoginPage() {
           <div className="mx-auto mb-4">
             <Logo />
           </div>
-          <CardTitle className="text-2xl">Iniciar Sesión</CardTitle>
-          <CardDescription>Seleccione su empresa e ingrese la contraseña para continuar.</CardDescription>
+          <CardTitle className="text-2xl">Acceso de Empresas</CardTitle>
+          <CardDescription>Ingrese su código de acceso para continuar.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
             <div className="space-y-2">
-              <label>Empresa</label>
-              <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
-                <SelectTrigger className="w-full text-base h-11">
-                  <SelectValue placeholder="Seleccionar Empresa" />
-                </SelectTrigger>
-                <SelectContent>
-                  {COMPANIES.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="password">Contraseña</label>
+              <label htmlFor="access-code">Código de Acceso</label>
               <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                id="access-code"
+                type="text"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                placeholder="************"
+                placeholder="Ingrese su código"
                 className="text-base h-11"
               />
             </div>
@@ -126,8 +119,8 @@ export default function LoginPage() {
                 <span className="font-medium">{error}</span>
               </div>
             )}
-            <Button onClick={handleLogin} className="w-full h-11 text-base" disabled={isLoading}>
-              {isLoading ? 'Iniciando Sesión...' : 'Entrar'}
+            <Button onClick={handleLogin} className="w-full h-11 text-base" disabled={isLoading || !app}>
+              {isLoading ? 'Verificando...' : 'Entrar'}
             </Button>
           </div>
         </CardContent>

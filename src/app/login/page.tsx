@@ -110,7 +110,7 @@ export default function LoginPage() {
             {error && <p className="text-sm text-red-600">{error}</p>}
             </CardContent>
             <CardFooter>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full" disabled={isLoading || !companyId}>
                     {isLoading ? "Cargando..." : "Acceder"}
                 </Button>
             </CardFooter>

@@ -1,13 +1,12 @@
 
 export type Company = {
-  id: "Inditex" | "Grupo Axo" | "Vidana";
+  id: "Inditex" | "Grupo Axo";
   name: string;
 };
 
 export const COMPANIES: Company[] = [
     { id: 'Inditex', name: 'Inditex' },
     { id: 'Grupo Axo', name: 'Grupo Axo' },
-    { id: 'Vidana', name: 'Vidana' },
 ];
 
 export interface Employee {

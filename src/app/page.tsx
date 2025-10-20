@@ -16,6 +16,7 @@ import {
   Building,
   Search,
   Printer,
+  Users,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -24,6 +25,7 @@ import { DateRange } from 'react-day-picker';
 import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, orderBy, limit, getDocs, updateDoc } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
+import { formatInTimeZone } from 'date-fns-tz';
 
 import { type Company, type Employee, type Consumption, COMPANIES } from '@/lib/types';
 import { cn, exportToCsv, getTodayInMexicoCity, formatTimestamp } from '@/lib/utils';
@@ -251,7 +253,7 @@ export default function HomePage() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 h-12 px-4 border rounded-md bg-gray-100 dark:bg-gray-800">
             <Building className="h-5 w-5 text-gray-500" />
-            <span className="text-lg font-medium">{selectedCompanyId}</span>
+            <span className="text-lg font-medium">{COMPANIES.find(c => c.id === selectedCompanyId)?.name}</span>
           </div>
            <Button variant="outline" onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
@@ -365,7 +367,7 @@ export default function HomePage() {
           </Card>
         </div>
 
-        <div className="md:col-span-1">
+        <div className="md:col-span-1 space-y-8">
           <AdminPanel 
             employees={employees || []} 
             consumptions={consumptions || []}
@@ -405,6 +407,14 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
 
   const [date, setDate] = useState<DateRange | undefined>();
   
+  const dailyConsumptionCount = useMemo(() => {
+    const today = getTodayInMexicoCity();
+    return consumptions.filter(c => {
+      const consumptionDate = formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd');
+      return consumptionDate === today && !c.voided;
+    }).length;
+  }, [consumptions]);
+
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !firestore) return;
@@ -516,77 +526,91 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
   }
 
   return (
-    <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle>Panel de Administración</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="employees">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="employees">Empleados</TabsTrigger>
-            <TabsTrigger value="consumptions">Reportes</TabsTrigger>
-          </TabsList>
-          <TabsContent value="employees" className="space-y-4 pt-4">
-            <h3 className="font-semibold">Importar Empleados (CSV) para {selectedCompanyId}</h3>
-            <Button variant="outline" className="w-full" onClick={() => { fileInputRef.current?.click();}} disabled={isLoading}>
-              <Upload className="mr-2 h-4 w-4" /> {isLoading ? `Importando para ${selectedCompanyId}...` : `Importar para ${selectedCompanyId}`}
-            </Button>
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
+    <>
+      <Card className="shadow-lg">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Consumos de Hoy</CardTitle>
+          <Users className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{dailyConsumptionCount}</div>
+          <p className="text-xs text-muted-foreground">
+            Total de registros para {COMPANIES.find(c => c.id === selectedCompanyId)?.name} hoy.
+          </p>
+        </CardContent>
+      </Card>
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle>Panel de Administración</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="employees">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="employees">Empleados</TabsTrigger>
+              <TabsTrigger value="consumptions">Reportes</TabsTrigger>
+            </TabsList>
+            <TabsContent value="employees" className="space-y-4 pt-4">
+              <h3 className="font-semibold">Importar Empleados (CSV)</h3>
+              <Button variant="outline" className="w-full" onClick={() => { fileInputRef.current?.click();}} disabled={isLoading}>
+                <Upload className="mr-2 h-4 w-4" /> {isLoading ? `Importando...` : `Importar para ${selectedCompanyId}`}
+              </Button>
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
 
-            <h3 className="font-semibold">Exportar Empleados de {selectedCompanyId}</h3>
-            <Button variant="outline" className="w-full" onClick={handleExportEmployees}>
-              <Download className="mr-2 h-4 w-4" /> Exportar para {selectedCompanyId}
-            </Button>
-             <h3 className="font-semibold">Añadir Rápido Empleado</h3>
+              <h3 className="font-semibold">Exportar Empleados</h3>
+              <Button variant="outline" className="w-full" onClick={handleExportEmployees}>
+                <Download className="mr-2 h-4 w-4" /> Exportar para {selectedCompanyId}
+              </Button>
+              <h3 className="font-semibold">Añadir Rápido Empleado</h3>
               <QuickAddForm onAdd={handleAddEmployee} defaultCompanyId={selectedCompanyId} />
-          </TabsContent>
-          <TabsContent value="consumptions" className="space-y-4 pt-4">
-            <h3 className="font-semibold">Exportar Consumos para {selectedCompanyId}</h3>
-            
-            <div className="space-y-2">
-              <label>Rango de Fechas</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !date && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date?.from ? (
-                      date.to ? (
-                        <>
-                          {format(date.from, "LLL dd, y", { locale: es })} -{" "}
-                          {format(date.to, "LLL dd, y", { locale: es })}
-                        </>
+            </TabsContent>
+            <TabsContent value="consumptions" className="space-y-4 pt-4">
+              <h3 className="font-semibold">Exportar Consumos</h3>
+              
+              <div className="space-y-2">
+                <label>Rango de Fechas</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {date?.from ? (
+                        date.to ? (
+                          <>
+                            {format(date.from, "LLL dd, y", { locale: es })} -{" "}
+                            {format(date.to, "LLL dd, y", { locale: es })}
+                          </>
+                        ) : (
+                          format(date.from, "LLL dd, y", { locale: es })
+                        )
                       ) : (
-                        format(date.from, "LLL dd, y", { locale: es })
-                      )
-                    ) : (
-                      <span>Elige una fecha</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={date?.from}
-                    selected={date}
-                    onSelect={setDate}
-                    numberOfMonths={2}
-                    locale={es}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <Button className="w-full" onClick={handleExportConsumptions}><Download className="mr-2 h-4 w-4"/> Exportar Reporte</Button>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+                        <span>Elige una fecha</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={date?.from}
+                      selected={date}
+                      onSelect={setDate}
+                      numberOfMonths={2}
+                      locale={es}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <Button className="w-full" onClick={handleExportConsumptions}><Download className="mr-2 h-4 w-4"/> Exportar Reporte</Button>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </>
   )
 }
 
@@ -622,7 +646,7 @@ const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
                         <label>Empresa</label>
-                        <Input value={companyId} readOnly disabled />
+                        <Input value={COMPANIES.find(c => c.id === companyId)?.name} readOnly disabled />
                     </div>
                     <div className="space-y-2">
                         <label>Número de Empleado</label>
@@ -671,11 +695,11 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, defaul
                 <Button variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4"/> Añadir Manualmente</Button>
             </DialogTrigger>
             <DialogContent>
-                <DialogHeader><DialogTitle>Añadir Rápido Empleado a {defaultCompanyId}</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Añadir Rápido Empleado a {COMPANIES.find(c => c.id === defaultCompanyId)?.name}</DialogTitle></DialogHeader>
                  <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
                         <label>Empresa</label>
-                        <Input value={defaultCompanyId} readOnly disabled/>
+                        <Input value={COMPANIES.find(c => c.id === defaultCompanyId)?.name} readOnly disabled/>
                     </div>
                     <div className="space-y-2">
                         <label>Número de Empleado</label>
@@ -711,7 +735,23 @@ const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, setIsOpen, co
             receiptWindow?.document.write('<html><head><title>Recibo de Comida</title>');
             receiptWindow?.document.write(`
                 <style>
-                    body { font-family: monospace; padding: 20px; }
+                    @media print {
+                        body { 
+                            font-family: monospace; 
+                            padding: 20px; 
+                            width: 300px;
+                        }
+                        .receipt-container { width: 100%; margin: 0 auto; }
+                        .header { text-align: center; margin-bottom: 20px; }
+                        .item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px;}
+                        .item span:first-child { font-weight: bold; }
+                        .footer { text-align: center; margin-top: 20px; font-size: 12px; }
+                        @page {
+                           size: 80mm 100mm;
+                           margin: 0;
+                        }
+                    }
+                    body { font-family: monospace; }
                     .receipt-container { width: 300px; margin: 0 auto; }
                     .header { text-align: center; margin-bottom: 20px; }
                     .item { display: flex; justify-content: space-between; margin-bottom: 8px; }
@@ -724,12 +764,16 @@ const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, setIsOpen, co
             receiptWindow?.document.write('</body></html>');
             receiptWindow?.document.close();
             receiptWindow?.focus();
-            receiptWindow?.print();
-            receiptWindow?.close();
+            setTimeout(() => {
+                receiptWindow?.print();
+                receiptWindow?.close();
+            }, 250);
         }
     };
 
     if (!consumption) return null;
+
+    const companyName = COMPANIES.find(c => c.id === consumption.companyId)?.name || consumption.companyId;
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -740,23 +784,28 @@ const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, setIsOpen, co
                         Registro Exitoso
                     </DialogTitle>
                 </DialogHeader>
-                <div className="py-4" ref={receiptRef}>
-                    <div className="space-y-3 text-lg">
-                        <div className="flex justify-between items-center">
-                            <span className="font-semibold text-gray-500">Nombre:</span>
-                            <span className="font-bold">{consumption.name}</span>
+                <div className="py-4">
+                    <div ref={receiptRef} className="receipt-container">
+                        <div className="header">
+                            <h3 className="text-xl font-bold">Recibo de Comida</h3>
+                            <p className="text-sm">{companyName}</p>
                         </div>
-                        <div className="flex justify-between items-center">
-                             <span className="font-semibold text-gray-500"># Empleado:</span>
-                             <span>{consumption.employeeNumber}</span>
+                        <div className="space-y-3 text-lg item-list">
+                            <div className="item">
+                                <span className="font-semibold text-gray-500">Nombre:</span>
+                                <span className="font-bold text-right">{consumption.name}</span>
+                            </div>
+                            <div className="item">
+                                <span className="font-semibold text-gray-500"># Empleado:</span>
+                                <span>{consumption.employeeNumber}</span>
+                            </div>
+                            <div className="item">
+                                <span className="font-semibold text-gray-500">Fecha y Hora:</span>
+                                <span className="text-right">{formatTimestamp(consumption.timestamp)}</span>
+                            </div>
                         </div>
-                        <div className="flex justify-between items-center">
-                             <span className="font-semibold text-gray-500">Empresa:</span>
-                             <span>{consumption.companyId}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                             <span className="font-semibold text-gray-500">Fecha y Hora:</span>
-                             <span>{formatTimestamp(consumption.timestamp)}</span>
+                        <div className="footer">
+                            <p>¡Buen provecho!</p>
                         </div>
                     </div>
                 </div>
@@ -772,3 +821,5 @@ const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, setIsOpen, co
         </Dialog>
     );
 };
+
+    

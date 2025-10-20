@@ -22,8 +22,9 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, orderBy, limit, getDocs, updateDoc } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { formatInTimeZone } from 'date-fns-tz';
 
@@ -457,10 +458,10 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
 
             if (!querySnapshot.empty) {
                 const docToUpdate = querySnapshot.docs[0];
-                await updateDoc(docToUpdate.ref, { ...newEmp });
+                updateDocumentNonBlocking(docToUpdate.ref, { ...newEmp });
                 updatedCount++;
             } else {
-                await addDocumentNonBlocking(employeesCollection, newEmp);
+                addDocumentNonBlocking(employeesCollection, newEmp);
                 addedCount++;
             }
         }
@@ -823,9 +824,3 @@ const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, setIsOpen, co
         </Dialog>
     );
 };
-
-    
-
-    
-
-    

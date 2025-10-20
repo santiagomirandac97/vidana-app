@@ -2,7 +2,7 @@
 'use client';
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore, addDoc, DocumentReference, collection, doc, Query } from 'firebase/firestore';
+import { getFirestore, Firestore, DocumentReference, collection, doc, Query } from 'firebase/firestore';
 import { useState, useEffect, useMemo } from 'react';
 import { useCollection as useCollectionHook } from './firestore/use-collection';
 import { useDoc as useDocHook } from './firestore/use-doc';
@@ -47,26 +47,3 @@ export function useMemoFirebase<T extends Query | DocumentReference>(queryFactor
 // Re-exporting the custom hooks
 export const useCollection = useCollectionHook;
 export const useDoc = useDocHook;
-
-
-/** (non-blocking) */
-export function addDocumentNonBlocking<T extends object>(
-    collectionRef: any, 
-    data: T,
-    options: { onSuccess?: (docRef: DocumentReference) => void; onError?: (error: any) => void; } = {}
-  ): Promise<DocumentReference | null> {
-    return addDoc(collectionRef, data)
-      .then(docRef => {
-        if (options.onSuccess) {
-          options.onSuccess(docRef);
-        }
-        return docRef;
-      })
-      .catch(error => {
-        console.error("Error adding document: ", error);
-        if (options.onError) {
-          options.onError(error);
-        }
-        return null;
-      });
-  }

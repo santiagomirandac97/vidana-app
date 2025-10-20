@@ -19,6 +19,7 @@ import {
   Printer,
   Users,
   DollarSign,
+  Save,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -645,28 +646,69 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
 }
 
 const AccessCodeTable: FC<{ companies: Company[] }> = ({ companies }) => {
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
+  const [accessCodes, setAccessCodes] = useState<{[key: string]: string}>({});
+  const [loadingStates, setLoadingStates] = useState<{[key: string]: boolean}>({});
+
+  useEffect(() => {
+    const initialCodes = companies.reduce((acc, company) => {
+      acc[company.id] = company.accessCode || '';
+      return acc;
+    }, {} as {[key: string]: string});
+    setAccessCodes(initialCodes);
+  }, [companies]);
+
+  const handleCodeChange = (companyId: string, value: string) => {
+    setAccessCodes(prev => ({...prev, [companyId]: value}));
+  };
+
+  const handleSaveCode = (companyId: string) => {
+    if (!firestore) return;
+    const newCode = accessCodes[companyId];
+    if (!newCode || newCode.trim() === '') {
+      toast({ variant: 'destructive', title: 'Error', description: 'El código de acceso no puede estar vacío.'});
+      return;
+    }
+
+    setLoadingStates(prev => ({...prev, [companyId]: true}));
+    const companyRef = doc(firestore, `companies/${companyId}`);
+    updateDocumentNonBlocking(companyRef, { accessCode: newCode })
+      .then(() => {
+        toast({ title: 'Éxito', description: 'Código de acceso actualizado.' });
+      })
+      .catch((e) => {
+        console.error(e);
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo actualizar el código.' });
+      })
+      .finally(() => {
+        setLoadingStates(prev => ({...prev, [companyId]: false}));
+      });
+  };
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Empresa</TableHead>
-          <TableHead>Código de Acceso</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <div className="space-y-4">
         {companies.map((company) => (
-          <TableRow key={company.id}>
-            <TableCell className="font-medium">{company.name}</TableCell>
-            <TableCell>
-              <div className="flex items-center gap-2">
-                <KeyRound className="h-4 w-4 text-muted-foreground" />
-                <code>{company.accessCode}</code>
-              </div>
-            </TableCell>
-          </TableRow>
+          <div key={company.id} className="flex items-center gap-2">
+            <div className="flex-1">
+                <p className="font-medium text-sm">{company.name}</p>
+                <div className="flex items-center gap-2">
+                    <KeyRound className="h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        value={accessCodes[company.id] || ''}
+                        onChange={(e) => handleCodeChange(company.id, e.target.value)}
+                        placeholder="Access Code"
+                        className="h-9"
+                    />
+                </div>
+            </div>
+            <Button size="sm" onClick={() => handleSaveCode(company.id)} disabled={loadingStates[company.id]}>
+              <Save className="h-4 w-4 mr-2" />
+              {loadingStates[company.id] ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </div>
         ))}
-      </TableBody>
-    </Table>
+    </div>
   );
 };
 

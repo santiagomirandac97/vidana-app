@@ -50,7 +50,7 @@ export default function LoginPage() {
             <div className="mx-auto mb-4">
               <Logo />
             </div>
-          <CardTitle className="text-2xl">Bienvenido a RGSTR</CardTitle>
+          <CardTitle className="text-2xl">Bienvenido</CardTitle>
           <CardDescription>Ingrese el código de acceso de su empresa para continuar</CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>

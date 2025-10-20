@@ -524,12 +524,14 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
     addDocumentNonBlocking(employeesCollection, employee);
     toast({ title: 'Empleado Añadido', description: `${employee.name} añadido a ${employee.companyId}.` });
   }
+  
+  const todayStr = format(new Date(), 'dd/MM/yyyy');
 
   return (
     <>
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">Consumos de Hoy</CardTitle>
+          <CardTitle className="text-sm font-medium">Consumos {todayStr}</CardTitle>
           <Users className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -821,5 +823,7 @@ const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, setIsOpen, co
         </Dialog>
     );
 };
+
+    
 
     

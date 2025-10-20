@@ -70,17 +70,19 @@ export default function LoginPage() {
       localStorage.setItem('companyId', companyId);
       router.push('/');
     } catch (err: any) {
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+      if (err.code === 'auth/user-not-found') {
+        // If user does not exist, create it once and then sign in.
         try {
           await createUserWithEmailAndPassword(auth, credentials.email, credentials.pass);
           await signInWithEmailAndPassword(auth, credentials.email, credentials.pass);
           localStorage.setItem('companyId', companyId);
           router.push('/');
         } catch (createErr: any) {
-          console.error("Firebase creation error:", createErr);
+          console.error("Firebase user creation error:", createErr);
           setError(`Error al configurar la cuenta: ${createErr.message}`);
         }
       } else {
+         // Handle all other errors (including invalid-credential, wrong-password, etc.)
          console.error("Firebase sign-in error:", err);
          setError(`Error de inicio de sesión: ${err.message}.`);
       }

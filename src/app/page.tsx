@@ -163,6 +163,19 @@ export default function HomePage() {
         return;
     }
 
+    const today = getTodayInMexicoCity();
+    const hasEatenToday = consumptions?.some(c => 
+        c.employeeId === employee.id &&
+        formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd') === today &&
+        !c.voided
+    );
+
+    if (hasEatenToday) {
+        setFeedback({ type: 'error', message: `Duplicado: ${employee.name} ya ha comido hoy.` });
+        resetInputAndFeedback();
+        return;
+    }
+
     if (employee.paymentAmount && employee.paymentAmount > 0) {
         setPaymentDue({employee, amount: employee.paymentAmount});
     } else {

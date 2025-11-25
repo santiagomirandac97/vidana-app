@@ -55,6 +55,7 @@ export default function HomePage() {
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const [confirmationData, setConfirmationData] = useState<Consumption | null>(null);
@@ -136,7 +137,10 @@ export default function HomePage() {
     setEmployeeNumber('');
     setNameSearch('');
     inputRef.current?.focus();
-    setTimeout(() => setFeedback(null), 4000);
+    setTimeout(() => {
+      setFeedback(null);
+      setIsProcessing(false);
+    }, 4000);
   };
 
   const proceedWithConsumption = (employee: Employee) => {
@@ -166,6 +170,9 @@ export default function HomePage() {
   }
 
   const registerConsumption = (employee: Employee) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+
     if (!employee.active) {
         setFeedback({ type: 'error', message: `Empleado Inactivo: ${employee.name} (#${employee.employeeNumber})` });
         resetInputAndFeedback();
@@ -187,6 +194,7 @@ export default function HomePage() {
 
     if (employee.paymentAmount && employee.paymentAmount > 0) {
         setPaymentDue({employee, amount: employee.paymentAmount});
+        // Note: isProcessing will be reset in payment dialog handlers
     } else {
         proceedWithConsumption(employee);
     }
@@ -198,6 +206,11 @@ export default function HomePage() {
         setPaymentDue(null);
     }
   };
+  
+  const handlePaymentCancelled = () => {
+      setPaymentDue(null);
+      resetInputAndFeedback();
+  }
 
 
   const handleRegistrationByNumber = () => {
@@ -234,14 +247,18 @@ export default function HomePage() {
 
     const employeesCollection = collection(firestore, `companies/${selectedCompanyId}/employees`);
     addDocumentNonBlocking(employeesCollection, newEmployeeData).then(docRef => {
-        if (!docRef) return;
+        if (!docRef) {
+          resetInputAndFeedback();
+          return;
+        };
         const newEmployee = { ...newEmployeeData, id: docRef.id };
-        registerConsumption(newEmployee);
+        // We call proceed directly, bypassing the checks in registerConsumption
+        proceedWithConsumption(newEmployee); 
     });
 
     setQuickAddOpen(false);
     setPendingEmployee(null);
-    resetInputAndFeedback();
+    // Note: resetInputAndFeedback is called inside proceedWithConsumption
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -312,9 +329,10 @@ export default function HomePage() {
                       onKeyDown={handleKeyDown}
                       placeholder={`Número de Empleado para ${company?.name}`}
                       className="text-2xl h-16 flex-grow"
+                      disabled={isProcessing}
                     />
-                    <Button onClick={handleRegistrationByNumber} className="h-16 text-lg">
-                      <ChevronDown className="h-6 w-6 mr-2 rotate-90" /> Enviar
+                    <Button onClick={handleRegistrationByNumber} className="h-16 text-lg" disabled={isProcessing}>
+                       {isProcessing ? 'Procesando...' : <><ChevronDown className="h-6 w-6 mr-2 rotate-90" /> Enviar</>}
                     </Button>
                   </div>
                 </TabsContent>
@@ -326,6 +344,7 @@ export default function HomePage() {
                         value={nameSearch}
                         onChange={(e) => setNameSearch(e.target.value)}
                         className="text-lg h-16 pl-10"
+                        disabled={isProcessing}
                         />
                     </div>
                     {nameSearch && (
@@ -344,7 +363,7 @@ export default function HomePage() {
                                                 {employee.paymentAmount.toFixed(2)}
                                             </div>
                                         )}
-                                        <Button size="sm" variant="outline">Registrar</Button>
+                                        <Button size="sm" variant="outline" disabled={isProcessing}>Registrar</Button>
                                     </div>
                                     ))
                                 ) : (
@@ -426,7 +445,7 @@ export default function HomePage() {
       />
        <PaymentDialog 
         isOpen={!!paymentDue}
-        onClose={() => setPaymentDue(null)}
+        onClose={handlePaymentCancelled}
         onConfirm={handlePaymentCollected}
         amount={paymentDue?.amount ?? 0}
         employeeName={paymentDue?.employee.name ?? ''}
@@ -1016,4 +1035,5 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions })
     
 
     
+
 

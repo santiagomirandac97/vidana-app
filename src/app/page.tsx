@@ -21,6 +21,7 @@ import {
   Users,
   DollarSign,
   Save,
+  Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -100,17 +101,6 @@ export default function HomePage() {
     firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc')) : null
   , [firestore, selectedCompanyId]);
   const { data: consumptions } = useCollection<Consumption>(consumptionsQuery);
-
-  const recentConsumptionsQuery = useMemoFirebase(() =>
-    firestore && selectedCompanyId 
-      ? query(
-          collection(firestore, `companies/${selectedCompanyId}/consumptions`), 
-          orderBy('timestamp', 'desc'), 
-          limit(10)
-        ) 
-      : null
-  , [firestore, selectedCompanyId]);
-  const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
   
   const allCompaniesQuery = useMemoFirebase(() => 
     firestore ? collection(firestore, 'companies') : null,
@@ -145,6 +135,7 @@ export default function HomePage() {
 
   const proceedWithConsumption = (employee: Employee) => {
     if (!firestore || !selectedCompanyId) return;
+    setIsProcessing(true);
 
     const newConsumptionData: Omit<Consumption, 'id'> = {
       employeeId: employee.id!,
@@ -215,13 +206,12 @@ export default function HomePage() {
 
   const handleRegistrationByNumber = () => {
     if (!employeeNumber.trim() || !firestore || !selectedCompanyId || isProcessing) return;
-
+    setIsProcessing(true);
     const employee = employees?.find(e => e.employeeNumber === employeeNumber.trim());
 
     if (employee) {
       registerConsumption(employee);
     } else {
-      setIsProcessing(true);
       setFeedback({
         type: 'warning',
         message: `Empleado desconocido #${employeeNumber}. ¿Activar rápidamente?`,
@@ -236,6 +226,8 @@ export default function HomePage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Se requiere un nombre para la activación.' });
       return;
     }
+
+    setIsProcessing(true);
 
     const newEmployeeData: Omit<Employee, 'id'> = {
       employeeNumber: pendingEmployee.number,
@@ -390,34 +382,9 @@ export default function HomePage() {
               )}
             </CardContent>
           </Card>
+          
+          <RecentConsumptionsCard selectedCompanyId={selectedCompanyId} />
 
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>Últimos 10 Consumos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead># Empleado</TableHead>
-                    <TableHead>Empresa</TableHead>
-                    <TableHead>Hora</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(recentConsumptions || []).map(c => (
-                    <TableRow key={c.id}>
-                      <TableCell>{c.name}</TableCell>
-                      <TableCell>{c.employeeNumber}</TableCell>
-                      <TableCell>{company?.name}</TableCell>
-                      <TableCell>{formatTimestamp(c.timestamp)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
         </div>
 
         <div className="md:col-span-1 space-y-8">
@@ -437,6 +404,7 @@ export default function HomePage() {
         onActivate={handleQuickActivate}
         employeeNumber={pendingEmployee?.number ?? ''}
         company={company}
+        isProcessing={isProcessing}
       />
       <ConfirmationDialog
         isOpen={isConfirmationOpen}
@@ -456,6 +424,102 @@ export default function HomePage() {
 }
 
 // Sub-components
+
+const RecentConsumptionsCard: FC<{selectedCompanyId: string}> = ({ selectedCompanyId }) => {
+    const { firestore } = useFirebase();
+    const [highlighted, setHighlighted] = useState<string[]>([]);
+
+    const companyDocRef = useMemoFirebase(() =>
+        firestore && selectedCompanyId ? doc(firestore, `companies/${selectedCompanyId}`) : null
+    , [firestore, selectedCompanyId]);
+    const { data: company } = useDoc<Company>(companyDocRef);
+
+    const recentConsumptionsQuery = useMemoFirebase(() =>
+        firestore ? query(
+            collection(firestore, `companies/${selectedCompanyId}/consumptions`),
+            orderBy('timestamp', 'desc'),
+            limit(10)
+        ) : null
+    , [firestore, selectedCompanyId]);
+
+    const { data: recentConsumptions, isLoading, error } = useCollection<Consumption>(recentConsumptionsQuery);
+
+    const prevConsumptionsRef = useRef<Consumption[]>();
+
+    useEffect(() => {
+        if (recentConsumptions && prevConsumptionsRef.current) {
+            const newItems = recentConsumptions.filter(
+                (newItem) => !prevConsumptionsRef.current!.some((oldItem) => oldItem.id === newItem.id)
+            );
+            if (newItems.length > 0) {
+                setHighlighted(newItems.map(item => item.id!));
+                const timer = setTimeout(() => {
+                    setHighlighted([]);
+                }, 1500);
+                return () => clearTimeout(timer);
+            }
+        }
+        prevConsumptionsRef.current = recentConsumptions || [];
+    }, [recentConsumptions]);
+
+
+    return (
+        <Card className="shadow-lg">
+            <CardHeader>
+                <CardTitle>Últimos 10 Consumos</CardTitle>
+            </CardHeader>
+            <CardContent>
+                {isLoading && (
+                    <div className="flex items-center justify-center h-40">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        <p className="ml-3 text-muted-foreground">Cargando...</p>
+                    </div>
+                )}
+                {!isLoading && error && (
+                     <div className="flex flex-col items-center justify-center h-40 text-red-500">
+                        <XCircle className="h-8 w-8" />
+                        <p className="mt-2 text-center">Error al cargar consumos. <br/> Por favor, intente de nuevo más tarde.</p>
+                    </div>
+                )}
+                {!isLoading && !error && (!recentConsumptions || recentConsumptions.length === 0) && (
+                     <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+                        <Users className="h-8 w-8" />
+                        <p className="mt-2">No hay consumos recientes.</p>
+                    </div>
+                )}
+                {!isLoading && !error && recentConsumptions && recentConsumptions.length > 0 && (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Nombre</TableHead>
+                                <TableHead># Empleado</TableHead>
+                                <TableHead>Empresa</TableHead>
+                                <TableHead>Hora</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {recentConsumptions.map(c => (
+                                <TableRow 
+                                    key={c.id}
+                                    className={cn(
+                                        "transition-colors duration-1000",
+                                        highlighted.includes(c.id!) ? 'bg-green-100 dark:bg-green-900/30' : ''
+                                    )}
+                                >
+                                    <TableCell>{c.name}</TableCell>
+                                    <TableCell>{c.employeeNumber}</TableCell>
+                                    <TableCell>{company?.name}</TableCell>
+                                    <TableCell>{formatTimestamp(c.timestamp)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                )}
+            </CardContent>
+        </Card>
+    )
+}
+
 interface AdminPanelProps {
   employees: Employee[];
   consumptions: Consumption[];
@@ -694,9 +758,10 @@ interface QuickAddDialogProps {
     onActivate: (name: string) => void;
     employeeNumber: string;
     company: Company | null;
+    isProcessing: boolean;
 }
 
-const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate, employeeNumber, company }) => {
+const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate, employeeNumber, company, isProcessing }) => {
     const [name, setName] = useState('');
 
     useEffect(() => {
@@ -706,6 +771,7 @@ const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate
     }, [isOpen]);
 
     const handleActivateClick = () => {
+        if (isProcessing) return;
         onActivate(name);
     }
 
@@ -731,8 +797,10 @@ const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate
                     </div>
                 </div>
                 <DialogFooter>
-                    <DialogClose asChild><Button variant="ghost">Cancelar</Button></DialogClose>
-                    <Button onClick={handleActivateClick}><UserPlus className="mr-2 h-4 w-4"/> Activar y Registrar</Button>
+                    <DialogClose asChild><Button variant="ghost" disabled={isProcessing}>Cancelar</Button></DialogClose>
+                    <Button onClick={handleActivateClick} disabled={isProcessing || !name.trim()}>
+                        {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Activando...</> : <><UserPlus className="mr-2 h-4 w-4"/> Activar y Registrar</>}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

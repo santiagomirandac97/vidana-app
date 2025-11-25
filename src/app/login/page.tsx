@@ -103,6 +103,9 @@ function LoginPageContent() {
 
 
 export default function LoginPage() {
-  // This wrapper is needed to ensure that useFirebase is called within the provider's context
+  const { app, firestore } = useFirebase();
+  if (!app || !firestore) {
+    return <div className="flex h-screen items-center justify-center">Cargando...</div>;
+  }
   return <LoginPageContent />;
 }

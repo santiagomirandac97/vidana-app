@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const { firestore } = useFirebase();
   const router = useRouter();
   const { toast } = useToast();
@@ -99,4 +99,10 @@ export default function LoginPage() {
       </Card>
     </div>
   );
+}
+
+
+export default function LoginPage() {
+  // This wrapper is needed to ensure that useFirebase is called within the provider's context
+  return <LoginPageContent />;
 }

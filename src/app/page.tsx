@@ -214,13 +214,14 @@ export default function HomePage() {
 
 
   const handleRegistrationByNumber = () => {
-    if (!employeeNumber.trim() || !firestore || !selectedCompanyId) return;
+    if (!employeeNumber.trim() || !firestore || !selectedCompanyId || isProcessing) return;
 
     const employee = employees?.find(e => e.employeeNumber === employeeNumber.trim());
 
     if (employee) {
       registerConsumption(employee);
     } else {
+      setIsProcessing(true);
       setFeedback({
         type: 'warning',
         message: `Empleado desconocido #${employeeNumber}. ¿Activar rápidamente?`,
@@ -1033,7 +1034,3 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions })
   );
 };
     
-
-    
-
-

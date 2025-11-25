@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo, useRef, type ChangeEvent, type KeyboardEvent, type FC } from 'react';
 import {
   AlertCircle,
+  BarChart,
   CheckCircle,
   ChevronDown,
   Download,
@@ -30,6 +31,8 @@ import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/no
 import { collection, query, where, orderBy, limit, getDocs, doc } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { formatInTimeZone } from 'date-fns-tz';
+import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+
 
 import { type Company, type Employee, type Consumption } from '@/lib/types';
 import { cn, exportToCsv, getTodayInMexicoCity, formatTimestamp } from '@/lib/utils';
@@ -592,9 +595,10 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="employees">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="employees">Empleados</TabsTrigger>
               <TabsTrigger value="consumptions">Reportes</TabsTrigger>
+              <TabsTrigger value="statistics">Estadísticas</TabsTrigger>
               <TabsTrigger value="accessCodes">Acceso</TabsTrigger>
             </TabsList>
             <TabsContent value="employees" className="space-y-4 pt-4">
@@ -654,6 +658,9 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
                 </Popover>
               </div>
               <Button className="w-full" onClick={handleExportConsumptions}><Download className="mr-2 h-4 w-4"/> Exportar Reporte</Button>
+            </TabsContent>
+            <TabsContent value="statistics" className="space-y-4 pt-4">
+              <ConsumptionChart consumptions={consumptions} />
             </TabsContent>
             <TabsContent value="accessCodes" className="space-y-4 pt-4">
               <h3 className="font-semibold">Códigos de Acceso de Empresas</h3>
@@ -982,6 +989,103 @@ const PaymentDialog: FC<PaymentDialogProps> = ({ isOpen, onClose, onConfirm, amo
   );
 };
 
+
+const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions }) => {
+  const chartData = useMemo(() => {
+    const dailyConsumptions: { [key: string]: number } = {};
+    
+    consumptions.forEach(c => {
+      if (!c.voided) {
+        const day = formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd');
+        dailyConsumptions[day] = (dailyConsumptions[day] || 0) + 1;
+      }
+    });
+
+    const sortedDays = Object.keys(dailyConsumptions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    const last10Days = sortedDays.slice(0, 10).reverse();
+
+    return last10Days.map(day => ({
+      name: format(new Date(day), 'MMM dd', { locale: es }),
+      total: dailyConsumptions[day],
+    }));
+  }, [consumptions]);
+
+  const stats = useMemo(() => {
+    const total = chartData.reduce((acc, item) => acc + item.total, 0);
+    const avg = total > 0 ? total / chartData.length : 0;
+    const peak = chartData.reduce((max, item) => item.total > max.total ? item : max, {name: 'N/A', total: 0});
+    return {
+      total,
+      avg: Math.round(avg),
+      peakDay: peak.name,
+      peakTotal: peak.total,
+    }
+  }, [chartData]);
+  
+  if (chartData.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-80 border rounded-md">
+        <BarChart className="h-10 w-10 text-muted-foreground" />
+        <p className="text-muted-foreground mt-4">No hay suficientes datos de consumo para mostrar el gráfico.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h3 className="font-semibold">Tendencia de Consumo (Últimos 10 Días de Actividad)</h3>
+       <div className="grid gap-4 grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Consumos del Periodo</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Promedio Diario</CardTitle>
+            <BarChart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.avg}</div>
+          </CardContent>
+        </Card>
+         <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Día Pico ({stats.peakDay})</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.peakTotal}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <ResponsiveContainer width="100%" height={300}>
+            <RechartsBarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+              <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+              <Tooltip 
+                cursor={{fill: 'hsl(var(--muted))'}}
+                contentStyle={{ 
+                  backgroundColor: 'hsl(var(--background))',
+                  borderColor: 'hsl(var(--border))'
+                }} 
+              />
+              <Bar dataKey="total" fill="hsl(var(--primary))" name="Consumos" radius={[4, 4, 0, 0]} />
+            </RechartsBarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
     
 
     

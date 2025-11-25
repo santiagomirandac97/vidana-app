@@ -595,11 +595,10 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="employees">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="employees">Empleados</TabsTrigger>
               <TabsTrigger value="consumptions">Reportes</TabsTrigger>
               <TabsTrigger value="statistics">Estadísticas</TabsTrigger>
-              <TabsTrigger value="accessCodes">Acceso</TabsTrigger>
             </TabsList>
             <TabsContent value="employees" className="space-y-4 pt-4">
               <h3 className="font-semibold">Importar Empleados (CSV)</h3>
@@ -662,84 +661,12 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
             <TabsContent value="statistics" className="space-y-4 pt-4">
               <ConsumptionChart consumptions={consumptions} />
             </TabsContent>
-            <TabsContent value="accessCodes" className="space-y-4 pt-4">
-              <h3 className="font-semibold">Códigos de Acceso de Empresas</h3>
-              <AccessCodeTable companies={allCompanies} />
-            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
     </>
   )
 }
-
-const AccessCodeTable: FC<{ companies: Company[] }> = ({ companies }) => {
-  const { firestore } = useFirebase();
-  const { toast } = useToast();
-  const [accessCodes, setAccessCodes] = useState<{[key: string]: string}>({});
-  const [loadingStates, setLoadingStates] = useState<{[key: string]: boolean}>({});
-
-  useEffect(() => {
-    const initialCodes = companies.reduce((acc, company) => {
-      acc[company.id] = company.accessCode || '';
-      return acc;
-    }, {} as {[key: string]: string});
-    setAccessCodes(initialCodes);
-  }, [companies]);
-
-  const handleCodeChange = (companyId: string, value: string) => {
-    setAccessCodes(prev => ({...prev, [companyId]: value}));
-  };
-
-  const handleSaveCode = (companyId: string) => {
-    if (!firestore) return;
-    const newCode = accessCodes[companyId];
-    if (!newCode || newCode.trim() === '') {
-      toast({ variant: 'destructive', title: 'Error', description: 'El código de acceso no puede estar vacío.'});
-      return;
-    }
-
-    setLoadingStates(prev => ({...prev, [companyId]: true}));
-    const companyRef = doc(firestore, `companies/${companyId}`);
-    updateDocumentNonBlocking(companyRef, { accessCode: newCode })
-      .then(() => {
-        toast({ title: 'Éxito', description: 'Código de acceso actualizado.' });
-      })
-      .catch((e) => {
-        console.error(e);
-        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo actualizar el código.' });
-      })
-      .finally(() => {
-        setLoadingStates(prev => ({...prev, [companyId]: false}));
-      });
-  };
-
-  return (
-    <div className="space-y-4">
-        {companies.map((company) => (
-          <div key={company.id} className="flex items-center gap-2">
-            <div className="flex-1">
-                <p className="font-medium text-sm">{company.name}</p>
-                <div className="flex items-center gap-2">
-                    <KeyRound className="h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        value={accessCodes[company.id] || ''}
-                        onChange={(e) => handleCodeChange(company.id, e.target.value)}
-                        placeholder="Access Code"
-                        className="h-9"
-                    />
-                </div>
-            </div>
-            <Button size="sm" onClick={() => handleSaveCode(company.id)} disabled={loadingStates[company.id]}>
-              <Save className="h-4 w-4 mr-2" />
-              {loadingStates[company.id] ? 'Guardando...' : 'Guardar'}
-            </Button>
-          </div>
-        ))}
-    </div>
-  );
-};
-
 
 interface QuickAddDialogProps {
     isOpen: boolean;
@@ -1089,3 +1016,4 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions })
     
 
     
+

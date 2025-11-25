@@ -98,7 +98,13 @@ export default function HomePage() {
   const { data: consumptions } = useCollection<Consumption>(consumptionsQuery);
 
   const recentConsumptionsQuery = useMemoFirebase(() =>
-    firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc'), limit(10)) : null
+    firestore && selectedCompanyId 
+      ? query(
+          collection(firestore, `companies/${selectedCompanyId}/consumptions`), 
+          orderBy('timestamp', 'desc'), 
+          limit(10)
+        ) 
+      : null
   , [firestore, selectedCompanyId]);
   const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
   
@@ -220,6 +226,7 @@ export default function HomePage() {
       companyId: selectedCompanyId,
       active: true,
       paymentAmount: 0,
+      voided: false,
     };
 
     const employeesCollection = collection(firestore, `companies/${selectedCompanyId}/employees`);
@@ -480,6 +487,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
             active: String(values[activeIndex]).toLowerCase() === 'true',
             companyId: selectedCompanyId,
             paymentAmount: paymentAmountIndex > -1 ? parseFloat(values[paymentAmountIndex]?.trim()) || 0 : 0,
+            voided: false,
           } as Omit<Employee, 'id'>;
         }).filter(emp => emp.employeeNumber && emp.name);
   
@@ -795,7 +803,8 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void, compan
             name,
             companyId: company.id,
             active: true,
-            paymentAmount: parseFloat(paymentAmount) || 0
+            paymentAmount: parseFloat(paymentAmount) || 0,
+            voided: false,
         });
         setNumber('');
         setName('');
@@ -972,5 +981,7 @@ const PaymentDialog: FC<PaymentDialogProps> = ({ isOpen, onClose, onConfirm, amo
     </AlertDialog>
   );
 };
+
+    
 
     

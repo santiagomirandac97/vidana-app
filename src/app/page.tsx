@@ -31,7 +31,7 @@ import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase'
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, query, where, orderBy, limit, getDocs, doc } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { formatInTimeZone } from 'date-fns-tz';
+import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 
@@ -1008,10 +1008,11 @@ const PaymentDialog: FC<PaymentDialogProps> = ({ isOpen, onClose, onConfirm, amo
 const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions }) => {
   const chartData = useMemo(() => {
     const dailyConsumptions: { [key: string]: number } = {};
+    const timeZone = 'America/Mexico_City';
     
     consumptions.forEach(c => {
       if (!c.voided) {
-        const day = formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd');
+        const day = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
         dailyConsumptions[day] = (dailyConsumptions[day] || 0) + 1;
       }
     });
@@ -1020,7 +1021,7 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions })
     const last10Days = sortedDays.slice(0, 10).reverse();
 
     return last10Days.map(day => ({
-      name: format(new Date(day), 'MMM dd', { locale: es }),
+      name: format(toDate(day, { timeZone }), 'MMM dd', { locale: es }),
       total: dailyConsumptions[day],
     }));
   }, [consumptions]);

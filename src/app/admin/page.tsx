@@ -39,7 +39,7 @@ export default function AdminDashboardPage() {
         setError('');
         // Simulate a network request
         setTimeout(() => {
-            if (password === ADMIN_PASSWORD || password === "bypass-master-key") {
+            if (password === ADMIN_PASSWORD) {
                 sessionStorage.setItem('adminAuthenticated', 'true');
                 setIsAuthenticated(true);
             } else {
@@ -110,7 +110,7 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
     const [consumptionsLoading, setConsumptionsLoading] = useState(true);
 
     useEffect(() => {
-        if (firestore && companies) {
+        if (firestore && companies && companies.length > 0) {
             const fetchAll = async () => {
                 setConsumptionsLoading(true);
                 const promises = companies.map(c => getDocs(query(collection(firestore, `companies/${c.id}/consumptions`))));
@@ -120,26 +120,24 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
                 setConsumptionsLoading(false);
             };
             fetchAll();
+        } else if (!companiesLoading) {
+            // If companies are loaded but there are none, we can stop loading consumptions.
+            setConsumptionsLoading(false);
         }
-    }, [firestore, companies]);
+    }, [firestore, companies, companiesLoading]);
     
     const isLoading = companiesLoading || consumptionsLoading;
 
     const statsByCompany = useMemo(() => {
-        if (!companies || !allConsumptions) return [];
+        if (isLoading || !companies || !allConsumptions) return [];
         const today = getTodayInMexicoCity();
 
         return companies.map(company => {
             const companyConsumptions = allConsumptions.filter(c => c.companyId === company.id);
             const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd') === today && !c.voided);
             
-            let mealPrice = 0;
-            if (company.name.toLowerCase().includes('inditex')) {
-                mealPrice = 115;
-            } else if (company.name.toLowerCase().includes('grupo axo')) {
-                mealPrice = 160;
-            }
-
+            const mealPrice = company.mealPrice || 0;
+            
             const dailyRevenue = todayConsumptions.length * mealPrice;
 
             return {
@@ -150,7 +148,7 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
                 mealPrice,
             };
         });
-    }, [companies, allConsumptions]);
+    }, [companies, allConsumptions, isLoading]);
 
 
     if (isLoading) {
@@ -282,3 +280,5 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumption
         </div>
     );
 };
+
+    

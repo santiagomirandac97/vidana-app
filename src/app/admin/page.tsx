@@ -16,6 +16,7 @@ import { toDate, formatInTimeZone } from 'date-fns-tz';
 import { getTodayInMexicoCity } from '@/lib/utils';
 import { DollarSign, Users, BarChart, LogOut, Loader2, Lock, ArrowLeft } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Logo } from '@/components/logo';
 
 
 const ADMIN_PASSWORD = "super-secret-admin"; // In a real app, use a secure auth method
@@ -172,7 +173,7 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
             <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center py-4">
-                        <h1 className="text-xl font-bold">Panel de Administrador</h1>
+                        <Logo />
                         <Button variant="outline" onClick={onLogout}>
                             <LogOut className="mr-2 h-4 w-4" />
                             Cerrar Sesión
@@ -287,5 +288,7 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumption
         </div>
     );
 };
+
+    
 
     

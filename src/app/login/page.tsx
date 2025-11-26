@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
@@ -12,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+
 
 function LoginPageContent() {
   const { firestore } = useFirebase();
@@ -25,7 +27,7 @@ function LoginPageContent() {
   const companiesQuery = useMemoFirebase(() => 
     firestore ? collection(firestore, 'companies') : null,
   [firestore]);
-  const { data: companies } = useCollection<Company>(companiesQuery);
+  const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesQuery);
 
   const handleLogin = () => {
     if (!selectedCompanyId || !accessCode) {
@@ -71,9 +73,9 @@ function LoginPageContent() {
           <CardDescription>Seleccione su empresa e ingrese el código para continuar</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-            <Select onValueChange={setSelectedCompanyId} value={selectedCompanyId || ''}>
+            <Select onValueChange={setSelectedCompanyId} value={selectedCompanyId || ''} disabled={companiesLoading || isLoading}>
                 <SelectTrigger className="w-full h-12 text-lg">
-                    <SelectValue placeholder="Seleccione una empresa" />
+                    <SelectValue placeholder={companiesLoading ? "Cargando empresas..." : "Seleccione una empresa"} />
                 </SelectTrigger>
                 <SelectContent>
                     {companies?.map(company => (
@@ -91,9 +93,10 @@ function LoginPageContent() {
                 onChange={(e) => setAccessCode(e.target.value)}
                 className="w-full h-12 text-lg"
                 onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                disabled={isLoading}
             />
-          <Button onClick={handleLogin} className="w-full h-12 text-lg" disabled={isLoading}>
-            {isLoading ? 'Verificando...' : 'Entrar'}
+          <Button onClick={handleLogin} className="w-full h-12 text-lg" disabled={isLoading || companiesLoading || !selectedCompanyId}>
+            {isLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/> Verificando...</> : 'Entrar'}
           </Button>
         </CardContent>
       </Card>
@@ -103,9 +106,6 @@ function LoginPageContent() {
 
 
 export default function LoginPage() {
-  const { app, firestore } = useFirebase();
-  if (!app || !firestore) {
-    return <div className="flex h-screen items-center justify-center">Cargando...</div>;
-  }
   return <LoginPageContent />;
 }
+

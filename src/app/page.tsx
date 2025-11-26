@@ -218,6 +218,8 @@ export default function HomePage() {
       });
       setPendingEmployee({ number: employeeNumber, name: '' });
       setQuickAddOpen(true);
+      // Reset isProcessing to allow interaction with the dialog
+      setIsProcessing(false);
     }
   };
 
@@ -325,7 +327,7 @@ export default function HomePage() {
                       disabled={isProcessing}
                     />
                     <Button onClick={handleRegistrationByNumber} className="h-16 text-lg" disabled={isProcessing}>
-                       {isProcessing ? 'Procesando...' : <><ChevronDown className="h-6 w-6 mr-2 rotate-90" /> Enviar</>}
+                       {isProcessing ? <><Loader2 className="h-6 w-6 mr-2 animate-spin" /> Procesando...</> : <><ChevronDown className="h-6 w-6 mr-2 rotate-90" /> Enviar</>}
                     </Button>
                   </div>
                 </TabsContent>
@@ -651,10 +653,10 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
   }
 
   const handleAddEmployee = (employee: Omit<Employee, 'id'>) => {
-    if(!firestore) return;
-    const employeesCollection = collection(firestore, `companies/${employee.companyId}/employees`);
+    if(!firestore || !company) return;
+    const employeesCollection = collection(firestore, `companies/${company.id}/employees`);
     addDocumentNonBlocking(employeesCollection, employee);
-    toast({ title: 'Empleado Añadido', description: `${employee.name} añadido a ${company?.name}.` });
+    toast({ title: 'Empleado Añadido', description: `${employee.name} añadido a ${company.name}.` });
   }
   
   const todayStr = format(new Date(), 'dd/MM/yyyy');
@@ -1102,8 +1104,4 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions })
     </div>
   );
 };
-    
-
-    
-
     

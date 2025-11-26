@@ -216,7 +216,7 @@ const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
                     </div>
                     <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
                         <p className="text-sm text-muted-foreground">Ingresos Hoy</p>
-                        <p className="text-2xl font-bold">${companyStats.dailyRevenue.toFixed(2)}</p>
+                        <p className="text-2xl font-bold">${companyStats.dailyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                 </div>
 

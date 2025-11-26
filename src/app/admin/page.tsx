@@ -136,7 +136,14 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
             const companyConsumptions = allConsumptions.filter(c => c.companyId === company.id);
             const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd') === today && !c.voided);
             
-            const mealPrice = company.mealPrice || 0;
+            let mealPrice = company.mealPrice || 0;
+            if (mealPrice === 0) { // Fallback prices
+              if (company.name.toLowerCase().includes('inditex')) {
+                mealPrice = 115;
+              } else if (company.name.toLowerCase().includes('axo')) {
+                mealPrice = 160;
+              }
+            }
             
             const dailyRevenue = todayConsumptions.length * mealPrice;
 
@@ -200,7 +207,7 @@ const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
             <CardHeader>
                 <CardTitle className="flex justify-between items-center">
                     <span>{companyStats.name}</span>
-                    <span className="text-sm font-normal px-2 py-1 bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-200">
+                     <span className="text-sm font-normal px-2 py-1 bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-200">
                         ${companyStats.mealPrice}/comida
                     </span>
                 </CardTitle>

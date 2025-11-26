@@ -105,18 +105,6 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
     , [firestore]);
     const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesQuery);
 
-    const consumptionsQuery = useMemoFirebase(() => {
-        if (!firestore || !companies) return null;
-        // In a very large scale app, this would be inefficient.
-        // For this use case, we fetch all and filter client-side.
-        // A better approach would be backend aggregation.
-        const allConsumptions = companies.map(c => query(collection(firestore, `companies/${c.id}/consumptions`)));
-        // This hook doesn't support an array of queries, so we just fetch all from the first company for now
-        // and then fetch the rest inside the components. This is a limitation of the current hook.
-        // Let's create a combined query client side.
-        return query(collection(firestore, `companies/${companies[0]?.id}/consumptions`));
-    }, [firestore, companies]);
-
     // This is a workaround since useCollection doesn't support multiple queries at once.
     const [allConsumptions, setAllConsumptions] = useState<Consumption[]>([]);
     const [consumptionsLoading, setConsumptionsLoading] = useState(true);
@@ -145,13 +133,21 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
             const companyConsumptions = allConsumptions.filter(c => c.companyId === company.id);
             const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd') === today && !c.voided);
             
-            const dailyRevenue = todayConsumptions.length * (company.mealPrice || 0);
+            let mealPrice = 0;
+            if (company.name.toLowerCase().includes('inditex')) {
+                mealPrice = 115;
+            } else if (company.name.toLowerCase().includes('grupo axo')) {
+                mealPrice = 160;
+            }
+
+            const dailyRevenue = todayConsumptions.length * mealPrice;
 
             return {
                 ...company,
                 consumptions: companyConsumptions,
                 todayCount: todayConsumptions.length,
                 dailyRevenue,
+                mealPrice,
             };
         });
     }, [companies, allConsumptions]);
@@ -196,6 +192,7 @@ interface CompanyStatCardProps {
         consumptions: Consumption[];
         todayCount: number;
         dailyRevenue: number;
+        mealPrice: number;
     };
 }
 
@@ -206,7 +203,7 @@ const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
                 <CardTitle className="flex justify-between items-center">
                     <span>{companyStats.name}</span>
                     <span className="text-sm font-normal px-2 py-1 bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-200">
-                        ${companyStats.mealPrice || 0}/comida
+                        ${companyStats.mealPrice}/comida
                     </span>
                 </CardTitle>
                 <CardDescription>Resumen del día y tendencias</CardDescription>
@@ -285,5 +282,3 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumption
         </div>
     );
 };
-
-    

@@ -435,7 +435,7 @@ const RecentConsumptionsCard: FC<{selectedCompanyId: string}> = ({ selectedCompa
     const { data: company } = useDoc<Company>(companyDocRef);
 
     const recentConsumptionsQuery = useMemoFirebase(() =>
-        firestore ? query(
+        firestore && selectedCompanyId ? query(
             collection(firestore, `companies/${selectedCompanyId}/consumptions`),
             orderBy('timestamp', 'desc'),
             limit(10)
@@ -678,7 +678,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
           <CardTitle>Panel de Administración</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="employees">
+          <Tabs defaultValue="statistics">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="employees">Empleados</TabsTrigger>
               <TabsTrigger value="consumptions">Reportes</TabsTrigger>

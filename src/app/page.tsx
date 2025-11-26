@@ -309,7 +309,7 @@ export default function HomePage() {
             <CardContent>
                <Tabs defaultValue="number">
                 <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="number">Por Número (Escaner)</TabsTrigger>
+                  <TabsTrigger value="number">Por Número</TabsTrigger>
                   <TabsTrigger value="name">Por Nombre</TabsTrigger>
                 </TabsList>
                 <TabsContent value="number" className="pt-4">
@@ -1102,6 +1102,8 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions })
     </div>
   );
 };
+    
+
     
 
     

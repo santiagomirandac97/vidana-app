@@ -215,6 +215,8 @@ interface CompanyStatCardProps {
 }
 
 const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
+    const currentMonth = new Date().getMonth(); // 0-11 (Jan-Dec)
+
     return (
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
             <CardHeader>
@@ -251,6 +253,13 @@ const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
                         Solo se contabilizan comidas por nómina
                     </p>
                 )}
+                
+                {companyStats.name.toLowerCase().includes('axo') && currentMonth === 10 && ( // 10 is November
+                    <p className="text-xs text-center text-muted-foreground italic">
+                        No se tiene registro completo de Noviembre
+                    </p>
+                )}
+
 
                 <div className="space-y-2">
                      <h4 className="font-semibold text-sm">Tendencia de Consumo</h4>
@@ -314,3 +323,5 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumption
         </div>
     );
 };
+
+    

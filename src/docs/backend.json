@@ -93,6 +93,10 @@
         "accessCode": {
             "type": "string",
             "description": "The access code for the company."
+        },
+        "mealPrice": {
+          "type": "number",
+          "description": "The price per meal for this company."
         }
       },
       "required": [

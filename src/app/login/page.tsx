@@ -12,7 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShieldCheck } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 
 function LoginPageContent() {
@@ -98,6 +99,11 @@ function LoginPageContent() {
           <Button onClick={handleLogin} className="w-full h-12 text-lg" disabled={isLoading || companiesLoading || !selectedCompanyId}>
             {isLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/> Verificando...</> : 'Entrar'}
           </Button>
+          <Separator className="my-4" />
+          <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => router.push('/admin')}>
+            <ShieldCheck className="mr-2 h-4 w-4" />
+            Admin
+          </Button>
         </CardContent>
       </Card>
     </div>
@@ -106,6 +112,14 @@ function LoginPageContent() {
 
 
 export default function LoginPage() {
+  const { app, firestore } = useFirebase();
+
+  if (!app || !firestore) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p>Cargando...</p>
+      </div>
+    );
+  }
   return <LoginPageContent />;
 }
-

@@ -3,6 +3,7 @@ export type Company = {
   id: string;
   name: string;
   accessCode: string;
+  mealPrice?: number;
 };
 
 export interface Employee {
@@ -14,7 +15,7 @@ export interface Employee {
   email?: string;
   active: boolean;
   paymentAmount?: number;
-  voided?: boolean;
+  voided: boolean;
 }
 
 export interface Consumption {

@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, getDocs } from 'firebase/firestore';
 import { type Company, type Consumption } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -284,3 +285,5 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumption
         </div>
     );
 };
+
+    

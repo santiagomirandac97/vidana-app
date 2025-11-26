@@ -1103,3 +1103,5 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions })
   );
 };
     
+
+    

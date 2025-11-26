@@ -14,7 +14,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDate, formatInTimeZone } from 'date-fns-tz';
 import { getTodayInMexicoCity } from '@/lib/utils';
-import { DollarSign, Users, BarChart, LogOut, Loader2, Lock, ArrowLeft } from 'lucide-react';
+import { DollarSign, Users, BarChart, LogOut, Loader2, Lock, ArrowLeft, CalendarDays } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Logo } from '@/components/logo';
 
@@ -106,7 +106,6 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
     , [firestore]);
     const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesQuery);
 
-    // This is a workaround since useCollection doesn't support multiple queries at once.
     const [allConsumptions, setAllConsumptions] = useState<Consumption[]>([]);
     const [consumptionsLoading, setConsumptionsLoading] = useState(true);
 
@@ -122,7 +121,6 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
             };
             fetchAll();
         } else if (!companiesLoading) {
-            // If companies are loaded but there are none, we can stop loading consumptions.
             setConsumptionsLoading(false);
         }
     }, [firestore, companies, companiesLoading]);
@@ -132,13 +130,22 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
     const statsByCompany = useMemo(() => {
         if (isLoading || !companies || !allConsumptions) return [];
         const today = getTodayInMexicoCity();
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
 
         return companies.map(company => {
-            const companyConsumptions = allConsumptions.filter(c => c.companyId === company.id);
-            const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd') === today && !c.voided);
+            const companyConsumptions = allConsumptions.filter(c => c.companyId === company.id && !c.voided);
+            
+            const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd') === today);
+            
+            const monthlyConsumptions = companyConsumptions.filter(c => {
+                const consumptionDate = new Date(c.timestamp);
+                return consumptionDate.getMonth() === currentMonth && consumptionDate.getFullYear() === currentYear;
+            });
             
             let mealPrice = company.mealPrice || 0;
-            if (mealPrice === 0) { // Fallback prices
+            if (mealPrice === 0) {
               if (company.name.toLowerCase().includes('inditex')) {
                 mealPrice = 115;
               } else if (company.name.toLowerCase().includes('axo')) {
@@ -147,12 +154,15 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
             }
             
             const dailyRevenue = todayConsumptions.length * mealPrice;
+            const monthlyRevenue = monthlyConsumptions.length * mealPrice;
 
             return {
                 ...company,
                 consumptions: companyConsumptions,
                 todayCount: todayConsumptions.length,
                 dailyRevenue,
+                monthlyCount: monthlyConsumptions.length,
+                monthlyRevenue,
                 mealPrice,
             };
         });
@@ -198,6 +208,8 @@ interface CompanyStatCardProps {
         consumptions: Consumption[];
         todayCount: number;
         dailyRevenue: number;
+        monthlyCount: number;
+        monthlyRevenue: number;
         mealPrice: number;
     };
 }
@@ -206,7 +218,7 @@ const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
     return (
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
             <CardHeader>
-                <CardTitle className="flex justify-between items-center">
+                <CardTitle className="flex justify-between items-start">
                     <span>{companyStats.name}</span>
                      <span className="text-sm font-normal px-2 py-1 bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-200">
                         ${companyStats.mealPrice}/comida
@@ -215,16 +227,30 @@ const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
                 <CardDescription>Resumen del día y tendencias</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 gap-4 text-center">
+                <div className="grid grid-cols-2 gap-4">
                     <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                        <p className="text-sm text-muted-foreground">Consumos Hoy</p>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1"><Users className="h-4 w-4"/> Consumos Hoy</p>
                         <p className="text-2xl font-bold">{companyStats.todayCount}</p>
                     </div>
                     <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                        <p className="text-sm text-muted-foreground">Ingresos Hoy</p>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4"/> Ingresos Hoy</p>
                         <p className="text-2xl font-bold">${companyStats.dailyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
+                    <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                        <p className="text-sm text-muted-foreground flex items-center gap-1"><CalendarDays className="h-4 w-4"/> Comidas Mes</p>
+                        <p className="text-2xl font-bold">{companyStats.monthlyCount}</p>
+                    </div>
+                    <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                        <p className="text-sm text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4"/> Ingresos Mes</p>
+                        <p className="text-2xl font-bold">${companyStats.monthlyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    </div>
                 </div>
+
+                {companyStats.name.toLowerCase().includes('inditex') && (
+                    <p className="text-xs text-center text-muted-foreground italic">
+                        Solo se contabilizan comidas por nómina
+                    </p>
+                )}
 
                 <div className="space-y-2">
                      <h4 className="font-semibold text-sm">Tendencia de Consumo</h4>
@@ -288,7 +314,3 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumption
         </div>
     );
 };
-
-    
-
-    

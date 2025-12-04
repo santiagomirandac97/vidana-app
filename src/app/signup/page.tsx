@@ -51,7 +51,7 @@ function SignupPageContent() {
         const allowedDomains: string[] = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : [];
         const userDomain = email.split('@')[1];
 
-        if (allowedDomains.length > 0 && !allowedDomains.includes(userDomain)) {
+        if (allowedDomains.length === 0 || !allowedDomains.includes(userDomain)) {
             const errorMessage = 'Registro no exitoso, usuario externo';
             setError(errorMessage);
             toast({

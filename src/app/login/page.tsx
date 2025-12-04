@@ -5,7 +5,7 @@ import { useState, useEffect, type FC } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,8 @@ import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn, Mail, Lock } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -24,6 +26,82 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
       <path d="M12.28 7.39995C13.76 7.39995 14.96 7.88995 15.87 8.75995L19.58 5.08995C17.75 3.33995 15.27 2.39995 12.28 2.39995C8.13 2.39995 4.54 4.45995 2.74 7.78995L6.55 10.3199C7.43 7.99995 9.68 7.39995 12.28 7.39995Z" fill="#EA4335"/>
     </svg>
   );
+}
+
+function PasswordResetDialog() {
+    const auth = useAuth();
+    const { toast } = useToast();
+    const [email, setEmail] = useState('');
+    const [isSending, setIsSending] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+
+    const handlePasswordReset = async () => {
+        if (!email) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Por favor, ingrese su email.' });
+            return;
+        }
+        if (!auth) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Servicio no disponible.' });
+            return;
+        }
+
+        setIsSending(true);
+        try {
+            await sendPasswordResetEmail(auth, email);
+            toast({ title: 'Correo Enviado', description: 'Revise su bandeja de entrada para restablecer su contraseña.' });
+            setIsOpen(false);
+        } catch (error: any) {
+            let friendlyMessage = 'Ocurrió un error al enviar el correo.';
+            if (error.code === 'auth/user-not-found') {
+                friendlyMessage = 'No se encontró ninguna cuenta con ese email.';
+            }
+            toast({ variant: 'destructive', title: 'Error', description: friendlyMessage });
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="link" size="sm" className="w-full px-0 font-normal">
+                    ¿Olvidaste tu contraseña?
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Restablecer Contraseña</DialogTitle>
+                    <DialogDescription>
+                        Ingrese su email y le enviaremos un enlace para restablecer su contraseña.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                    <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <Input
+                            id="reset-email"
+                            type="email"
+                            placeholder="Email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="pl-10 h-12 text-lg"
+                            disabled={isSending}
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="secondary" disabled={isSending}>
+                            Cancelar
+                        </Button>
+                    </DialogClose>
+                    <Button onClick={handlePasswordReset} disabled={isSending}>
+                        {isSending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</> : 'Enviar Correo'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
 }
 
 function LoginPageContent() {
@@ -144,30 +222,36 @@ function LoginPageContent() {
           <CardDescription>Ingrese sus credenciales para acceder al sistema</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="relative">
-             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-             <Input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-10 h-12 text-lg"
-                disabled={isLoading || isGoogleLoading}
-            />
+          <div className="space-y-2">
+            <div className="relative">
+               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+               <Input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10 h-12 text-lg"
+                  disabled={isLoading || isGoogleLoading}
+              />
+            </div>
           </div>
           
-          <div className="relative">
-             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <Input
-                type="password"
-                placeholder="Contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-10 h-12 text-lg"
-                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                disabled={isLoading || isGoogleLoading}
-            />
+          <div className="space-y-2">
+            <div className="relative">
+               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Input
+                  type="password"
+                  placeholder="Contraseña"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 h-12 text-lg"
+                  onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                  disabled={isLoading || isGoogleLoading}
+              />
+            </div>
+            <PasswordResetDialog />
           </div>
+
           {error && <p className="text-sm text-red-500 px-1">{error}</p>}
           <Button onClick={handleLogin} className="w-full h-12 text-lg" disabled={isLoading || isGoogleLoading}>
             {isLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/> Verificando...</> : <><LogIn className="mr-2 h-5 w-5"/> Entrar</>}

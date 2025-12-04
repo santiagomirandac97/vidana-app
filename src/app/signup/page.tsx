@@ -48,10 +48,19 @@ function SignupPageContent() {
         const configDocRef = doc(firestore, 'configuration', 'app');
         const configDoc = await getDoc(configDocRef);
 
-        const allowedDomains: string[] = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : [];
+        let allowedDomains: string[] = [];
+        // If the config document exists in Firestore, use its domains.
+        // Otherwise, use the hardcoded fallback list.
+        if (configDoc.exists()) {
+            allowedDomains = configDoc.data()?.allowedDomains || [];
+        } else {
+            // Fallback for when the configuration is not yet in the database.
+            allowedDomains = ['vidana.com.mx', 'blacktrust.net', 'activ8.com.mx'];
+        }
+
         const userDomain = email.split('@')[1];
 
-        if (allowedDomains.length === 0 || !allowedDomains.includes(userDomain)) {
+        if (allowedDomains.length > 0 && !allowedDomains.includes(userDomain)) {
             const errorMessage = "El dominio de su correo no está autorizado para registrarse.";
             setError(errorMessage);
             toast({
@@ -62,7 +71,6 @@ function SignupPageContent() {
             setIsLoading(false);
             return;
         }
-
 
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;

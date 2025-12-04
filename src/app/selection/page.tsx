@@ -89,8 +89,8 @@ export default function SelectionPage() {
                 <Image 
                   src="/logos/vidanaicon.png" 
                   alt="Registros Icon" 
-                  width={64} 
-                  height={64} 
+                  width={48} 
+                  height={48} 
                   className="mb-4 transition-transform duration-300 group-hover:scale-110" 
                 />
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Registros</h3>
@@ -103,8 +103,8 @@ export default function SelectionPage() {
                 <Image 
                   src="/logos/vidanaicon.png" 
                   alt="Admin Icon" 
-                  width={64} 
-                  height={64} 
+                  width={48} 
+                  height={48} 
                   className="mb-4 transition-transform duration-300 group-hover:scale-110" 
                 />
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Admin</h3>

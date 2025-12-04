@@ -141,7 +141,8 @@
   },
   "auth": {
     "providers": [
-      "email"
+      "email",
+      "google"
     ]
   },
   "firestore": {
@@ -177,3 +178,5 @@
     }
   }
 }
+
+    

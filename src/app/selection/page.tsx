@@ -87,7 +87,7 @@ export default function SelectionPage() {
                 className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
             >
                 <Image 
-                  src="/vidanaicon.png" 
+                  src="/logos/vidanaicon.png" 
                   alt="Registros Icon" 
                   width={64} 
                   height={64} 
@@ -101,7 +101,7 @@ export default function SelectionPage() {
                 className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-accent dark:hover:border-accent hover:bg-accent/5 dark:hover:bg-accent/10 transition-all duration-300"
             >
                 <Image 
-                  src="/vidanaicon.png" 
+                  src="/logos/vidanaicon.png" 
                   alt="Admin Icon" 
                   width={64} 
                   height={64} 

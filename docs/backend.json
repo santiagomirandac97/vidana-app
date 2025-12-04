@@ -18,9 +18,14 @@
           "type": "string",
           "description": "The user's email address.",
           "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The user's role in the application.",
+          "enum": ["admin", "user"]
         }
       },
-      "required": ["uid", "name", "email"]
+      "required": ["uid", "name", "email", "role"]
     },
     "AppConfiguration": {
         "title": "App Configuration",
@@ -168,7 +173,7 @@
       "schema": {
         "$ref": "#/entities/UserProfile"
       },
-      "description": "Stores public user profile information."
+      "description": "Stores public user profile information, including their role."
     },
     "/configuration/app": {
         "schema": {
@@ -178,5 +183,3 @@
     }
   }
 }
-
-    

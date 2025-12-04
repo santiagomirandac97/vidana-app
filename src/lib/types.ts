@@ -27,3 +27,10 @@ export interface Consumption {
   timestamp: string; // ISO-8601
   voided: boolean;
 }
+
+export interface UserProfile {
+    uid: string;
+    name: string;
+    email: string;
+    role: 'admin' | 'user';
+}

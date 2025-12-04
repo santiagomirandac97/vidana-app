@@ -4,7 +4,7 @@
 import { useState, useEffect, type FC } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser, useFirestore } from '@/firebase';
+import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn, Mail, Lock } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { type UserProfile } from '@/lib/types';
 
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -104,6 +105,33 @@ function PasswordResetDialog() {
     );
 }
 
+async function checkAndCreateUserProfile(firestore: any, user: any, allowedDomains: string[]): Promise<boolean> {
+    if (!user.email) {
+        throw new Error("No se pudo obtener el email de la cuenta de Google.");
+    }
+    
+    const userDomain = user.email.split('@')[1];
+    
+    if (allowedDomains.length > 0 && !allowedDomains.includes(userDomain)) {
+        throw new Error("El dominio de su correo no está autorizado para registrarse.");
+    }
+
+    const userDocRef = doc(firestore, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists()) {
+        const newUserProfile: UserProfile = {
+            uid: user.uid,
+            name: user.displayName || 'Usuario',
+            email: user.email,
+            role: 'user', // Default role
+        };
+        await setDoc(userDocRef, newUserProfile);
+    }
+    return true;
+}
+
+
 function LoginPageContent() {
   const auth = useAuth();
   const firestore = useFirestore();
@@ -131,7 +159,7 @@ function LoginPageContent() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.push('/');
+      router.push('/selection');
     } catch (err: any) {
       let friendlyMessage = 'Ocurrió un error al iniciar sesión.';
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
@@ -157,54 +185,26 @@ function LoginPageContent() {
     setError(null);
 
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-
-      if (!user.email) {
-        throw new Error("No se pudo obtener el email de la cuenta de Google.");
-      }
-      
       const configDocRef = doc(firestore, 'configuration', 'app');
       const configDoc = await getDoc(configDocRef);
+      const allowedDomains = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
+
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      await checkAndCreateUserProfile(firestore, result.user, allowedDomains);
       
-      let allowedDomains: string[] = [];
-      if (configDoc.exists()) {
-        allowedDomains = configDoc.data()?.allowedDomains || [];
-      } else {
-        allowedDomains = ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
-      }
-
-      const userDomain = user.email.split('@')[1];
-
-      if (allowedDomains.length > 0 && !allowedDomains.includes(userDomain)) {
-          const errorMessage = "El dominio de su correo no está autorizado para registrarse.";
-          await signOut(auth);
-          setError(errorMessage);
-          toast({ variant: 'destructive', title: 'Registro no exitoso, usuario externo', description: errorMessage });
-          setGoogleLoading(false);
-          return;
-      }
-      
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) {
-        await setDoc(userDocRef, {
-          uid: user.uid,
-          name: user.displayName || 'Usuario de Google',
-          email: user.email,
-        });
-      }
-
-      router.push('/');
+      router.push('/selection');
 
     } catch (error: any) {
       let friendlyMessage = 'Ocurrió un error al iniciar sesión con Google.';
       if (error.code !== 'auth/cancelled-popup-request') {
         console.error("Google Sign-In Error: ", error);
-        setError(friendlyMessage);
-        toast({ variant: 'destructive', title: 'Error de acceso con Google', description: friendlyMessage });
+        setError(error.message || friendlyMessage);
+        toast({ variant: 'destructive', title: 'Error de acceso con Google', description: error.message || friendlyMessage });
+      }
+      // Sign out if domain check failed or any other error occurred after popup
+      if (auth.currentUser) {
+          await signOut(auth);
       }
     } finally {
       setGoogleLoading(false);
@@ -272,9 +272,6 @@ function LoginPageContent() {
               Regístrate
             </Link>
           </div>
-          <Button variant="link" className="w-full text-muted-foreground" onClick={() => router.push('/admin')}>
-            Acceso de Administrador
-          </Button>
         </CardContent>
       </Card>
     </div>
@@ -288,7 +285,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.push('/');
+      router.push('/selection');
     }
   }, [user, isLoading, router]);
 
@@ -302,5 +299,3 @@ export default function LoginPage() {
 
   return <LoginPageContent />;
 }
-
-    

@@ -14,6 +14,8 @@ import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, UserPlus, Mail, Lock, User as UserIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { type UserProfile } from '@/lib/types';
+
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -24,6 +26,32 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
       <path d="M12.28 7.39995C13.76 7.39995 14.96 7.88995 15.87 8.75995L19.58 5.08995C17.75 3.33995 15.27 2.39995 12.28 2.39995C8.13 2.39995 4.54 4.45995 2.74 7.78995L6.55 10.3199C7.43 7.99995 9.68 7.39995 12.28 7.39995Z" fill="#EA4335"/>
     </svg>
   );
+}
+
+async function checkAndCreateUserProfile(firestore: any, user: any, allowedDomains: string[]): Promise<boolean> {
+    if (!user.email) {
+        throw new Error("No se pudo obtener el email de la cuenta de Google.");
+    }
+    
+    const userDomain = user.email.split('@')[1];
+    
+    if (allowedDomains.length > 0 && !allowedDomains.includes(userDomain)) {
+        throw new Error("El dominio de su correo no está autorizado para registrarse.");
+    }
+
+    const userDocRef = doc(firestore, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists()) {
+        const newUserProfile: UserProfile = {
+            uid: user.uid,
+            name: user.displayName || 'Usuario',
+            email: user.email,
+            role: 'user', // Default role
+        };
+        await setDoc(userDocRef, newUserProfile);
+    }
+    return true;
 }
 
 function SignupPageContent() {
@@ -60,12 +88,7 @@ function SignupPageContent() {
         const configDocRef = doc(firestore, 'configuration', 'app');
         const configDoc = await getDoc(configDocRef);
         
-        let allowedDomains: string[] = [];
-        if (configDoc.exists()) {
-          allowedDomains = configDoc.data()?.allowedDomains || [];
-        } else {
-          allowedDomains = ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
-        }
+        const allowedDomains = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
 
         const userDomain = email.split('@')[1];
 
@@ -85,12 +108,13 @@ function SignupPageContent() {
         const user = userCredential.user;
         await updateProfile(user, { displayName: name });
       
-        const userDocRef = doc(firestore, 'users', user.uid);
-        await setDoc(userDocRef, {
+        const userProfile: UserProfile = {
             uid: user.uid,
             name: name,
             email: email,
-        });
+            role: 'user', // Default role for new sign-ups
+        };
+        await setDoc(doc(firestore, 'users', user.uid), userProfile);
 
         toast({
           title: '¡Cuenta Creada!',
@@ -99,7 +123,7 @@ function SignupPageContent() {
         
         await user.reload();
       
-        router.push('/');
+        router.push('/selection');
     } catch (err: any) {
       let friendlyMessage = 'Ocurrió un error al registrar la cuenta.';
       if (err.code === 'auth/email-already-in-use') {
@@ -132,60 +156,32 @@ function SignupPageContent() {
     setError(null);
 
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-
-      if (!user.email) {
-        throw new Error("No se pudo obtener el email de la cuenta de Google.");
-      }
-      
       const configDocRef = doc(firestore, 'configuration', 'app');
       const configDoc = await getDoc(configDocRef);
+      const allowedDomains = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
+
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      await checkAndCreateUserProfile(firestore, result.user, allowedDomains);
       
-      let allowedDomains: string[] = [];
-      if (configDoc.exists()) {
-        allowedDomains = configDoc.data()?.allowedDomains || [];
-      } else {
-        allowedDomains = ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
-      }
-
-      const userDomain = user.email.split('@')[1];
-
-      if (allowedDomains.length > 0 && !allowedDomains.includes(userDomain)) {
-          const errorMessage = "El dominio de su correo no está autorizado para registrarse.";
-          await signOut(auth);
-          setError(errorMessage);
-          toast({ variant: 'destructive', title: 'Registro no exitoso, usuario externo', description: errorMessage });
-          setGoogleLoading(false);
-          return;
-      }
-      
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) {
-        await setDoc(userDocRef, {
-          uid: user.uid,
-          name: user.displayName || 'Usuario de Google',
-          email: user.email,
-        });
-      }
-
       toast({
         title: '¡Cuenta Creada!',
         description: 'Hemos creado tu cuenta exitosamente con Google.'
       });
 
-      router.push('/');
+      router.push('/selection');
 
     } catch (error: any) {
       let friendlyMessage = 'Ocurrió un error al registrarse con Google.';
-      if (error.code !== 'auth/cancelled-popup-request') {
+       if (error.code !== 'auth/cancelled-popup-request') {
         console.error("Google Sign-Up Error: ", error);
-        setError(friendlyMessage);
-        toast({ variant: 'destructive', title: 'Error de registro con Google', description: friendlyMessage });
+        setError(error.message || friendlyMessage);
+        toast({ variant: 'destructive', title: 'Error de registro con Google', description: error.message || friendlyMessage });
       }
+       // Sign out if domain check failed or any other error occurred after popup
+       if (auth.currentUser) {
+          await signOut(auth);
+       }
     } finally {
       setGoogleLoading(false);
     }
@@ -270,7 +266,7 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.push('/');
+      router.push('/selection');
     }
   }, [user, isLoading, router]);
 
@@ -284,5 +280,3 @@ export default function SignupPage() {
 
   return <SignupPageContent />;
 }
-
-    

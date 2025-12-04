@@ -3,87 +3,61 @@
 
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, getDocs } from 'firebase/firestore';
-import { type Company, type Consumption } from '@/lib/types';
+import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { collection, query, getDocs, doc } from 'firebase/firestore';
+import { type Company, type Consumption, type UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDate, formatInTimeZone } from 'date-fns-tz';
 import { getTodayInMexicoCity } from '@/lib/utils';
-import { DollarSign, Users, BarChart, LogOut, Loader2, Lock, ArrowLeft, CalendarDays } from 'lucide-react';
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { DollarSign, Users, BarChart, LogOut, Loader2, CalendarDays, ShieldAlert, Home } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
-
-const ADMIN_PASSWORD = "super-secret-admin"; // In a real app, use a secure auth method
-
 export default function AdminDashboardPage() {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [password, setPassword] = useState('');
-    const [isAuthenticating, setIsAuthenticating] = useState(false);
-    const [error, setError] = useState('');
+    const { user, isLoading: userLoading } = useUser();
     const router = useRouter();
+    const { firestore } = useFirebase();
+
+    const userProfileRef = useMemoFirebase(() => 
+        firestore && user ? doc(firestore, `users/${user.uid}`) : null
+    , [firestore, user]);
+    const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
+
+    const isLoading = userLoading || profileLoading;
 
     useEffect(() => {
-        const adminAuth = sessionStorage.getItem('adminAuthenticated');
-        if (adminAuth === 'true') {
-            setIsAuthenticated(true);
+        if (!isLoading && !user) {
+            router.replace('/login');
         }
-    }, []);
+    }, [user, isLoading, router]);
 
-    const handlePasswordSubmit = () => {
-        setIsAuthenticating(true);
-        setError('');
-        // Simulate a network request
-        setTimeout(() => {
-            if (password === ADMIN_PASSWORD) {
-                sessionStorage.setItem('adminAuthenticated', 'true');
-                setIsAuthenticated(true);
-            } else {
-                setError('Contraseña incorrecta.');
-            }
-            setIsAuthenticating(false);
-        }, 500);
-    };
-
-    const handleLogout = () => {
-        sessionStorage.removeItem('adminAuthenticated');
-        setIsAuthenticated(false);
-        setPassword('');
-    }
-
-    if (!isAuthenticated) {
+    if (isLoading) {
         return (
+            <div className="flex h-screen w-full items-center justify-center">
+                <Loader2 className="h-10 w-10 animate-spin" />
+                <p className="ml-4 text-lg">Verificando acceso de administrador...</p>
+            </div>
+        );
+    }
+    
+    if (userProfile?.role !== 'admin') {
+         return (
             <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-                <Card className="w-full max-w-sm mx-4 shadow-xl">
+                <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
                     <CardHeader>
-                        <CardTitle className="text-2xl">Acceso de Administrador</CardTitle>
-                        <CardDescription>Ingrese la contraseña para ver el panel de administrador.</CardDescription>
+                        <CardTitle className="flex flex-col items-center gap-2">
+                            <ShieldAlert className="h-12 w-12 text-destructive" />
+                            Acceso Denegado
+                        </CardTitle>
+                        <CardDescription>No tiene los permisos necesarios para ver esta página.</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="relative">
-                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                           <Input
-                                type="password"
-                                placeholder="Contraseña"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
-                                className="pl-10 h-12 text-lg"
-                                disabled={isAuthenticating}
-                            />
-                        </div>
-                        {error && <p className="text-sm text-red-500">{error}</p>}
-                        <Button onClick={handlePasswordSubmit} className="w-full h-12 text-lg" disabled={isAuthenticating}>
-                            {isAuthenticating ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Verificando...</> : 'Entrar'}
-                        </Button>
-                        <Button variant="link" className="w-full" onClick={() => router.push('/login')}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Volver al inicio
+                    <CardContent>
+                        <Button onClick={() => router.push('/selection')} className="w-full">
+                            <Home className="mr-2 h-4 w-4" />
+                            Volver al Inicio
                         </Button>
                     </CardContent>
                 </Card>
@@ -91,15 +65,13 @@ export default function AdminDashboardPage() {
         );
     }
 
-    return <AdminDashboard onLogout={handleLogout} />;
+    return <AdminDashboard />;
 }
 
-interface AdminDashboardProps {
-    onLogout: () => void;
-}
 
-const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
+const AdminDashboard: FC = () => {
     const { firestore } = useFirebase();
+    const router = useRouter();
 
     const companiesQuery = useMemoFirebase(() =>
         firestore ? query(collection(firestore, 'companies')) : null
@@ -110,9 +82,7 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
     const [consumptionsLoading, setConsumptionsLoading] = useState(true);
 
     useEffect(() => {
-        if (!firestore || companiesLoading) {
-            return;
-        }
+        if (!firestore || !companies) return;
 
         const fetchAll = async () => {
             setConsumptionsLoading(true);
@@ -127,7 +97,7 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
             setConsumptionsLoading(false);
         };
         fetchAll();
-    }, [firestore, companies, companiesLoading]);
+    }, [firestore, companies]);
     
     const isLoading = companiesLoading || consumptionsLoading;
 
@@ -188,9 +158,9 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center py-4">
                         <Logo />
-                        <Button variant="outline" onClick={onLogout}>
-                            <LogOut className="mr-2 h-4 w-4" />
-                            Cerrar Sesión
+                        <Button variant="outline" onClick={() => router.push('/selection')}>
+                            <Home className="mr-2 h-4 w-4" />
+                            Volver al menú
                         </Button>
                     </div>
                 </div>
@@ -327,5 +297,3 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumption
         </div>
     );
 };
-
-    

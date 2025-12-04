@@ -212,7 +212,7 @@ function LoginPageContent() {
   };
 
   return (
-    <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
       <Card className="w-full max-w-md mx-4 shadow-xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
@@ -274,6 +274,9 @@ function LoginPageContent() {
           </div>
         </CardContent>
       </Card>
+      <p className="absolute bottom-4 text-sm text-muted-foreground">
+        © 2025 Vidana. All rights reserved.
+      </p>
     </div>
   );
 }
@@ -299,3 +302,5 @@ export default function LoginPage() {
 
   return <LoginPageContent />;
 }
+
+    

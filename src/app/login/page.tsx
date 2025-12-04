@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, type FC } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';

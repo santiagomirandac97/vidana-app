@@ -2,39 +2,31 @@
 'use client';
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore, DocumentReference, collection, doc, Query } from 'firebase/firestore';
+import { getFirestore, Firestore, DocumentReference, Query } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useCollection as useCollectionHook } from './firestore/use-collection';
 import { useDoc as useDocHook } from './firestore/use-doc';
-import { firebaseConfig } from './config'; // Import the hardcoded config
+import { firebaseConfig } from './config';
 import { useUser as useUserHook } from './auth/use-user';
+import { 
+  FirebaseProvider,
+  useFirebaseApp,
+  useFirestore,
+  useAuth,
+  useFirebase
+} from './provider';
+import { FirebaseClientProvider } from './client-provider';
 
-function getFirebaseApp(): FirebaseApp {
-    return getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-}
-
-interface FirebaseInstances {
-    app: FirebaseApp | null;
-    firestore: Firestore | null;
-    auth: Auth | null;
-}
-
-export function useFirebase(): FirebaseInstances {
-    const [instances, setInstances] = useState<FirebaseInstances>({ app: null, firestore: null, auth: null });
-
-    useEffect(() => {
-        const app = getFirebaseApp();
-        const firestore = getFirestore(app);
-        const auth = getAuth(app);
-        setInstances({ app, firestore, auth });
-    }, []);
-
-    return instances;
+export function initializeFirebase() {
+    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+    const firestore = getFirestore(app);
+    const auth = getAuth(app);
+    return { app, auth, firestore };
 }
 
 export function useMemoFirebase<T extends Query | DocumentReference>(queryFactory: () => T | null, deps: any[]): (T & { __memo?: boolean }) | null {
-    const { firestore } = useFirebase();
+    const firestore = useFirestore();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const memoizedQuery = useMemo(() => {
       if (!firestore) return null;
@@ -53,7 +45,12 @@ export const useCollection = useCollectionHook;
 export const useDoc = useDocHook;
 export const useUser = useUserHook;
 
-export const useAuth = () => {
-    const { auth } = useFirebase();
-    return auth;
-}
+// Re-exporting provider and context hooks
+export {
+  FirebaseProvider,
+  FirebaseClientProvider,
+  useFirebaseApp,
+  useFirestore,
+  useAuth,
+  useFirebase
+};

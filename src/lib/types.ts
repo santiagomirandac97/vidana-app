@@ -2,7 +2,7 @@
 export type Company = {
   id: string;
   name: string;
-  accessCode: string;
+  accessCode?: string; // Made optional as it's no longer primary login method
   mealPrice?: number;
 };
 

@@ -22,15 +22,17 @@ import {
   DollarSign,
   Save,
   Loader2,
+  ChevronLeft
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { DateRange } from 'react-day-picker';
-import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useDoc, useMemoFirebase, useUser, useAuth } from '@/firebase';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, query, where, orderBy, limit, getDocs, doc } from 'firebase/firestore';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
@@ -49,43 +51,65 @@ import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+
 
 export default function HomePage() {
-  const { app, firestore } = useFirebase();
+  const { user, isLoading: userLoading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, userLoading, router]);
+
+  if (userLoading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+         <p className="ml-3 text-lg">Verificando sesión...</p>
+      </div>
+    );
+  }
+
+  return <AppContent />;
+}
+
+function AppContent() {
+  const { firestore } = useFirebase();
+  const auth = useAuth();
   const router = useRouter();
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const [confirmationData, setConfirmationData] = useState<Consumption | null>(null);
   const [isConfirmationOpen, setConfirmationOpen] = useState(false);
   const [paymentDue, setPaymentDue] = useState<{employee: Employee, amount: number} | null>(null);
 
 
-  useEffect(() => {
-    const companyId = localStorage.getItem('companyId');
-    if (companyId) {
-      setSelectedCompanyId(companyId);
-      setIsLoading(false);
-    } else {
-      router.push('/login');
-    }
-  }, [router]);
+  const allCompaniesQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'companies'), orderBy('name')) : null,
+  [firestore]);
+  const { data: allCompanies, isLoading: companiesLoading } = useCollection<Company>(allCompaniesQuery);
 
   useEffect(() => {
-    if (app) {
-      const auth = getAuth(app);
-      signInAnonymously(auth)
-        .then(() => {
-          setIsAuthenticated(true);
-        })
-        .catch((error) => {
-          console.error("Anonymous auth failed:", error);
-        });
+    if (!selectedCompanyId && allCompanies && allCompanies.length > 0) {
+        const storedCompanyId = localStorage.getItem('selectedCompanyId');
+        if (storedCompanyId && allCompanies.some(c => c.id === storedCompanyId)) {
+            setSelectedCompanyId(storedCompanyId);
+        } else {
+            setSelectedCompanyId(allCompanies[0].id);
+        }
     }
-  }, [app]);
+  }, [allCompanies, selectedCompanyId]);
+  
+  useEffect(() => {
+    if (selectedCompanyId) {
+        localStorage.setItem('selectedCompanyId', selectedCompanyId);
+    }
+  }, [selectedCompanyId]);
 
   const companyDocRef = useMemoFirebase(() => 
     firestore && selectedCompanyId ? doc(firestore, `companies/${selectedCompanyId}`) : null
@@ -101,11 +125,6 @@ export default function HomePage() {
     firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc')) : null
   , [firestore, selectedCompanyId]);
   const { data: consumptions } = useCollection<Consumption>(consumptionsQuery);
-  
-  const allCompaniesQuery = useMemoFirebase(() => 
-    firestore ? collection(firestore, 'companies') : null,
-  [firestore]);
-  const { data: allCompanies } = useCollection<Company>(allCompaniesQuery);
 
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [nameSearch, setNameSearch] = useState('');
@@ -127,14 +146,18 @@ export default function HomePage() {
     setEmployeeNumber('');
     setNameSearch('');
     inputRef.current?.focus();
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setFeedback(null);
       setIsProcessing(false);
     }, 4000);
+    return () => clearTimeout(timer);
   };
 
   const proceedWithConsumption = (employee: Employee) => {
-    if (!firestore || !selectedCompanyId) return;
+    if (!firestore || !selectedCompanyId || isProcessing) return;
+    
+    // Final check to ensure we don't double process
+    if (isProcessing) return;
     setIsProcessing(true);
 
     const newConsumptionData: Omit<Consumption, 'id'> = {
@@ -262,10 +285,12 @@ export default function HomePage() {
     }
   };
   
-  const handleSignOut = () => {
-    localStorage.removeItem('companyId');
-    setSelectedCompanyId(null);
-    router.push('/login');
+  const handleSignOut = async () => {
+    if (auth) {
+        await signOut(auth);
+        localStorage.removeItem('selectedCompanyId');
+        router.push('/login');
+    }
   };
 
   const filteredEmployees = useMemo(() => {
@@ -277,10 +302,11 @@ export default function HomePage() {
     );
   }, [nameSearch, employees]);
 
-  if (isLoading || !isAuthenticated || !selectedCompanyId || !company) {
+  if (companiesLoading || !selectedCompanyId || !company || !allCompanies) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p>Cargando...</p>
+        <Loader2 className="h-8 w-8 animate-spin" />
+         <p className="ml-3 text-lg">Cargando datos de la empresa...</p>
       </div>
     );
   }
@@ -290,10 +316,23 @@ export default function HomePage() {
       <header className="flex justify-between items-center mb-8">
         <Logo />
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 h-12 px-4 border rounded-md bg-gray-100 dark:bg-gray-800">
-            <Building className="h-5 w-5 text-gray-500" />
-            <span className="text-lg font-medium">{company?.name}</span>
-          </div>
+             <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-12 w-48">
+                        <Building className="mr-2 h-5 w-5 text-gray-500" />
+                        <span className="text-lg font-medium mr-2 flex-1 text-left truncate">{company?.name}</span>
+                        <ChevronDown className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-48">
+                    {allCompanies.map(c => (
+                        <DropdownMenuItem key={c.id} onSelect={() => setSelectedCompanyId(c.id)}>
+                            {c.name}
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+             </DropdownMenu>
+
            <Button variant="outline" onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
             Cerrar Sesión
@@ -327,7 +366,7 @@ export default function HomePage() {
                       disabled={isProcessing}
                     />
                     <Button onClick={handleRegistrationByNumber} className="h-16 text-lg" disabled={isProcessing}>
-                       {isProcessing ? <><Loader2 className="h-6 w-6 mr-2 animate-spin" /> Procesando...</> : <><ChevronDown className="h-6 w-6 mr-2 rotate-90" /> Enviar</>}
+                       {isProcessing ? <><Loader2 className="h-6 w-6 mr-2 animate-spin" /> Procesando...</> : <><ChevronLeft className="h-6 w-6 mr-2 rotate-180" /> Enviar</>}
                     </Button>
                   </div>
                 </TabsContent>
@@ -347,7 +386,7 @@ export default function HomePage() {
                             <div className="p-4">
                                 {filteredEmployees.length > 0 ? (
                                     filteredEmployees.map((employee) => (
-                                    <div key={employee.id} onClick={() => registerConsumption(employee)} className="flex justify-between items-center p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                                    <div key={employee.id} onClick={() => !isProcessing && registerConsumption(employee)} className={cn("flex justify-between items-center p-3 rounded-md", isProcessing ? 'cursor-not-allowed text-muted-foreground' : 'hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer')}>
                                         <div>
                                             <p className="font-medium">{employee.name}</p>
                                             <p className="text-sm text-gray-500">#{employee.employeeNumber}</p>
@@ -505,7 +544,7 @@ const RecentConsumptionsCard: FC<{selectedCompanyId: string}> = ({ selectedCompa
                                     key={c.id}
                                     className={cn(
                                         "transition-colors duration-1000",
-                                        highlighted.includes(c.id!) ? 'bg-green-100 dark:bg-green-900/30' : ''
+                                        c.id && highlighted.includes(c.id) ? 'bg-green-100 dark:bg-green-900/30' : ''
                                     )}
                                 >
                                     <TableCell>{c.name}</TableCell>
@@ -1104,4 +1143,3 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions })
     </div>
   );
 };
-    

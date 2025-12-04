@@ -100,14 +100,13 @@
         }
       },
       "required": [
-        "name",
-        "accessCode"
+        "name"
       ]
     }
   },
   "auth": {
     "providers": [
-      "anonymous"
+      "email"
     ]
   },
   "firestore": {
@@ -131,5 +130,3 @@
     }
   }
 }
-
-    

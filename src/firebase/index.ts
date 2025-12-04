@@ -3,10 +3,12 @@
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore, DocumentReference, collection, doc, Query } from 'firebase/firestore';
+import { getAuth, Auth } from 'firebase/auth';
 import { useState, useEffect, useMemo } from 'react';
 import { useCollection as useCollectionHook } from './firestore/use-collection';
 import { useDoc as useDocHook } from './firestore/use-doc';
 import { firebaseConfig } from './config'; // Import the hardcoded config
+import { useUser as useUserHook } from './auth/use-user';
 
 function getFirebaseApp(): FirebaseApp {
     return getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
@@ -15,15 +17,17 @@ function getFirebaseApp(): FirebaseApp {
 interface FirebaseInstances {
     app: FirebaseApp | null;
     firestore: Firestore | null;
+    auth: Auth | null;
 }
 
 export function useFirebase(): FirebaseInstances {
-    const [instances, setInstances] = useState<FirebaseInstances>({ app: null, firestore: null });
+    const [instances, setInstances] = useState<FirebaseInstances>({ app: null, firestore: null, auth: null });
 
     useEffect(() => {
         const app = getFirebaseApp();
         const firestore = getFirestore(app);
-        setInstances({ app, firestore });
+        const auth = getAuth(app);
+        setInstances({ app, firestore, auth });
     }, []);
 
     return instances;
@@ -47,3 +51,9 @@ export function useMemoFirebase<T extends Query | DocumentReference>(queryFactor
 // Re-exporting the custom hooks
 export const useCollection = useCollectionHook;
 export const useDoc = useDocHook;
+export const useUser = useUserHook;
+
+export const useAuth = () => {
+    const { auth } = useFirebase();
+    return auth;
+}

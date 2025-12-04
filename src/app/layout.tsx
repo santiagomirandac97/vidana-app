@@ -6,6 +6,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { useFirebase } from "@/firebase";
+import { Loader2 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,12 +21,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { app, firestore } = useFirebase();
+  const { app, firestore, auth } = useFirebase();
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        {app && firestore ? children : <div className="flex h-screen items-center justify-center">Cargando...</div>}
+        {app && firestore && auth ? children : (
+          <div className="flex h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <p className="ml-3 text-lg">Cargando...</p>
+          </div>
+        )}
         <Toaster />
       </body>
     </html>

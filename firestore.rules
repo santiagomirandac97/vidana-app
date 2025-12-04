@@ -34,7 +34,7 @@ service cloud.firestore {
      */
     match /companies/{companyId} {
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add specific authorization logic if needed
+      allow create, update, delete: if request.auth != null; // TODO: Add specific authorization logic if needed
     }
 
     /**
@@ -47,10 +47,10 @@ service cloud.firestore {
      * @principle Enforces company-level authorization for employee data management.
      */
     match /companies/{companyId}/employees/{employeeId} {
-      allow get, list: if true;
-      allow create: if request.resource.data.companyId == companyId;
-      allow update: if true; // TODO: Add specific authorization logic if needed && resource != null;
-      allow delete: if true; // TODO: Add specific authorization logic if needed && resource != null;
+      allow get, list: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.companyId == companyId;
+      allow update: if request.auth != null; // TODO: Add specific authorization logic if needed && resource != null;
+      allow delete: if request.auth != null; // TODO: Add specific authorization logic if needed && resource != null;
     }
 
     /**
@@ -63,10 +63,36 @@ service cloud.firestore {
      * @principle Enforces company-level authorization for consumption data management.
      */
     match /companies/{companyId}/consumptions/{consumptionId} {
-      allow get, list: if true;
-      allow create: if request.resource.data.companyId == companyId;
-      allow update: if true; // TODO: Add specific authorization logic if needed && resource != null;
-      allow delete: if true; // TODO: Add specific authorization logic if needed && resource != null;
+      allow get, list: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.companyId == companyId;
+      allow update: if request.auth != null; // TODO: Add specific authorization logic if needed && resource != null;
+      allow delete: if request.auth != null; // TODO: Add specific authorization logic if needed && resource != null;
+    }
+
+    /**
+     * @description Rules for user profile documents.
+     * @path /users/{userId}
+     * @allow (read) - Any authenticated user can read any user's profile.
+     * @allow (create) - A user can create their own profile document.
+     * @allow (update) - A user can only update their own profile.
+     * @deny (delete) - No user can delete a profile.
+     */
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Rules for the application configuration document.
+     * @path /configuration/app
+     * @allow (read) - The app configuration is public and can be read by anyone.
+     * @deny (write) - The configuration can only be changed from the Firebase Console.
+     */
+    match /configuration/app {
+      allow get: if true;
+      allow list, create, update, delete: if false;
     }
   }
 }

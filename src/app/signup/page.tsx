@@ -4,8 +4,9 @@
 import { useState, useEffect, type FC } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,6 +17,7 @@ import { Separator } from '@/components/ui/separator';
 
 function SignupPageContent() {
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -25,14 +27,12 @@ function SignupPageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const allowedDomains = ['vidana.com.mx', 'blacktrust.net', 'activ8.com.mx'];
-
   const handleSignup = async () => {
     if (!name || !email || !password) {
       setError('Por favor, complete todos los campos.');
       return;
     }
-    if (!auth) {
+    if (!auth || !firestore) {
         setError('Servicio de autenticación no disponible.');
         return;
     }
@@ -41,33 +41,53 @@ function SignupPageContent() {
         return;
     }
 
-    const userDomain = email.split('@')[1];
-    if (!allowedDomains.includes(userDomain)) {
-        setError('El dominio de su correo electrónico no está autorizado para registrarse.');
-        toast({
-            variant: 'destructive',
-            title: 'Dominio no autorizado',
-            description: 'Solo se permiten registros con correos de dominios autorizados.',
-        });
-        return;
-    }
-
     setIsLoading(true);
     setError(null);
-
+    
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCredential.user, { displayName: name });
+        const configDocRef = doc(firestore, 'configuration', 'app');
+        const configDoc = await getDoc(configDocRef);
+
+        if (!configDoc.exists()) {
+            throw new Error("No se pudo cargar la configuración de la aplicación.");
+        }
+
+        const allowedDomains: string[] = configDoc.data()?.allowedDomains || [];
+        const userDomain = email.split('@')[1];
+
+        if (allowedDomains.length > 0 && !allowedDomains.includes(userDomain)) {
+            setError('El dominio de su correo electrónico no está autorizado para registrarse.');
+            toast({
+                variant: 'destructive',
+                title: 'Dominio no autorizado',
+                description: 'Solo se permiten registros con correos de dominios autorizados.',
+            });
+            setIsLoading(false);
+            return;
+        }
+
+
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        await updateProfile(user, { displayName: name });
       
-      toast({
+        // Create user profile in Firestore
+        const userDocRef = doc(firestore, 'users', user.uid);
+        await setDoc(userDocRef, {
+            uid: user.uid,
+            name: name,
+            email: email,
+        });
+
+        toast({
           title: '¡Cuenta Creada!',
           description: 'Hemos creado tu cuenta exitosamente. Serás redirigido.'
-      });
+        });
 
-      // Force reload user object
-      await userCredential.user.reload();
+        // Force reload user object
+        await user.reload();
       
-      router.push('/');
+        router.push('/');
     } catch (err: any) {
       let friendlyMessage = 'Ocurrió un error al registrar la cuenta.';
       if (err.code === 'auth/email-already-in-use') {
@@ -76,6 +96,9 @@ function SignupPageContent() {
         friendlyMessage = 'El formato del email no es válido.';
       } else if (err.code === 'auth/weak-password') {
         friendlyMessage = 'La contraseña es demasiado débil.';
+      } else {
+        console.error(err);
+        friendlyMessage = err.message;
       }
        setError(friendlyMessage);
        toast({

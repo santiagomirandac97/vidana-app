@@ -48,15 +48,7 @@ function SignupPageContent() {
         const configDocRef = doc(firestore, 'configuration', 'app');
         const configDoc = await getDoc(configDocRef);
 
-        let allowedDomains: string[] = [];
-        // If the config document exists in Firestore, use its domains.
-        // Otherwise, use the hardcoded fallback list.
-        if (configDoc.exists()) {
-            allowedDomains = configDoc.data()?.allowedDomains || [];
-        } else {
-            // Fallback for when the configuration is not yet in the database.
-            allowedDomains = ['vidana.com.mx', 'blacktrust.net', 'activ8.com.mx'];
-        }
+        const allowedDomains: string[] = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : [];
 
         const userDomain = email.split('@')[1];
 

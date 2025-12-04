@@ -24,6 +24,8 @@ function SignupPageContent() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const allowedDomains = ['vidana.com.mx', 'blacktrust.net', 'activ8.com.mx'];
 
   const handleSignup = async () => {
     if (!name || !email || !password) {
@@ -36,6 +38,17 @@ function SignupPageContent() {
     }
     if (password.length < 6) {
         setError('La contraseña debe tener al menos 6 caracteres.');
+        return;
+    }
+
+    const userDomain = email.split('@')[1];
+    if (!allowedDomains.includes(userDomain)) {
+        setError('El dominio de su correo electrónico no está autorizado para registrarse.');
+        toast({
+            variant: 'destructive',
+            title: 'Dominio no autorizado',
+            description: 'Solo se permiten registros con correos de dominios autorizados.',
+        });
         return;
     }
 

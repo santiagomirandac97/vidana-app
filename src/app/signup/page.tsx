@@ -48,11 +48,7 @@ function SignupPageContent() {
         const configDocRef = doc(firestore, 'configuration', 'app');
         const configDoc = await getDoc(configDocRef);
 
-        if (!configDoc.exists()) {
-            throw new Error("No se pudo cargar la configuración de la aplicación.");
-        }
-
-        const allowedDomains: string[] = configDoc.data()?.allowedDomains || [];
+        const allowedDomains: string[] = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : [];
         const userDomain = email.split('@')[1];
 
         if (allowedDomains.length > 0 && !allowedDomains.includes(userDomain)) {

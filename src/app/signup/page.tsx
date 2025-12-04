@@ -56,11 +56,12 @@ function SignupPageContent() {
         const userDomain = email.split('@')[1];
 
         if (allowedDomains.length > 0 && !allowedDomains.includes(userDomain)) {
-            setError('El dominio de su correo electrónico no está autorizado para registrarse.');
+            const errorMessage = 'Registro no exitoso, usuario externo';
+            setError(errorMessage);
             toast({
                 variant: 'destructive',
-                title: 'Dominio no autorizado',
-                description: 'Solo se permiten registros con correos de dominios autorizados.',
+                title: 'Registro no exitoso',
+                description: "El dominio de su correo no está autorizado para registrarse.",
             });
             setIsLoading(false);
             return;

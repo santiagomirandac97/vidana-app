@@ -110,25 +110,29 @@ const AdminDashboard: FC<AdminDashboardProps> = ({ onLogout }) => {
     const [consumptionsLoading, setConsumptionsLoading] = useState(true);
 
     useEffect(() => {
-        if (firestore && companies && companies.length > 0) {
-            const fetchAll = async () => {
-                setConsumptionsLoading(true);
+        if (!firestore || companiesLoading) {
+            return;
+        }
+
+        const fetchAll = async () => {
+            setConsumptionsLoading(true);
+            if (companies && companies.length > 0) {
                 const promises = companies.map(c => getDocs(query(collection(firestore, `companies/${c.id}/consumptions`))));
                 const results = await Promise.all(promises);
                 const combined = results.flatMap(snapshot => snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Consumption)));
                 setAllConsumptions(combined);
-                setConsumptionsLoading(false);
-            };
-            fetchAll();
-        } else if (!companiesLoading) {
+            } else {
+                setAllConsumptions([]);
+            }
             setConsumptionsLoading(false);
-        }
+        };
+        fetchAll();
     }, [firestore, companies, companiesLoading]);
     
     const isLoading = companiesLoading || consumptionsLoading;
 
     const statsByCompany = useMemo(() => {
-        if (isLoading || !companies || !allConsumptions) return [];
+        if (isLoading || !companies) return [];
         const today = getTodayInMexicoCity();
         const now = new Date();
         const currentMonth = now.getMonth();

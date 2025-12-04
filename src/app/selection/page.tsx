@@ -94,7 +94,7 @@ export default function SelectionPage() {
                 className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-accent dark:hover:border-accent hover:bg-accent/5 dark:hover:bg-accent/10 transition-all duration-300"
             >
                 <Shield className="h-16 w-16 mb-4 text-accent transition-transform duration-300 group-hover:scale-110" />
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Panel de Admin</h3>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Admin</h3>
                 <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Ver estadísticas y reportes generales.</p>
             </button>
         </CardContent>

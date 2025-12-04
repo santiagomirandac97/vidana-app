@@ -86,7 +86,7 @@ export default function SelectionPage() {
                 className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
             >
                 <Briefcase className="h-16 w-16 mb-4 text-primary transition-transform duration-300 group-hover:scale-110" />
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">App Principal</h3>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Registros</h3>
                 <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Registrar consumos y gestionar empleados.</p>
             </button>
             <button

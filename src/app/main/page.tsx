@@ -22,7 +22,8 @@ import {
   DollarSign,
   Save,
   Loader2,
-  ChevronLeft
+  ChevronLeft,
+  Home
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -32,12 +33,12 @@ import { DateRange } from 'react-day-picker';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, useUser, useAuth } from '@/firebase';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, query, where, orderBy, limit, getDocs, doc } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+import { signOut, type User } from 'firebase/auth';
 import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 
-import { type Company, type Employee, type Consumption } from '@/lib/types';
+import { type Company, type Employee, type Consumption, type UserProfile } from '@/lib/types';
 import { cn, exportToCsv, getTodayInMexicoCity, formatTimestamp } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,13 +74,19 @@ export default function MainPage() {
     );
   }
 
-  return <AppContent />;
+  return <AppContent user={user} />;
 }
 
-function AppContent() {
+function AppContent({ user }: { user: User }) {
   const { firestore } = useFirebase();
   const auth = useAuth();
   const router = useRouter();
+
+  const userProfileRef = useMemoFirebase(() => 
+    firestore && user ? doc(firestore, `users/${user.uid}`) : null,
+    [firestore, user]
+  );
+  const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -302,7 +309,7 @@ function AppContent() {
     );
   }, [nameSearch, employees]);
 
-  if (companiesLoading || !selectedCompanyId || !company || !allCompanies) {
+  if (companiesLoading || profileLoading || !selectedCompanyId || !company || !allCompanies) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -333,6 +340,12 @@ function AppContent() {
                 </DropdownMenuContent>
              </DropdownMenu>
 
+            {userProfile?.role === 'admin' && (
+                <Button variant="outline" onClick={() => router.push('/selection')}>
+                    <Home className="mr-2 h-4 w-4" />
+                    Volver al menú
+                </Button>
+            )}
            <Button variant="outline" onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
             Cerrar Sesión

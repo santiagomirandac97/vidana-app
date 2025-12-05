@@ -120,15 +120,47 @@ const AdminDashboard: FC = () => {
             
             let mealPrice = company.mealPrice || 0;
             if (mealPrice === 0) {
-              if (company.name.toLowerCase().includes('inditex')) {
+              if (company.name?.toLowerCase().includes('inditex')) {
                 mealPrice = 115;
-              } else if (company.name.toLowerCase().includes('axo')) {
+              } else if (company.name?.toLowerCase().includes('axo')) {
                 mealPrice = 160;
               }
             }
-            
-            const dailyRevenue = todayConsumptions.length * mealPrice;
-            const monthlyRevenue = monthlyConsumptions.length * mealPrice;
+
+            let dailyRevenue = todayConsumptions.length * mealPrice;
+            let monthlyRevenue = monthlyConsumptions.length * mealPrice;
+
+            // Specific logic for Grupo Axo revenue
+            if (company.name?.toLowerCase().includes('axo')) {
+                const todayDate = toDate(today, { timeZone: 'America/Mexico_City' });
+                const dayOfWeek = todayDate.getDay(); // Sunday = 0, Monday = 1...
+                const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4; // Monday to Thursday
+
+                if (isChargeableDay) {
+                    const dailyTarget = 300;
+                    dailyRevenue = Math.max(todayConsumptions.length, dailyTarget) * mealPrice;
+                } else {
+                    dailyRevenue = 0; // No revenue on Fri, Sat, Sun
+                }
+                
+                // Calculate monthly revenue based on daily logic
+                const monthlyConsumptionsByDay: { [key: string]: number } = {};
+                monthlyConsumptions.forEach(c => {
+                    const day = formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd');
+                    monthlyConsumptionsByDay[day] = (monthlyConsumptionsByDay[day] || 0) + 1;
+                });
+                
+                monthlyRevenue = Object.entries(monthlyConsumptionsByDay).reduce((total, [day, count]) => {
+                    const date = toDate(day, { timeZone: 'America/Mexico_City' });
+                    const dayOfWeek = date.getDay();
+                    const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4;
+                    
+                    if (isChargeableDay) {
+                        return total + (Math.max(count, 300) * mealPrice);
+                    }
+                    return total;
+                }, 0);
+            }
 
             return {
                 ...company,
@@ -222,13 +254,13 @@ const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
                     </div>
                 </div>
 
-                {companyStats.name.toLowerCase().includes('inditex') && (
+                {companyStats.name?.toLowerCase().includes('inditex') && (
                     <p className="text-xs text-center text-muted-foreground italic">
                         Solo se contabilizan comidas por nómina
                     </p>
                 )}
                 
-                {companyStats.name.toLowerCase().includes('axo') && currentMonth === 10 && ( // 10 is November
+                {companyStats.name?.toLowerCase().includes('axo') && currentMonth === 10 && ( // 10 is November
                     <p className="text-xs text-center text-muted-foreground italic">
                         No se tiene registro completo de Noviembre
                     </p>
@@ -237,33 +269,56 @@ const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
 
                 <div className="space-y-2">
                      <h4 className="font-semibold text-sm">Tendencia de Consumo</h4>
-                     <MiniConsumptionChart consumptions={companyStats.consumptions} />
+                     <MiniConsumptionChart 
+                        consumptions={companyStats.consumptions}
+                        isGrupoAxo={companyStats.name?.toLowerCase().includes('axo')}
+                      />
                 </div>
             </CardContent>
         </Card>
     )
 }
 
-const MiniConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions }) => {
+const MiniConsumptionChart: FC<{ consumptions: Consumption[]; isGrupoAxo?: boolean }> = ({ consumptions, isGrupoAxo }) => {
     const chartData = useMemo(() => {
-        const dailyConsumptions: { [key: string]: number } = {};
+        const dailyConsumptions: { [key: string]: { total: number; missing: number } } = {};
         const timeZone = 'America/Mexico_City';
+        const dailyTarget = 300;
 
         consumptions.forEach(c => {
             if (!c.voided) {
                 const day = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
-                dailyConsumptions[day] = (dailyConsumptions[day] || 0) + 1;
+                if (!dailyConsumptions[day]) {
+                    dailyConsumptions[day] = { total: 0, missing: 0 };
+                }
+                dailyConsumptions[day].total++;
             }
         });
+
+        if (isGrupoAxo) {
+            Object.keys(dailyConsumptions).forEach(day => {
+                const date = toDate(day, { timeZone });
+                const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon...
+                const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4;
+                
+                if (isChargeableDay) {
+                    const count = dailyConsumptions[day].total;
+                    dailyConsumptions[day].missing = Math.max(0, dailyTarget - count);
+                } else {
+                    dailyConsumptions[day].missing = 0;
+                }
+            });
+        }
 
         const sortedDays = Object.keys(dailyConsumptions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
         const last7Days = sortedDays.slice(0, 7).reverse();
 
         return last7Days.map(day => ({
             name: format(toDate(day, { timeZone }), 'MMM dd', { locale: es }),
-            total: dailyConsumptions[day],
+            total: dailyConsumptions[day].total,
+            missing: dailyConsumptions[day].missing,
         }));
-    }, [consumptions]);
+    }, [consumptions, isGrupoAxo]);
 
     if (chartData.length === 0) {
         return (
@@ -290,10 +345,20 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumption
                             padding: '6px'
                         }}
                         labelStyle={{ fontWeight: 'bold' }}
+                        formatter={(value, name) => {
+                            if (name === 'total') return [value, 'Registrados'];
+                            if (name === 'missing') return [value, 'Faltantes'];
+                            return [value, name];
+                        }}
                     />
-                    <Bar dataKey="total" fill="hsl(var(--primary))" name="Consumos" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="total" stackId="a" fill="hsl(var(--primary))" name="Consumos" radius={isGrupoAxo ? [0,0,0,0] : [4, 4, 0, 0]} />
+                    {isGrupoAxo && (
+                        <Bar dataKey="missing" stackId="a" fill="hsl(var(--primary) / 0.3)" name="Faltantes" radius={[4, 4, 0, 0]} />
+                    )}
                 </RechartsBarChart>
             </ResponsiveContainer>
         </div>
     );
 };
+
+    

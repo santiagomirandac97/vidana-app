@@ -276,7 +276,7 @@ function AppContent({ user }: { user: User }) {
           resetInputAndFeedback();
           return;
         };
-        const newEmployee = { ...newEmployeeData, id: docRef.id };
+        const newEmployee: Employee = { ...newEmployeeData, id: docRef.id };
         // We call proceed directly, bypassing the checks in registerConsumption
         proceedWithConsumption(newEmployee); 
     });

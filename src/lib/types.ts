@@ -2,8 +2,10 @@
 export type Company = {
   id: string;
   name: string;
-  accessCode?: string; // Made optional as it's no longer primary login method
+  accessCode?: string;
   mealPrice?: number;
+  dailyTarget?: number;
+  billingNote?: string;
 };
 
 export interface Employee {

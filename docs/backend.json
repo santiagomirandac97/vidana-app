@@ -124,7 +124,7 @@
     "Company": {
       "title": "Company",
       "type": "object",
-      "description": "Represents the company (Inditex, Grupo Axo).",
+      "description": "Represents the company (e.g., Inditex, Grupo Axo, Noticieros).",
       "properties": {
         "name": {
           "type": "string",
@@ -137,6 +137,14 @@
         "mealPrice": {
           "type": "number",
           "description": "The price per meal for this company."
+        },
+        "dailyTarget": {
+          "type": "number",
+          "description": "The daily meal target for special billing calculations (e.g., 300 for Grupo Axo)."
+        },
+        "billingNote": {
+          "type": "string",
+          "description": "A note displayed on the admin card to explain special billing rules."
         }
       },
       "required": [

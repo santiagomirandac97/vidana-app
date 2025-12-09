@@ -109,6 +109,7 @@ const AdminDashboard: FC = () => {
         const currentYear = now.getFullYear();
 
         return companies.map(company => {
+            const companyName = company.name || 'Empresa sin nombre';
             const companyConsumptions = allConsumptions.filter(c => c.companyId === company.id && !c.voided);
             
             const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd') === today);
@@ -118,32 +119,25 @@ const AdminDashboard: FC = () => {
                 return consumptionDate.getMonth() === currentMonth && consumptionDate.getFullYear() === currentYear;
             });
             
-            let mealPrice = company.mealPrice || 0;
-            if (mealPrice === 0) {
-              if (company.name?.toLowerCase().includes('inditex')) {
-                mealPrice = 115;
-              } else if (company.name?.toLowerCase().includes('axo')) {
-                mealPrice = 160;
-              }
-            }
+            const mealPrice = company.mealPrice || 0;
+            const dailyTarget = company.dailyTarget || 0;
 
             let dailyRevenue = todayConsumptions.length * mealPrice;
             let monthlyRevenue = monthlyConsumptions.length * mealPrice;
-
-            // Specific logic for Grupo Axo revenue
-            if (company.name?.toLowerCase().includes('axo')) {
+            
+            // Logic for companies with a daily target
+            if (dailyTarget > 0) {
                 const todayDate = toDate(today, { timeZone: 'America/Mexico_City' });
                 const dayOfWeek = todayDate.getDay(); // Sunday = 0, Monday = 1...
                 const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4; // Monday to Thursday
 
                 if (isChargeableDay) {
-                    const dailyTarget = 300;
                     dailyRevenue = Math.max(todayConsumptions.length, dailyTarget) * mealPrice;
                 } else {
-                    dailyRevenue = 0; // No revenue on Fri, Sat, Sun
+                    dailyRevenue = 0; // No revenue on Fri, Sat, Sun for targeted companies
                 }
-                
-                // Calculate monthly revenue based on daily logic
+
+                // Calculate monthly revenue based on daily logic for targeted companies
                 const monthlyConsumptionsByDay: { [key: string]: number } = {};
                 monthlyConsumptions.forEach(c => {
                     const day = formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd');
@@ -156,7 +150,7 @@ const AdminDashboard: FC = () => {
                     const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4;
                     
                     if (isChargeableDay) {
-                        return total + (Math.max(count, 300) * mealPrice);
+                        return total + (Math.max(count, dailyTarget) * mealPrice);
                     }
                     return total;
                 }, 0);
@@ -164,12 +158,14 @@ const AdminDashboard: FC = () => {
 
             return {
                 ...company,
+                name: companyName,
                 consumptions: companyConsumptions,
                 todayCount: todayConsumptions.length,
                 dailyRevenue,
                 monthlyCount: monthlyConsumptions.length,
                 monthlyRevenue,
                 mealPrice,
+                dailyTarget,
             };
         });
     }, [companies, allConsumptions, isLoading]);
@@ -217,12 +213,11 @@ interface CompanyStatCardProps {
         monthlyCount: number;
         monthlyRevenue: number;
         mealPrice: number;
+        dailyTarget: number;
     };
 }
 
 const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
-    const currentMonth = new Date().getMonth(); // 0-11 (Jan-Dec)
-
     return (
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
             <CardHeader>
@@ -254,24 +249,17 @@ const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
                     </div>
                 </div>
 
-                {companyStats.name?.toLowerCase().includes('inditex') && (
+                {companyStats.billingNote && (
                     <p className="text-xs text-center text-muted-foreground italic">
-                        Solo se contabilizan comidas por nómina
+                        {companyStats.billingNote}
                     </p>
                 )}
                 
-                {companyStats.name?.toLowerCase().includes('axo') && currentMonth === 10 && ( // 10 is November
-                    <p className="text-xs text-center text-muted-foreground italic">
-                        No se tiene registro completo de Noviembre
-                    </p>
-                )}
-
-
                 <div className="space-y-2">
                      <h4 className="font-semibold text-sm">Tendencia de Consumo</h4>
                      <MiniConsumptionChart 
                         consumptions={companyStats.consumptions}
-                        isGrupoAxo={companyStats.name?.toLowerCase().includes('axo')}
+                        dailyTarget={companyStats.dailyTarget}
                       />
                 </div>
             </CardContent>
@@ -279,11 +267,10 @@ const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
     )
 }
 
-const MiniConsumptionChart: FC<{ consumptions: Consumption[]; isGrupoAxo?: boolean }> = ({ consumptions, isGrupoAxo }) => {
+const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: number }> = ({ consumptions, dailyTarget }) => {
     const chartData = useMemo(() => {
         const dailyConsumptions: { [key: string]: { total: number; missing: number } } = {};
         const timeZone = 'America/Mexico_City';
-        const dailyTarget = 300;
 
         consumptions.forEach(c => {
             if (!c.voided) {
@@ -294,8 +281,9 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[]; isGrupoAxo?: boole
                 dailyConsumptions[day].total++;
             }
         });
-
-        if (isGrupoAxo) {
+        
+        const hasTarget = dailyTarget > 0;
+        if (hasTarget) {
             Object.keys(dailyConsumptions).forEach(day => {
                 const date = toDate(day, { timeZone });
                 const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon...
@@ -318,7 +306,7 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[]; isGrupoAxo?: boole
             total: dailyConsumptions[day].total,
             missing: dailyConsumptions[day].missing,
         }));
-    }, [consumptions, isGrupoAxo]);
+    }, [consumptions, dailyTarget]);
 
     if (chartData.length === 0) {
         return (
@@ -328,6 +316,8 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[]; isGrupoAxo?: boole
             </div>
         );
     }
+    
+    const showMissing = dailyTarget > 0;
 
     return (
         <div className="h-48">
@@ -347,18 +337,16 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[]; isGrupoAxo?: boole
                         labelStyle={{ fontWeight: 'bold' }}
                         formatter={(value, name) => {
                             if (name === 'total') return [value, 'Registrados'];
-                            if (name === 'missing') return [value, 'Faltantes'];
+                            if (name === 'missing') return [value, 'Faltantes para Objetivo'];
                             return [value, name];
                         }}
                     />
-                    <Bar dataKey="total" stackId="a" fill="hsl(var(--primary))" name="Consumos" radius={isGrupoAxo ? [0,0,0,0] : [4, 4, 0, 0]} />
-                    {isGrupoAxo && (
-                        <Bar dataKey="missing" stackId="a" fill="hsl(var(--primary) / 0.3)" name="Faltantes" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="total" stackId="a" fill="hsl(var(--primary))" name="Consumos" radius={showMissing ? [0,0,0,0] : [4, 4, 0, 0]} />
+                    {showMissing && (
+                        <Bar dataKey="missing" stackId="a" fill="hsl(var(--primary) / 0.3)" name="Faltantes para Objetivo" radius={[4, 4, 0, 0]} />
                     )}
                 </RechartsBarChart>
             </ResponsiveContainer>
         </div>
     );
 };
-
-    

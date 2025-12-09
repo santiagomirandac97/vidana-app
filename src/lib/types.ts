@@ -36,3 +36,8 @@ export interface UserProfile {
     email: string;
     role: 'admin' | 'user';
 }
+
+export interface AppConfiguration {
+    id?: string;
+    allowedDomains: string[];
+}

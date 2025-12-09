@@ -1,6 +1,46 @@
 
 {
   "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "type": "object",
+      "description": "Represents a user's profile information.",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user's unique ID from Firebase Authentication."
+        },
+        "name": {
+          "type": "string",
+          "description": "The user's full name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The user's role in the application.",
+          "enum": ["admin", "user"]
+        }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "AppConfiguration": {
+        "title": "App Configuration",
+        "type": "object",
+        "description": "Stores application-level configuration.",
+        "properties": {
+            "allowedDomains": {
+                "type": "array",
+                "description": "List of email domains allowed for user registration.",
+                "items": {
+                    "type": "string"
+                }
+            }
+        }
+    },
     "Employee": {
       "title": "Employee",
       "type": "object",
@@ -34,6 +74,10 @@
         "paymentAmount": {
           "type": "number",
           "description": "The amount the employee has to pay for a meal."
+        },
+        "voided": {
+            "type": "boolean",
+            "description": "Indicates whether the employee record has been voided/archived."
         }
       },
       "required": [
@@ -84,7 +128,7 @@
     "Company": {
       "title": "Company",
       "type": "object",
-      "description": "Represents the company (Inditex, Grupo Axo).",
+      "description": "Represents the company (e.g., Inditex, Grupo Axo, Noticieros).",
       "properties": {
         "name": {
           "type": "string",
@@ -97,6 +141,14 @@
         "mealPrice": {
           "type": "number",
           "description": "The price per meal for this company."
+        },
+        "dailyTarget": {
+          "type": "number",
+          "description": "The daily meal target for special billing calculations (e.g., 300 for Grupo Axo)."
+        },
+        "billingNote": {
+          "type": "string",
+          "description": "A note displayed on the admin card to explain special billing rules."
         }
       },
       "required": [
@@ -106,7 +158,8 @@
   },
   "auth": {
     "providers": [
-      "email"
+      "email",
+      "google"
     ]
   },
   "firestore": {
@@ -127,6 +180,18 @@
         "$ref": "#/entities/Consumption"
       },
       "description": "Stores consumption records for each company."
+    },
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Stores public user profile information, including their role."
+    },
+    "/configuration/app": {
+        "schema": {
+            "$ref": "#/entities/AppConfiguration"
+        },
+        "description": "Stores global application settings, like allowed domains."
     }
   }
 }

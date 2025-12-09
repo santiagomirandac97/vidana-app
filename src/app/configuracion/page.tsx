@@ -6,19 +6,19 @@ import { useRouter } from 'next/navigation';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc, useAuth } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, query, doc, orderBy } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
-import { type Company, type UserProfile, type AppConfiguration } from '@/lib/types';
+import { type Company, type UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ShieldAlert, Home, LogOut, Building, PlusCircle, Trash2, Edit } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, PlusCircle, Edit } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
 // Zod schema for company form validation
@@ -87,6 +87,8 @@ const ConfiguracionDashboard: FC = () => {
     const router = useRouter();
     const { toast } = useToast();
 
+    const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+
     const companiesQuery = useMemoFirebase(() =>
         firestore ? query(collection(firestore, 'companies'), orderBy('name')) : null
     , [firestore]);
@@ -120,6 +122,26 @@ const ConfiguracionDashboard: FC = () => {
             });
         }
     };
+    
+    const handleUpdateCompany = async (companyId: string, data: CompanyFormData) => {
+        if (!firestore) return;
+        try {
+            const companyDocRef = doc(firestore, 'companies', companyId);
+            await updateDocumentNonBlocking(companyDocRef, data);
+            toast({
+                title: 'Empresa Actualizada',
+                description: 'Los datos de la empresa han sido guardados.',
+            });
+            setEditingCompany(null);
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error al actualizar',
+                description: error.message || 'Ocurrió un error inesperado.',
+            });
+        }
+    };
+
 
     return (
         <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
@@ -165,7 +187,7 @@ const ConfiguracionDashboard: FC = () => {
                                                 <FormItem>
                                                     <FormLabel>Precio de Comida</FormLabel>
                                                     <FormControl>
-                                                        <Input type="number" placeholder="0.00" {...field} />
+                                                        <Input type="number" step="0.01" placeholder="0.00" {...field} />
                                                     </FormControl>
                                                     <FormMessage />
                                                 </FormItem>
@@ -228,6 +250,7 @@ const ConfiguracionDashboard: FC = () => {
                                                 <TableHead className="text-right">Precio Comida</TableHead>
                                                 <TableHead className="text-right">Objetivo Diario</TableHead>
                                                 <TableHead>Nota Facturación</TableHead>
+                                                <TableHead className="text-right">Acciones</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -237,6 +260,11 @@ const ConfiguracionDashboard: FC = () => {
                                                     <TableCell className="text-right">${(company.mealPrice || 0).toFixed(2)}</TableCell>
                                                     <TableCell className="text-right">{company.dailyTarget || 'N/A'}</TableCell>
                                                     <TableCell className="text-xs text-muted-foreground">{company.billingNote || 'N/A'}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button variant="ghost" size="icon" onClick={() => setEditingCompany(company)}>
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -247,7 +275,128 @@ const ConfiguracionDashboard: FC = () => {
                     </div>
                 </div>
             </main>
+            {editingCompany && (
+                 <EditCompanyDialog
+                    company={editingCompany}
+                    isOpen={!!editingCompany}
+                    onClose={() => setEditingCompany(null)}
+                    onSave={handleUpdateCompany}
+                />
+            )}
         </div>
     );
 };
 
+interface EditCompanyDialogProps {
+    company: Company;
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (companyId: string, data: CompanyFormData) => void;
+}
+
+const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClose, onSave }) => {
+    const form = useForm<CompanyFormData>({
+        resolver: zodResolver(companySchema),
+        defaultValues: {
+            name: company.name || '',
+            mealPrice: company.mealPrice || 0,
+            dailyTarget: company.dailyTarget || 0,
+            billingNote: company.billingNote || '',
+        },
+    });
+
+    useEffect(() => {
+        form.reset({
+            name: company.name || '',
+            mealPrice: company.mealPrice || 0,
+            dailyTarget: company.dailyTarget || 0,
+            billingNote: company.billingNote || '',
+        });
+    }, [company, form]);
+
+    const handleSave = (data: CompanyFormData) => {
+        onSave(company.id, data);
+    };
+
+    return (
+         <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Editar Empresa</DialogTitle>
+                    <DialogDescription>Modifique los detalles de {company.name}.</DialogDescription>
+                </DialogHeader>
+                 <Form {...form}>
+                    <form onSubmit={form.handleSubmit(handleSave)} className="space-y-6 pt-4">
+                        <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Nombre de la Empresa</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Ej., Nueva Empresa S.A." {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="mealPrice"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Precio de Comida</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="dailyTarget"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Objetivo Diario de Comidas (Opcional)</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="Ej., 300" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="billingNote"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Nota de Facturación (Opcional)</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="Ej., Se cobra un mínimo de 300 comidas de L-J." {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <DialogFooter>
+                            <DialogClose asChild>
+                                <Button type="button" variant="ghost">Cancelar</Button>
+                            </DialogClose>
+                            <Button type="submit" disabled={form.formState.isSubmitting}>
+                                {form.formState.isSubmitting ? (
+                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...</>
+                                ) : (
+                                    <>Guardar Cambios</>
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+
+    

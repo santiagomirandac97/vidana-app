@@ -7,7 +7,6 @@ import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, query, doc, orderBy } from 'firebase/firestore';
 import { type Company, type UserProfile, type MenuItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -22,6 +21,8 @@ import { Loader2, ShieldAlert, Home, PlusCircle, Edit, Utensils, Trash2 } from '
 import { Logo } from '@/components/logo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { addDoc, deleteDoc } from 'firebase/firestore';
+
 
 // Zod schema for company form validation
 const companySchema = z.object({
@@ -157,7 +158,7 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
         };
 
         const companiesCollection = collection(firestore, 'companies');
-        addDocumentNonBlocking(companiesCollection, dataToSave)
+        addDoc(companiesCollection, dataToSave)
             .then(() => {
                 toast({ title: 'Empresa Creada', description: `La empresa "${data.name}" ha sido añadida exitosamente.` });
                 form.reset();
@@ -250,7 +251,7 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
     const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
 
     const menuItemsQuery = useMemoFirebase(() => 
-        firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/menuItems`), orderBy('category'), orderBy('name')) : null
+        firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/menuItems`), orderBy('name')) : null
     , [firestore, selectedCompanyId]);
     const { data: menuItems, isLoading: menuItemsLoading } = useCollection<MenuItem>(menuItemsQuery);
 
@@ -265,10 +266,10 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
             return;
         }
 
-        const dataToSave = { ...data, companyId: selectedCompanyId };
+        const dataToSave: Omit<MenuItem, 'id'> = { ...data, companyId: selectedCompanyId };
         const menuItemsCollection = collection(firestore, `companies/${selectedCompanyId}/menuItems`);
 
-        addDocumentNonBlocking(menuItemsCollection, dataToSave)
+        addDoc(menuItemsCollection, dataToSave)
             .then(() => {
                 toast({ title: 'Producto Añadido', description: `"${data.name}" fue añadido al menú.` });
                 form.reset();
@@ -281,7 +282,7 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
     const handleDeleteMenuItem = async (itemId: string) => {
          if (!firestore || !selectedCompanyId) return;
          const itemDocRef = doc(firestore, `companies/${selectedCompanyId}/menuItems`, itemId);
-         deleteDocumentNonBlocking(itemDocRef)
+         deleteDoc(itemDocRef)
             .then(() => {
                 toast({ title: 'Producto Eliminado', description: 'El producto fue eliminado del menú.' });
             })

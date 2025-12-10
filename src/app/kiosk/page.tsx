@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, where, doc, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, doc, getDocs, orderBy, limit } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { type Company, type Employee, type UserProfile, type MenuItem, type OrderItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -284,7 +284,7 @@ const KioskDashboard: FC = () => {
 // Sub-components for Kiosk
 const EmployeeSelector: FC<{ employees: Employee[], onSelect: (employee: Employee) => void }> = ({ employees, onSelect }) => {
     const [search, setSearch] = useState('');
-    const filteredEmployees = useMemo(() => {
+    filteredEmployees = useMemo(() => {
         if (!search) return employees;
         return employees.filter(e =>
             e.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -443,3 +443,5 @@ const OrderSummary: FC<{ order: OrderItem[], total: number, onRemove: (itemId: s
         </Card>
     )
 }
+
+    

@@ -71,6 +71,18 @@ service cloud.firestore {
     }
 
     /**
+     * @description Allows authorized users to manage menu items for a specific company.
+     * @path /companies/{companyId}/menuItems/{menuItemId}
+     * @allow (get, list, create, update, delete) - Any authenticated user can manage menu items.
+     * @principle Company-specific menu management.
+     */
+    match /companies/{companyId}/menuItems/{menuItemId} {
+        allow get, list: if request.auth != null;
+        allow create: if request.auth != null && request.resource.data.companyId == companyId;
+        allow update, delete: if request.auth != null; // TODO: Add admin role check if needed
+    }
+
+    /**
      * @description Rules for user profile documents.
      * @path /users/{userId}
      * @allow (read) - Any authenticated user can read any user's profile.

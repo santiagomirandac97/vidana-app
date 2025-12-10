@@ -33,6 +33,7 @@ const companySchema = z.object({
 type CompanyFormData = z.infer<typeof companySchema>;
 
 const menuItemSchema = z.object({
+    sku: z.string().optional(),
     name: z.string().min(1, { message: "El nombre es obligatorio." }),
     price: z.coerce.number().min(0, { message: "El precio debe ser un número positivo." }),
     category: z.string().min(1, { message: "La categoría es obligatoria." }),
@@ -250,7 +251,7 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
 
     const form = useForm<MenuItemFormData>({
         resolver: zodResolver(menuItemSchema),
-        defaultValues: { name: '', price: 0, category: '' },
+        defaultValues: { sku: '', name: '', price: 0, category: '' },
     });
 
     const onMenuItemSubmit: SubmitHandler<MenuItemFormData> = async (data) => {
@@ -276,6 +277,8 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
          }
     };
 
+    const categories = ["Bebidas", "Platillos", "Postres"];
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1">
@@ -298,9 +301,31 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
                                         </SelectContent>
                                     </Select>
                                 </FormItem>
+                                <FormField control={form.control} name="sku" render={({ field }) => (<FormItem><FormLabel>SKU (Opcional)</FormLabel><FormControl><Input placeholder="Ej., BEB-001" {...field} disabled={!selectedCompanyId} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre del Producto</FormLabel><FormControl><Input placeholder="Ej., Café Americano" {...field} disabled={!selectedCompanyId} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>Precio</FormLabel><FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} disabled={!selectedCompanyId} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name="category" render={({ field }) => (<FormItem><FormLabel>Categoría</FormLabel><FormControl><Input placeholder="Ej., Bebidas, Platillos, Postres" {...field} disabled={!selectedCompanyId} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField
+                                    control={form.control}
+                                    name="category"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Categoría</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedCompanyId}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Seleccione una categoría" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {categories.map(category => (
+                                                        <SelectItem key={category} value={category}>{category}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                                 <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !selectedCompanyId}>{form.formState.isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Añadiendo...</>) : (<><PlusCircle className="mr-2 h-4 w-4" /> Añadir Producto</>)}</Button>
                             </form>
                         </Form>
@@ -320,10 +345,11 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
                             <div className="flex h-48 w-full items-center justify-center text-muted-foreground">Seleccione una empresa para ver su menú.</div>
                         ) : (
                             <Table>
-                                <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Categoría</TableHead><TableHead className="text-right">Precio</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+                                <TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Nombre</TableHead><TableHead>Categoría</TableHead><TableHead className="text-right">Precio</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                                 <TableBody>
                                     {menuItems?.map(item => (
                                         <TableRow key={item.id}>
+                                            <TableCell className="text-muted-foreground">{item.sku || 'N/A'}</TableCell>
                                             <TableCell className="font-medium">{item.name}</TableCell>
                                             <TableCell>{item.category}</TableCell>
                                             <TableCell className="text-right">${(item.price || 0).toFixed(2)}</TableCell>

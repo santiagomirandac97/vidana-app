@@ -54,6 +54,7 @@ export interface AppConfiguration {
 
 export interface MenuItem {
     id: string;
+    sku?: string;
     name: string;
     price: number;
     category: string;

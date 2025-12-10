@@ -443,5 +443,3 @@ const OrderSummary: FC<{ order: OrderItem[], total: number, onRemove: (itemId: s
         </Card>
     )
 }
-
-    

@@ -148,26 +148,36 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
 
     const onSubmit: SubmitHandler<CompanyFormData> = async (data) => {
         if (!firestore) return;
-        try {
-            const companiesCollection = collection(firestore, 'companies');
-            await addDocumentNonBlocking(companiesCollection, data);
-            toast({ title: 'Empresa Creada', description: `La empresa "${data.name}" ha sido añadida exitosamente.` });
-            form.reset();
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error al crear la empresa', description: error.message || 'Ocurrió un error inesperado.' });
-        }
+        
+        const dataToSave = {
+            name: data.name,
+            mealPrice: data.mealPrice,
+            dailyTarget: data.dailyTarget,
+            billingNote: data.billingNote,
+        };
+
+        const companiesCollection = collection(firestore, 'companies');
+        addDocumentNonBlocking(companiesCollection, dataToSave)
+            .then(() => {
+                toast({ title: 'Empresa Creada', description: `La empresa "${data.name}" ha sido añadida exitosamente.` });
+                form.reset();
+            })
+            .catch((error: any) => {
+                toast({ variant: 'destructive', title: 'Error al crear la empresa', description: error.message || 'Ocurrió un error inesperado.' });
+            });
     };
     
     const handleUpdateCompany = async (companyId: string, data: CompanyFormData) => {
         if (!firestore) return;
-        try {
-            const companyDocRef = doc(firestore, 'companies', companyId);
-            await updateDocumentNonBlocking(companyDocRef, data);
-            toast({ title: 'Empresa Actualizada', description: 'Los datos de la empresa han sido guardados.' });
-            setEditingCompany(null);
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error al actualizar', description: error.message || 'Ocurrió un error inesperado.' });
-        }
+        const companyDocRef = doc(firestore, 'companies', companyId);
+        updateDocumentNonBlocking(companyDocRef, data)
+            .then(() => {
+                toast({ title: 'Empresa Actualizada', description: 'Los datos de la empresa han sido guardados.' });
+                setEditingCompany(null);
+            })
+            .catch((error: any) => {
+                toast({ variant: 'destructive', title: 'Error al actualizar', description: error.message || 'Ocurrió un error inesperado.' });
+            });
     };
 
 
@@ -249,27 +259,35 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
         defaultValues: { sku: '', name: '', price: 0, category: '' },
     });
 
-    const onMenuItemSubmit: SubmitHandler<MenuItemFormData> = async (data) => {
-        if (!firestore || !selectedCompanyId) return;
-        try {
-            const menuItemsCollection = collection(firestore, `companies/${selectedCompanyId}/menuItems`);
-            await addDocumentNonBlocking(menuItemsCollection, { ...data, companyId: selectedCompanyId });
-            toast({ title: 'Producto Añadido', description: `"${data.name}" fue añadido al menú.` });
-            form.reset();
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error al añadir producto', description: error.message || 'Ocurrió un error inesperado.' });
+    const onMenuItemSubmit: SubmitHandler<MenuItemFormData> = (data) => {
+        if (!firestore || !selectedCompanyId) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione una empresa primero.' });
+            return;
         }
+
+        const dataToSave = { ...data, companyId: selectedCompanyId };
+        const menuItemsCollection = collection(firestore, `companies/${selectedCompanyId}/menuItems`);
+
+        addDocumentNonBlocking(menuItemsCollection, dataToSave)
+            .then(() => {
+                toast({ title: 'Producto Añadido', description: `"${data.name}" fue añadido al menú.` });
+                form.reset();
+            })
+            .catch((error: any) => {
+                toast({ variant: 'destructive', title: 'Error al añadir producto', description: error.message || 'Ocurrió un error inesperado. Verifique los permisos de Firestore.' });
+            });
     };
     
     const handleDeleteMenuItem = async (itemId: string) => {
          if (!firestore || !selectedCompanyId) return;
-         try {
-            const itemDocRef = doc(firestore, `companies/${selectedCompanyId}/menuItems`, itemId);
-            await deleteDocumentNonBlocking(itemDocRef);
-            toast({ title: 'Producto Eliminado', description: 'El producto fue eliminado del menú.' });
-         } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error al eliminar', description: error.message || 'Ocurrió un error inesperado.' });
-         }
+         const itemDocRef = doc(firestore, `companies/${selectedCompanyId}/menuItems`, itemId);
+         deleteDocumentNonBlocking(itemDocRef)
+            .then(() => {
+                toast({ title: 'Producto Eliminado', description: 'El producto fue eliminado del menú.' });
+            })
+            .catch((error: any) => {
+                toast({ variant: 'destructive', title: 'Error al eliminar', description: error.message || 'Ocurrió un error inesperado.' });
+            });
     };
 
     const categories = ["Bebidas", "Platillos", "Postres"];
@@ -472,3 +490,5 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
         </Dialog>
     );
 }
+
+    

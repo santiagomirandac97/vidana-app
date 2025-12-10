@@ -89,7 +89,7 @@
     "Consumption": {
       "title": "Consumption",
       "type": "object",
-      "description": "Represents a single instance of an employee accessing a meal.",
+      "description": "Represents a single instance of an employee accessing a meal or making a purchase.",
       "properties": {
         "employeeId": {
           "type": "string",
@@ -115,6 +115,23 @@
         "voided": {
           "type": "boolean",
           "description": "Indicates whether the consumption record has been voided."
+        },
+        "items": {
+          "type": "array",
+          "description": "A list of items purchased in the transaction (for Kiosk mode).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": {"type": "string"},
+              "name": {"type": "string"},
+              "price": {"type": "number"},
+              "quantity": {"type": "number"}
+            }
+          }
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "The total amount of the transaction (for Kiosk mode)."
         }
       },
       "required": [
@@ -154,6 +171,18 @@
       "required": [
         "name"
       ]
+    },
+    "MenuItem": {
+      "title": "Menu Item",
+      "type": "object",
+      "description": "Represents an item available for purchase at the Kiosk.",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the menu item." },
+        "price": { "type": "number", "description": "The price of the item." },
+        "category": { "type": "string", "description": "The category of the item (e.g., Platillo, Bebida, Postre)." },
+        "companyId": { "type": "string", "description": "The ID of the company this menu item belongs to." }
+      },
+      "required": ["name", "price", "category", "companyId"]
     }
   },
   "auth": {
@@ -180,6 +209,12 @@
         "$ref": "#/entities/Consumption"
       },
       "description": "Stores consumption records for each company."
+    },
+    "/companies/{companyId}/menuItems/{menuItemId}": {
+      "schema": {
+        "$ref": "#/entities/MenuItem"
+      },
+      "description": "Stores menu items for a specific company's kiosk."
     },
     "/users/{userId}": {
       "schema": {

@@ -1,4 +1,5 @@
 
+
 export type Company = {
   id: string;
   name: string;
@@ -20,6 +21,13 @@ export interface Employee {
   voided: boolean;
 }
 
+export interface OrderItem {
+  itemId: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 export interface Consumption {
   id?: string;
   employeeId: string;
@@ -28,6 +36,8 @@ export interface Consumption {
   companyId: string;
   timestamp: string; // ISO-8601
   voided: boolean;
+  items?: OrderItem[];
+  totalAmount?: number;
 }
 
 export interface UserProfile {
@@ -40,4 +50,12 @@ export interface UserProfile {
 export interface AppConfiguration {
     id?: string;
     allowedDomains: string[];
+}
+
+export interface MenuItem {
+    id: string;
+    name: string;
+    price: number;
+    category: string;
+    companyId: string;
 }

@@ -108,7 +108,13 @@ const ConfiguracionDashboard: FC = () => {
         if (!firestore) return;
         try {
             const companiesCollection = collection(firestore, 'companies');
-            await addDocumentNonBlocking(companiesCollection, data);
+            // Ensure all form fields are passed to the database
+            await addDocumentNonBlocking(companiesCollection, {
+                name: data.name,
+                mealPrice: data.mealPrice,
+                dailyTarget: data.dailyTarget,
+                billingNote: data.billingNote,
+            });
             toast({
                 title: 'Empresa Creada',
                 description: `La empresa "${data.name}" ha sido añadida exitosamente.`,
@@ -398,6 +404,8 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
     );
 }
 
+
+    
 
     
 

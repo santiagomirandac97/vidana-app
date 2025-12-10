@@ -6,16 +6,22 @@ import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, where, doc, getDocs, orderBy, limit, getDoc } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { type Company, type Employee, type UserProfile, type MenuItem, type OrderItem } from '@/lib/types';
+import { type Company, type Employee, type UserProfile, type MenuItem, type OrderItem, type Consumption } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ShieldAlert, Home, Search, User, Utensils, MinusCircle, PlusCircle, ShoppingCart, Trash2, CheckCircle } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, Search, User, Utensils, MinusCircle, PlusCircle, ShoppingCart, Trash2, CheckCircle, Download, Calendar as CalendarIcon } from 'lucide-react';
 import { Logo } from '@/components/logo';
-import { cn } from '@/lib/utils';
+import { cn, exportToCsv } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { DateRange } from 'react-day-picker';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 
 const KIOSK_COMPANY_ID = "Yzf6ucrafGkOPqbqCJpl"; // Configure the target company ID here
@@ -81,6 +87,7 @@ const KioskDashboard: FC = () => {
     const [kioskCompany, setKioskCompany] = useState<Company | null>(null);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+    const [consumptions, setConsumptions] = useState<Consumption[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -114,6 +121,12 @@ const KioskDashboard: FC = () => {
                 const menuQuery = query(collection(firestore, `companies/${companyData.id}/menuItems`), orderBy('name'));
                 const menuSnapshot = await getDocs(menuQuery);
                 setMenuItems(menuSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as MenuItem)));
+
+                // 4. Fetch all consumptions for that company (for reporting)
+                const consumptionsQuery = query(collection(firestore, `companies/${companyData.id}/consumptions`));
+                const consumptionsSnapshot = await getDocs(consumptionsQuery);
+                setConsumptions(consumptionsSnapshot.docs.map(d => ({...d.data(), id: d.id} as Consumption)));
+
 
             } catch (error: any) {
                  toast({ variant: 'destructive', title: 'Error cargando datos', description: error.message });
@@ -240,10 +253,13 @@ const KioskDashboard: FC = () => {
                              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Kiosk</h1>
                              <p className='text-sm text-muted-foreground'>{kioskCompany.name}</p>
                         </div>
-                         <Button variant="outline" onClick={() => router.push('/selection')}>
-                            <Home className="mr-2 h-4 w-4" />
-                            Volver al menú
-                        </Button>
+                        <div className="flex items-center gap-2">
+                             <DownloadReportDialog company={kioskCompany} consumptions={consumptions} />
+                             <Button variant="outline" onClick={() => router.push('/selection')}>
+                                <Home className="mr-2 h-4 w-4" />
+                                Volver al menú
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -443,5 +459,111 @@ const OrderSummary: FC<{ order: OrderItem[], total: number, onRemove: (itemId: s
         </Card>
     )
 }
+
+const DownloadReportDialog: FC<{company: Company, consumptions: Consumption[]}> = ({ company, consumptions }) => {
+    const { toast } = useToast();
+    const [date, setDate] = useState<DateRange | undefined>();
+
+    const handleDownload = () => {
+        if (!date?.from || !date?.to) {
+            toast({variant: 'destructive', title: 'Error', description: 'Por favor seleccione un rango de fechas.'});
+            return;
+        }
+
+        const from = date.from.getTime();
+        const to = date.to.getTime() + (24 * 60 * 60 * 1000 - 1); // include full end day
+
+        const filteredConsumptions = consumptions.filter(c => {
+            const c_time = new Date(c.timestamp).getTime();
+            return c_time >= from && c_time <= to;
+        });
+        
+        if (filteredConsumptions.length === 0) {
+             toast({variant: 'destructive', title: 'Sin Datos', description: 'No se encontraron consumos en el rango de fechas seleccionado.'});
+            return;
+        }
+
+        const rows: (string | number)[][] = [];
+        const headers = ['Fecha', 'Hora', 'No. Empleado', 'Nombre', 'Items', 'Total'];
+        rows.push(headers);
+
+        filteredConsumptions.sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+        .forEach(c => {
+            const consumptionDate = new Date(c.timestamp);
+            rows.push([
+                format(consumptionDate, "yyyy-MM-dd"),
+                format(consumptionDate, "HH:mm:ss"),
+                c.employeeNumber,
+                c.name,
+                c.items?.map(i => `${i.quantity}x ${i.name}`).join(', ') || '',
+                c.totalAmount?.toFixed(2) || '0.00'
+            ]);
+        });
+
+        const filename = `Reporte_Kiosk_${company.name}_${format(date.from, "yyyy-MM-dd")}_a_${format(date.to, "yyyy-MM-dd")}.csv`;
+        exportToCsv(filename, rows);
+        toast({ title: 'Reporte Descargado', description: `${filteredConsumptions.length} registros exportados.`});
+    };
+
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button variant="outline"><Download className="mr-2 h-4 w-4"/>Descargar Reporte</Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Descargar Reporte de Consumos</DialogTitle>
+                    <DialogDescription>Seleccione un rango de fechas para exportar las órdenes del Kiosk.</DialogDescription>
+                </DialogHeader>
+                 <div className="space-y-4 py-4">
+                    <label>Rango de Fechas</label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                            variant={"outline"}
+                            className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !date && "text-muted-foreground"
+                            )}
+                            >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {date?.from ? (
+                                date.to ? (
+                                <>
+                                    {format(date.from, "LLL dd, y", { locale: es })} -{" "}
+                                    {format(date.to, "LLL dd, y", { locale: es })}
+                                </>
+                                ) : (
+                                format(date.from, "LLL dd, y", { locale: es })
+                                )
+                            ) : (
+                                <span>Elige una fecha</span>
+                            )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={date?.from}
+                            selected={date}
+                            onSelect={setDate}
+                            numberOfMonths={1}
+                            locale={es}
+                            />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+                <DialogFooter>
+                    <Button onClick={handleDownload} disabled={!date?.from || !date?.to}>
+                        <Download className="mr-2 h-4 w-4"/>
+                        Descargar CSV
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+    
 
     

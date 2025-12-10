@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, where, doc, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, doc, getDocs, orderBy, limit, getDoc } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { type Company, type Employee, type UserProfile, type MenuItem, type OrderItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
-const KIOSK_COMPANY_NAME = "Noticieros"; // Configure the target company here
+const KIOSK_COMPANY_ID = "Yzf6ucrafGkOPqbqCJpl"; // Configure the target company ID here
 
 export default function KioskPage() {
     const { user, isLoading: userLoading } = useUser();
@@ -93,16 +93,16 @@ const KioskDashboard: FC = () => {
         const fetchKioskData = async () => {
             setIsLoading(true);
             try {
-                // 1. Find the company
-                const companyQuery = query(collection(firestore, 'companies'), where('name', '==', KIOSK_COMPANY_NAME), limit(1));
-                const companySnapshot = await getDocs(companyQuery);
+                // 1. Find the company by ID
+                const companyDocRef = doc(firestore, 'companies', KIOSK_COMPANY_ID);
+                const companySnapshot = await getDoc(companyDocRef);
 
-                if (companySnapshot.empty) {
-                    toast({ variant: 'destructive', title: 'Error de Configuración', description: `La empresa "${KIOSK_COMPANY_NAME}" no fue encontrada.` });
+                if (!companySnapshot.exists()) {
+                    toast({ variant: 'destructive', title: 'Error de Configuración', description: `La empresa con ID "${KIOSK_COMPANY_ID}" no fue encontrada.` });
                     setIsLoading(false);
                     return;
                 }
-                const companyData = { ...companySnapshot.docs[0].data(), id: companySnapshot.docs[0].id } as Company;
+                const companyData = { ...companySnapshot.data(), id: companySnapshot.id } as Company;
                 setKioskCompany(companyData);
 
                 // 2. Fetch employees for that company
@@ -203,7 +203,7 @@ const KioskDashboard: FC = () => {
         return (
             <div className="flex h-screen w-full items-center justify-center">
                 <Loader2 className="h-10 w-10 animate-spin" />
-                <p className="ml-4 text-lg">Cargando Kiosk para {KIOSK_COMPANY_NAME}...</p>
+                <p className="ml-4 text-lg">Cargando Kiosk...</p>
             </div>
         );
     }
@@ -217,7 +217,7 @@ const KioskDashboard: FC = () => {
                             <ShieldAlert className="h-12 w-12 text-destructive" />
                             Error de Configuración
                         </CardTitle>
-                        <CardDescription>La empresa para el Kiosk no se pudo encontrar. Verifique el nombre en el código fuente.</CardDescription>
+                        <CardDescription>La empresa para el Kiosk no se pudo encontrar. Verifique el ID en el código fuente.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Button onClick={() => router.push('/selection')} className="w-full">
@@ -284,7 +284,7 @@ const KioskDashboard: FC = () => {
 // Sub-components for Kiosk
 const EmployeeSelector: FC<{ employees: Employee[], onSelect: (employee: Employee) => void }> = ({ employees, onSelect }) => {
     const [search, setSearch] = useState('');
-    filteredEmployees = useMemo(() => {
+    const filteredEmployees = useMemo(() => {
         if (!search) return employees;
         return employees.filter(e =>
             e.name.toLowerCase().includes(search.toLowerCase()) ||

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useUser, useDoc, useFirebase, useMemoFirebase, useAuth } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
-import { Loader2, LogOut, Settings } from 'lucide-react';
+import { Loader2, LogOut, Settings, ClipboardList, AreaChart } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
@@ -86,13 +86,7 @@ export default function SelectionPage() {
                 onClick={() => router.push('/main')}
                 className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
             >
-                <Image 
-                  src="/logos/vidanaicon.png" 
-                  alt="Registros Icon" 
-                  width={28} 
-                  height={28} 
-                  className="mb-4 transition-transform duration-300 group-hover:scale-110" 
-                />
+                <ClipboardList className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Registros</h3>
                 <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Registrar consumos y gestionar empleados.</p>
             </button>
@@ -100,13 +94,7 @@ export default function SelectionPage() {
                 onClick={() => router.push('/admin')}
                 className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-accent dark:hover:border-accent hover:bg-accent/5 dark:hover:bg-accent/10 transition-all duration-300"
             >
-                <Image 
-                  src="/logos/vidanaicon.png" 
-                  alt="Admin Icon" 
-                  width={28} 
-                  height={28} 
-                  className="mb-4 transition-transform duration-300 group-hover:scale-110" 
-                />
+                <AreaChart className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Admin</h3>
                 <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Ver estadísticas y reportes generales.</p>
             </button>

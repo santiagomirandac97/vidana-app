@@ -111,7 +111,7 @@ const KioskDashboard: FC = () => {
                 setEmployees(employeesSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as Employee)));
                 
                 // 3. Fetch menu items for that company
-                const menuQuery = query(collection(firestore, `companies/${companyData.id}/menuItems`), orderBy('category'), orderBy('name'));
+                const menuQuery = query(collection(firestore, `companies/${companyData.id}/menuItems`), orderBy('name'));
                 const menuSnapshot = await getDocs(menuQuery);
                 setMenuItems(menuSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as MenuItem)));
 
@@ -443,3 +443,5 @@ const OrderSummary: FC<{ order: OrderItem[], total: number, onRemove: (itemId: s
         </Card>
     )
 }
+
+    

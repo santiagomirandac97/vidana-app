@@ -150,12 +150,7 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
         if (!firestore) return;
         try {
             const companiesCollection = collection(firestore, 'companies');
-            await addDocumentNonBlocking(companiesCollection, {
-                name: data.name,
-                mealPrice: data.mealPrice,
-                dailyTarget: data.dailyTarget,
-                billingNote: data.billingNote,
-            });
+            await addDocumentNonBlocking(companiesCollection, data);
             toast({ title: 'Empresa Creada', description: `La empresa "${data.name}" ha sido añadida exitosamente.` });
             form.reset();
         } catch (error: any) {

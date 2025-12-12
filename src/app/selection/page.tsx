@@ -92,7 +92,7 @@ export default function SelectionPage() {
             </button>
              <button
                 onClick={() => router.push('/kiosk')}
-                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-500/5 dark:hover:bg-purple-500/10 transition-all duration-300"
+                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
             >
                 <Tablet className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Kiosk</h3>
@@ -100,7 +100,7 @@ export default function SelectionPage() {
             </button>
             <button
                 onClick={() => router.push('/admin')}
-                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-accent dark:hover:border-accent hover:bg-accent/5 dark:hover:bg-accent/10 transition-all duration-300"
+                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
             >
                 <AreaChart className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Admin</h3>
@@ -108,7 +108,7 @@ export default function SelectionPage() {
             </button>
              <button
                 onClick={() => router.push('/configuracion')}
-                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-green-500 dark:hover:border-green-500 hover:bg-green-500/5 dark:hover:bg-green-500/10 transition-all duration-300"
+                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
             >
                 <Settings className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
 

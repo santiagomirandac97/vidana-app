@@ -32,7 +32,7 @@ import Link from 'next/link';
 import { DateRange } from 'react-day-picker';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, useUser, useAuth } from '@/firebase';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, query, where, orderBy, limit, getDocs, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { signOut, type User } from 'firebase/auth';
 import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
@@ -325,9 +325,9 @@ function AppContent({ user }: { user: User }) {
         <div className="flex items-center gap-4">
              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-12 w-48">
+                    <Button variant="outline" className="h-10 w-48 justify-start">
                         <Building className="mr-2 h-5 w-5 text-gray-500" />
-                        <span className="text-lg font-medium mr-2 flex-1 text-left truncate">{company?.name}</span>
+                        <span className="font-medium mr-2 flex-1 text-left truncate">{company?.name}</span>
                         <ChevronDown className="h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>
@@ -341,12 +341,12 @@ function AppContent({ user }: { user: User }) {
              </DropdownMenu>
 
             {userProfile?.role === 'admin' && (
-                <Button variant="outline" onClick={() => router.push('/selection')}>
+                <Button variant="outline" onClick={() => router.push('/selection')} className="h-10">
                     <Home className="mr-2 h-4 w-4" />
                     Volver al menú
                 </Button>
             )}
-           <Button variant="outline" onClick={handleSignOut}>
+           <Button variant="outline" onClick={handleSignOut} className="h-10">
             <LogOut className="mr-2 h-4 w-4" />
             Cerrar Sesión
           </Button>
@@ -643,10 +643,10 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
 
             if (!querySnapshot.empty) {
                 const docToUpdate = querySnapshot.docs[0];
-                updateDocumentNonBlocking(docToUpdate.ref, { ...newEmp });
+                updateDoc(docToUpdate.ref, { ...newEmp }).catch((e) => console.error("Error updating doc:", e));
                 updatedCount++;
             } else {
-                addDocumentNonBlocking(employeesCollection, newEmp);
+                addDocumentNonBlocking(employeesCollection, newEmp).catch((e) => console.error("Error adding doc:", e));
                 addedCount++;
             }
         }
@@ -707,8 +707,13 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
   const handleAddEmployee = (employee: Omit<Employee, 'id'>) => {
     if(!firestore || !company) return;
     const employeesCollection = collection(firestore, `companies/${company.id}/employees`);
-    addDocumentNonBlocking(employeesCollection, employee);
-    toast({ title: 'Empleado Añadido', description: `${employee.name} añadido a ${company.name}.` });
+    addDocumentNonBlocking(employeesCollection, employee)
+        .then(() => {
+            toast({ title: 'Empleado Añadido', description: `${employee.name} añadido a ${company.name}.` });
+        })
+        .catch((error) => {
+            toast({ variant: 'destructive', title: 'Error', description: error.message || 'No se pudo añadir el empleado.' });
+        });
   }
   
   const todayStr = format(new Date(), 'dd/MM/yyyy');

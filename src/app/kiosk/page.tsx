@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, where, doc, getDocs, orderBy, limit, getDoc } from 'firebase/firestore';
+import { collection, query, where, doc, getDocs, orderBy, limit, getDoc, Timestamp } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { type Company, type Employee, type UserProfile, type MenuItem, type OrderItem, type Consumption } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 
@@ -122,8 +122,12 @@ const KioskDashboard: FC = () => {
                 const menuSnapshot = await getDocs(menuQuery);
                 setMenuItems(menuSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as MenuItem)));
 
-                // 4. Fetch all consumptions for that company (for reporting)
-                const consumptionsQuery = query(collection(firestore, `companies/${companyData.id}/consumptions`));
+                // 4. Fetch consumptions from the last 30 days for reporting
+                const thirtyDaysAgo = subDays(new Date(), 30);
+                const consumptionsQuery = query(
+                    collection(firestore, `companies/${companyData.id}/consumptions`),
+                    where('timestamp', '>=', thirtyDaysAgo.toISOString())
+                );
                 const consumptionsSnapshot = await getDocs(consumptionsQuery);
                 setConsumptions(consumptionsSnapshot.docs.map(d => ({...d.data(), id: d.id} as Consumption)));
 
@@ -564,6 +568,8 @@ const DownloadReportDialog: FC<{company: Company, consumptions: Consumption[]}> 
         </Dialog>
     )
 }
+    
+
     
 
     

@@ -129,7 +129,7 @@ function AppContent({ user }: { user: User }) {
   const { data: employees } = useCollection<Employee>(employeesQuery);
 
   const consumptionsQuery = useMemoFirebase(() =>
-    firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc')) : null
+    firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc'), limit(100)) : null
   , [firestore, selectedCompanyId]);
   const { data: consumptions } = useCollection<Consumption>(consumptionsQuery);
 
@@ -1156,3 +1156,5 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions })
     </div>
   );
 };
+
+    

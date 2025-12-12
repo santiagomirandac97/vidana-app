@@ -4,12 +4,12 @@
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, getDocs, doc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, where, Timestamp } from 'firebase/firestore';
 import { type Company, type Consumption, type UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { format } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDate, formatInTimeZone } from 'date-fns-tz';
 import { getTodayInMexicoCity } from '@/lib/utils';
@@ -87,7 +87,17 @@ const AdminDashboard: FC = () => {
         const fetchAll = async () => {
             setConsumptionsLoading(true);
             if (companies && companies.length > 0) {
-                const promises = companies.map(c => getDocs(query(collection(firestore, `companies/${c.id}/consumptions`))));
+                // Fetch consumptions only for the current month to improve performance
+                const startOfCurrentMonth = startOfMonth(new Date());
+                const startOfMonthTimestamp = Timestamp.fromDate(startOfCurrentMonth);
+
+                const promises = companies.map(c => {
+                    const consumptionsQuery = query(
+                        collection(firestore, `companies/${c.id}/consumptions`),
+                        where('timestamp', '>=', startOfCurrentMonth.toISOString())
+                    );
+                    return getDocs(consumptionsQuery);
+                });
                 const results = await Promise.all(promises);
                 const combined = results.flatMap(snapshot => snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Consumption)));
                 setAllConsumptions(combined);
@@ -114,10 +124,8 @@ const AdminDashboard: FC = () => {
             
             const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd') === today);
             
-            const monthlyConsumptions = companyConsumptions.filter(c => {
-                const consumptionDate = new Date(c.timestamp);
-                return consumptionDate.getMonth() === currentMonth && consumptionDate.getFullYear() === currentYear;
-            });
+            // Monthly consumptions are now pre-filtered by the fetch query
+            const monthlyConsumptions = companyConsumptions;
             
             const mealPrice = company.mealPrice || 0;
             const dailyTarget = company.dailyTarget || 0;
@@ -350,3 +358,5 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: numbe
         </div>
     );
 };
+
+    

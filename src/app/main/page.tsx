@@ -25,14 +25,14 @@ import {
   ChevronLeft,
   Home
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DateRange } from 'react-day-picker';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, useUser, useAuth } from '@/firebase';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, query, where, orderBy, limit, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, getDocs, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { signOut, type User } from 'firebase/auth';
 import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
@@ -45,7 +45,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, DialogDescription } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
@@ -128,10 +128,45 @@ function AppContent({ user }: { user: User }) {
   , [firestore, selectedCompanyId]);
   const { data: employees } = useCollection<Employee>(employeesQuery);
 
-  const consumptionsQuery = useMemoFirebase(() =>
-    firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/consumptions`), orderBy('timestamp', 'desc'), limit(100)) : null
-  , [firestore, selectedCompanyId]);
-  const { data: consumptions } = useCollection<Consumption>(consumptionsQuery);
+    const todayStart = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return Timestamp.fromDate(today);
+    }, []);
+
+    const tenDaysAgo = useMemo(() => {
+        const date = new Date();
+        date.setDate(date.getDate() - 10);
+        date.setHours(0, 0, 0, 0);
+        return Timestamp.fromDate(date);
+    }, []);
+
+    const todaysConsumptionsQuery = useMemoFirebase(() => 
+        firestore && selectedCompanyId ? query(
+            collection(firestore, `companies/${selectedCompanyId}/consumptions`), 
+            where('timestamp', '>=', todayStart.toDate().toISOString()),
+            orderBy('timestamp', 'desc')
+        ) : null, 
+    [firestore, selectedCompanyId, todayStart]);
+    const { data: todaysConsumptions } = useCollection<Consumption>(todaysConsumptionsQuery);
+
+    const recentConsumptionsQuery = useMemoFirebase(() =>
+        firestore && selectedCompanyId ? query(
+            collection(firestore, `companies/${selectedCompanyId}/consumptions`),
+            orderBy('timestamp', 'desc'),
+            limit(10)
+        ) : null
+    , [firestore, selectedCompanyId]);
+    const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
+
+    const graphConsumptionsQuery = useMemoFirebase(() =>
+        firestore && selectedCompanyId ? query(
+            collection(firestore, `companies/${selectedCompanyId}/consumptions`),
+            where('timestamp', '>=', tenDaysAgo.toDate().toISOString()),
+            orderBy('timestamp', 'desc')
+        ) : null
+    , [firestore, selectedCompanyId, tenDaysAgo]);
+    const { data: graphConsumptions } = useCollection<Consumption>(graphConsumptionsQuery);
 
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [nameSearch, setNameSearch] = useState('');
@@ -163,7 +198,6 @@ function AppContent({ user }: { user: User }) {
   const proceedWithConsumption = (employee: Employee) => {
     if (!firestore || !selectedCompanyId || isProcessing) return;
     
-    // Final check to ensure we don't double process
     if (isProcessing) return;
     setIsProcessing(true);
 
@@ -178,7 +212,7 @@ function AppContent({ user }: { user: User }) {
     
     const newConsumption: Consumption = {
         ...newConsumptionData,
-        id: `temp-${Date.now()}` // temporary id
+        id: `temp-${Date.now()}`
     }
 
     const consumptionsCollection = collection(firestore, `companies/${selectedCompanyId}/consumptions`);
@@ -201,7 +235,7 @@ function AppContent({ user }: { user: User }) {
     }
 
     const today = getTodayInMexicoCity();
-    const hasEatenToday = consumptions?.some(c => 
+    const hasEatenToday = todaysConsumptions?.some(c => 
         c.employeeId === employee.id &&
         formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd') === today &&
         !c.voided
@@ -215,7 +249,6 @@ function AppContent({ user }: { user: User }) {
 
     if (employee.paymentAmount && employee.paymentAmount > 0) {
         setPaymentDue({employee, amount: employee.paymentAmount});
-        // Note: isProcessing will be reset in payment dialog handlers
     } else {
         proceedWithConsumption(employee);
     }
@@ -248,7 +281,6 @@ function AppContent({ user }: { user: User }) {
       });
       setPendingEmployee({ number: employeeNumber, name: '' });
       setQuickAddOpen(true);
-      // Reset isProcessing to allow interaction with the dialog
       setIsProcessing(false);
     }
   };
@@ -277,13 +309,11 @@ function AppContent({ user }: { user: User }) {
           return;
         };
         const newEmployee: Employee = { ...newEmployeeData, id: docRef.id };
-        // We call proceed directly, bypassing the checks in registerConsumption
         proceedWithConsumption(newEmployee); 
     });
 
     setQuickAddOpen(false);
     setPendingEmployee(null);
-    // Note: resetInputAndFeedback is called inside proceedWithConsumption
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -437,14 +467,15 @@ function AppContent({ user }: { user: User }) {
             </CardContent>
           </Card>
           
-          <RecentConsumptionsCard selectedCompanyId={selectedCompanyId} />
+          <RecentConsumptionsCard recentConsumptions={recentConsumptions} company={company} />
 
         </div>
 
         <div className="md:col-span-1 space-y-8">
           <AdminPanel 
-            employees={employees || []} 
-            consumptions={consumptions || []}
+            employees={employees || []}
+            todaysConsumptions={todaysConsumptions || []}
+            graphConsumptions={graphConsumptions || []}
             selectedCompanyId={selectedCompanyId} 
             company={company}
             allCompanies={allCompanies || []}
@@ -479,25 +510,8 @@ function AppContent({ user }: { user: User }) {
 
 // Sub-components
 
-const RecentConsumptionsCard: FC<{selectedCompanyId: string}> = ({ selectedCompanyId }) => {
-    const { firestore } = useFirebase();
+const RecentConsumptionsCard: FC<{recentConsumptions: Consumption[] | null, company: Company | null}> = ({ recentConsumptions, company }) => {
     const [highlighted, setHighlighted] = useState<string[]>([]);
-
-    const companyDocRef = useMemoFirebase(() =>
-        firestore && selectedCompanyId ? doc(firestore, `companies/${selectedCompanyId}`) : null
-    , [firestore, selectedCompanyId]);
-    const { data: company } = useDoc<Company>(companyDocRef);
-
-    const recentConsumptionsQuery = useMemoFirebase(() =>
-        firestore && selectedCompanyId ? query(
-            collection(firestore, `companies/${selectedCompanyId}/consumptions`),
-            orderBy('timestamp', 'desc'),
-            limit(10)
-        ) : null
-    , [firestore, selectedCompanyId]);
-
-    const { data: recentConsumptions, isLoading, error } = useCollection<Consumption>(recentConsumptionsQuery);
-
     const prevConsumptionsRef = useRef<Consumption[]>();
 
     useEffect(() => {
@@ -523,25 +537,17 @@ const RecentConsumptionsCard: FC<{selectedCompanyId: string}> = ({ selectedCompa
                 <CardTitle>Últimos 10 Consumos</CardTitle>
             </CardHeader>
             <CardContent>
-                {isLoading && (
+                {!recentConsumptions ? (
                     <div className="flex items-center justify-center h-40">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                         <p className="ml-3 text-muted-foreground">Cargando...</p>
                     </div>
-                )}
-                {!isLoading && error && (
-                     <div className="flex flex-col items-center justify-center h-40 text-red-500">
-                        <XCircle className="h-8 w-8" />
-                        <p className="mt-2 text-center">Error al cargar consumos. <br/> Por favor, intente de nuevo más tarde.</p>
-                    </div>
-                )}
-                {!isLoading && !error && (!recentConsumptions || recentConsumptions.length === 0) && (
+                ) : recentConsumptions.length === 0 ? (
                      <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
                         <Users className="h-8 w-8" />
                         <p className="mt-2">No hay consumos recientes.</p>
                     </div>
-                )}
-                {!isLoading && !error && recentConsumptions && recentConsumptions.length > 0 && (
+                ) : (
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -576,13 +582,14 @@ const RecentConsumptionsCard: FC<{selectedCompanyId: string}> = ({ selectedCompa
 
 interface AdminPanelProps {
   employees: Employee[];
-  consumptions: Consumption[];
+  todaysConsumptions: Consumption[];
+  graphConsumptions: Consumption[];
   selectedCompanyId: string;
   company: Company | null;
   allCompanies: Company[];
 }
 
-const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedCompanyId, company, allCompanies }) => {
+const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, graphConsumptions, selectedCompanyId, company, allCompanies }) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { firestore } = useFirebase();
@@ -591,12 +598,8 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
   const [date, setDate] = useState<DateRange | undefined>();
   
   const dailyConsumptionCount = useMemo(() => {
-    const today = getTodayInMexicoCity();
-    return consumptions.filter(c => {
-      const consumptionDate = formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd');
-      return consumptionDate === today && !c.voided;
-    }).length;
-  }, [consumptions]);
+    return todaysConsumptions.filter(c => !c.voided).length;
+  }, [todaysConsumptions]);
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -671,18 +674,28 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
     exportToCsv(`${selectedCompanyId}_empleados_${new Date().toISOString().split('T')[0]}.csv`, rows);
   }
 
-  const handleExportConsumptions = () => {
-    if (!date?.from || !date?.to) {
+  const handleExportConsumptions = async () => {
+    if (!date?.from || !date?.to || !firestore) {
         toast({variant: 'destructive', title: 'Por favor seleccione un rango de fechas.'});
         return;
     }
-    const from = date.from.getTime();
-    const to = date.to.getTime() + (24 * 60 * 60 * 1000 - 1); // include full end day
+    const from = date.from;
+    const to = date.to;
+    to.setHours(23, 59, 59, 999);
 
-    const filteredConsumptions = consumptions.filter(c => {
-        const c_time = new Date(c.timestamp).getTime();
-        return c.companyId === selectedCompanyId && c_time >= from && c_time <= to;
-    });
+    const consumptionsToExportQuery = query(
+        collection(firestore, `companies/${selectedCompanyId}/consumptions`),
+        where('timestamp', '>=', from.toISOString()),
+        where('timestamp', '<=', to.toISOString())
+    );
+    const snapshot = await getDocs(consumptionsToExportQuery);
+    const filteredConsumptions = snapshot.docs.map(d => d.data() as Consumption);
+
+
+    if (filteredConsumptions.length === 0) {
+        toast({variant: 'destructive', title: 'Sin datos', description: 'No se encontraron consumos en ese rango.'});
+        return;
+    }
 
     const headers = ['Nombre', 'Numero de Empleado', 'Fecha', 'Hora'];
     const rows = [
@@ -802,7 +815,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, consumptions, selectedComp
               <Button className="w-full" onClick={handleExportConsumptions}><Download className="mr-2 h-4 w-4"/> Exportar Reporte</Button>
             </TabsContent>
             <TabsContent value="statistics" className="space-y-4 pt-4">
-              <ConsumptionChart consumptions={consumptions} />
+              <ConsumptionChart consumptions={graphConsumptions} />
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -839,7 +852,7 @@ const QuickAddDialog: FC<QuickAddDialogProps> = ({ isOpen, setIsOpen, onActivate
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Activación Rápida de Empleado</DialogTitle>
-                    <CardDescription>Este empleado no está en la base de datos. Por favor, proporcione un nombre para activar.</CardDescription>
+                    <DialogDescription>Este empleado no está en la base de datos. Por favor, proporcione un nombre para activar.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
@@ -1064,8 +1077,9 @@ const PaymentDialog: FC<PaymentDialogProps> = ({ isOpen, onClose, onConfirm, amo
 };
 
 
-const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions }) => {
+const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumptions }) => {
   const chartData = useMemo(() => {
+    if (!consumptions) return [];
     const dailyConsumptions: { [key: string]: number } = {};
     const timeZone = 'America/Mexico_City';
     
@@ -1076,16 +1090,16 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions })
       }
     });
 
-    const sortedDays = Object.keys(dailyConsumptions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-    const last10Days = sortedDays.slice(0, 10).reverse();
-
-    return last10Days.map(day => ({
+    const sortedDays = Object.keys(dailyConsumptions).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+    
+    return sortedDays.map(day => ({
       name: format(toDate(day, { timeZone }), 'MMM dd', { locale: es }),
       total: dailyConsumptions[day],
     }));
   }, [consumptions]);
 
   const stats = useMemo(() => {
+    if (!chartData) return { total: 0, avg: 0, peakDay: 'N/A', peakTotal: 0};
     const total = chartData.reduce((acc, item) => acc + item.total, 0);
     const avg = total > 0 ? total / chartData.length : 0;
     const peak = chartData.reduce((max, item) => item.total > max.total ? item : max, {name: 'N/A', total: 0});
@@ -1097,7 +1111,7 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions })
     }
   }, [chartData]);
   
-  if (chartData.length === 0) {
+  if (!consumptions || chartData.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-80 border rounded-md">
         <BarChart className="h-10 w-10 text-muted-foreground" />
@@ -1161,5 +1175,3 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] }> = ({ consumptions })
     </div>
   );
 };
-
-    

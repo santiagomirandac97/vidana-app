@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { toDate, formatInTimeZone, utcToZonedTime } from 'date-fns-tz';
+import { toZonedTime, toDate, formatInTimeZone } from 'date-fns-tz';
 import { getTodayInMexicoCity } from '@/lib/utils';
 import { DollarSign, Users, BarChart, LogOut, Loader2, CalendarDays, ShieldAlert, Home } from 'lucide-react';
 import { Logo } from '@/components/logo';
@@ -72,6 +72,7 @@ export default function AdminDashboardPage() {
 const AdminDashboard: FC = () => {
     const { firestore } = useFirebase();
     const router = useRouter();
+    const timeZone = 'America/Mexico_City';
 
     const companiesQuery = useMemoFirebase(() =>
         firestore ? query(collection(firestore, 'companies')) : null
@@ -87,7 +88,8 @@ const AdminDashboard: FC = () => {
         const fetchAll = async () => {
             setConsumptionsLoading(true);
             if (companies && companies.length > 0) {
-                const startOfCurrentMonth = startOfMonth(new Date());
+                const nowInMexicoCity = toZonedTime(new Date(), timeZone);
+                const startOfCurrentMonth = startOfMonth(nowInMexicoCity);
                 
                 const promises = companies.map(c => {
                     const consumptionsQuery = query(
@@ -105,15 +107,15 @@ const AdminDashboard: FC = () => {
             setConsumptionsLoading(false);
         };
         fetchAll();
-    }, [firestore, companies]);
+    }, [firestore, companies, timeZone]);
     
     const isLoading = companiesLoading || consumptionsLoading;
 
     const statsByCompany = useMemo(() => {
         if (isLoading || !companies) return [];
-        const timeZone = 'America/Mexico_City';
-        const nowInMexicoCity = utcToZonedTime(new Date(), timeZone);
-        const todayMexico = format(nowInMexicoCity, 'yyyy-MM-dd');
+        
+        const nowInMexicoCity = toZonedTime(new Date(), timeZone);
+        const todayMexico = formatInTimeZone(nowInMexicoCity, timeZone, 'yyyy-MM-dd');
         
         return companies.map(company => {
             const companyName = company.name || 'Empresa sin nombre';
@@ -130,7 +132,7 @@ const AdminDashboard: FC = () => {
             let monthlyRevenue = 0;
             
             if (dailyTarget > 0) {
-                const todayDate = toDate(todayMexico, { timeZone });
+                const todayDate = toZonedTime(new Date(), timeZone);
                 const dayOfWeek = getDay(todayDate);
                 const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4; // Monday to Thursday
 
@@ -176,7 +178,7 @@ const AdminDashboard: FC = () => {
                 dailyTarget,
             };
         });
-    }, [companies, allConsumptions, isLoading]);
+    }, [companies, allConsumptions, isLoading, timeZone]);
 
 
     if (isLoading) {
@@ -276,10 +278,10 @@ const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
 }
 
 const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: number }> = ({ consumptions, dailyTarget }) => {
+    const timeZone = 'America/Mexico_City';
     const chartData = useMemo(() => {
         const dailyConsumptions: { [key: string]: { total: number; missing: number } } = {};
-        const timeZone = 'America/Mexico_City';
-
+        
         consumptions.forEach(c => {
             if (!c.voided) {
                 const day = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
@@ -314,7 +316,7 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: numbe
             total: dailyConsumptions[day].total,
             missing: dailyConsumptions[day].missing,
         }));
-    }, [consumptions, dailyTarget]);
+    }, [consumptions, dailyTarget, timeZone]);
 
     if (chartData.length === 0) {
         return (
@@ -358,3 +360,5 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: numbe
         </div>
     );
 };
+
+    

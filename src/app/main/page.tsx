@@ -25,7 +25,7 @@ import {
   ChevronLeft,
   Home
 } from 'lucide-react';
-import { format, subDays, startOfMonth, getDate } from 'date-fns';
+import { format, subDays, startOfMonth, getDate, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -34,7 +34,7 @@ import { useFirebase, useCollection, useDoc, useMemoFirebase, useUser, useAuth }
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, query, where, orderBy, limit, getDocs, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { signOut, type User } from 'firebase/auth';
-import { formatInTimeZone, toDate, utcToZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, toDate, toZonedTime } from 'date-fns-tz';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 
@@ -81,6 +81,7 @@ function AppContent({ user }: { user: User }) {
   const { firestore } = useFirebase();
   const auth = useAuth();
   const router = useRouter();
+  const timeZone = 'America/Mexico_City';
 
   const userProfileRef = useMemoFirebase(() => 
     firestore && user ? doc(firestore, `users/${user.uid}`) : null,
@@ -129,9 +130,9 @@ function AppContent({ user }: { user: User }) {
   const { data: employees } = useCollection<Employee>(employeesQuery);
 
     const startOfCurrentMonth = useMemo(() => {
-        const date = new Date();
-        return startOfMonth(date);
-    }, []);
+        const nowInMexicoCity = toZonedTime(new Date(), timeZone);
+        return startOfMonth(nowInMexicoCity);
+    }, [timeZone]);
 
     const todaysConsumptionsQuery = useMemoFirebase(() => {
         if (!firestore || !selectedCompanyId) return null;
@@ -148,14 +149,15 @@ function AppContent({ user }: { user: User }) {
     const { data: todaysConsumptions } = useCollection<Consumption>(todaysConsumptionsQuery);
 
     const recentConsumptionsQuery = useMemoFirebase(() => {
-         if (!firestore || !selectedCompanyId) return null;
-        const tenDaysAgo = subDays(new Date(), 10);
+        if (!firestore || !selectedCompanyId) return null;
+        const nowInMexicoCity = toZonedTime(new Date(), timeZone);
+        const tenDaysAgo = subDays(nowInMexicoCity, 10);
         return query(
             collection(firestore, `companies/${selectedCompanyId}/consumptions`),
             where('timestamp', '>=', tenDaysAgo.toISOString()),
             orderBy('timestamp', 'desc')
         )
-    }, [firestore, selectedCompanyId]);
+    }, [firestore, selectedCompanyId, timeZone]);
     const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
 
     const monthlyConsumptionsQuery = useMemoFirebase(() =>
@@ -1081,10 +1083,10 @@ const PaymentDialog: FC<PaymentDialogProps> = ({ isOpen, onClose, onConfirm, amo
 
 
 const ConsumptionChart: FC<{ consumptions: Consumption[] | null, chartConsumptions: Consumption[] | null }> = ({ consumptions, chartConsumptions }) => {
+    const timeZone = 'America/Mexico_City';
     const chartData = useMemo(() => {
         if (!chartConsumptions) return [];
         const dailyConsumptions: { [key: string]: number } = {};
-        const timeZone = 'America/Mexico_City';
         
         const lastActiveDays = [...new Set(chartConsumptions.map(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd')))]
             .sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
@@ -1105,13 +1107,13 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null, chartConsumptio
                 name: format(toDate(day, { timeZone }), 'MMM dd', { locale: es }),
                 total: dailyConsumptions[day],
             }));
-    }, [chartConsumptions]);
+    }, [chartConsumptions, timeZone]);
 
     const stats = useMemo(() => {
         if (!consumptions) return { total: 0, avg: 0, peakDay: 'N/A', peakTotal: 0 };
         
         const monthlyTotal = consumptions.filter(c => !c.voided).length;
-        const nowInMexicoCity = utcToZonedTime(new Date(), 'America/Mexico_City');
+        const nowInMexicoCity = toZonedTime(new Date(), timeZone);
         const dayOfMonth = getDate(nowInMexicoCity);
 
         const dailyAvg = dayOfMonth > 0 ? monthlyTotal / dayOfMonth : 0;
@@ -1124,7 +1126,7 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null, chartConsumptio
             peakDay: peak.name,
             peakTotal: peak.total,
         };
-    }, [consumptions, chartData]);
+    }, [consumptions, chartData, timeZone]);
 
     if (!consumptions) {
         return (
@@ -1201,3 +1203,5 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null, chartConsumptio
         </div>
     );
 };
+
+    

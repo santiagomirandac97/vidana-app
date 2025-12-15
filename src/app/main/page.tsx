@@ -355,7 +355,7 @@ function AppContent({ user }: { user: User }) {
               <div className="flex items-center gap-2">
                   <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-48 justify-start">
+                          <Button variant="outline" className="w-48 justify-start h-10">
                               <Building className="mr-2 h-4 w-4" />
                               <span className="truncate">{company?.name}</span>
                               <ChevronDown className="ml-auto h-4 w-4" />
@@ -371,12 +371,12 @@ function AppContent({ user }: { user: User }) {
                   </DropdownMenu>
 
                   {userProfile?.role === 'admin' && (
-                      <Button variant="outline" onClick={() => router.push('/selection')}>
+                      <Button variant="outline" onClick={() => router.push('/selection')} className="h-10">
                           <Home className="mr-2 h-4 w-4" />
                           Menú
                       </Button>
                   )}
-                <Button variant="outline" onClick={handleSignOut}>
+                <Button variant="outline" onClick={handleSignOut} className="h-10">
                   <LogOut className="mr-2 h-4 w-4" />
                   Salir
                 </Button>
@@ -1080,110 +1080,114 @@ const PaymentDialog: FC<PaymentDialogProps> = ({ isOpen, onClose, onConfirm, amo
 
 
 const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumptions }) => {
-  const chartData = useMemo(() => {
-    if (!consumptions) return [];
-    const dailyConsumptions: { [key: string]: number } = {};
-    const timeZone = 'America/Mexico_City';
-    
-    // Create a map for the last 10 active days
-    const lastActiveDays = [...new Set(consumptions.map(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd')))]
-        .sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
-        .slice(0, 10);
+    const chartData = useMemo(() => {
+        if (!consumptions) return [];
+        const dailyConsumptions: { [key: string]: number } = {};
+        const timeZone = 'America/Mexico_City';
+        
+        const lastActiveDays = [...new Set(consumptions.map(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd')))]
+            .sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
+            .slice(0, 10);
 
-    consumptions.forEach(c => {
-      if (!c.voided) {
-        const day = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
-        if (lastActiveDays.includes(day)) {
-            dailyConsumptions[day] = (dailyConsumptions[day] || 0) + 1;
-        }
-      }
-    });
+        consumptions.forEach(c => {
+            if (!c.voided) {
+                const day = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
+                if (lastActiveDays.includes(day)) {
+                    dailyConsumptions[day] = (dailyConsumptions[day] || 0) + 1;
+                }
+            }
+        });
 
-    const sortedDays = Object.keys(dailyConsumptions).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-    
-    return sortedDays.map(day => ({
-      name: format(toDate(day, { timeZone }), 'MMM dd', { locale: es }),
-      total: dailyConsumptions[day],
-    }));
-  }, [consumptions]);
+        return Object.keys(dailyConsumptions)
+            .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+            .map(day => ({
+                name: format(toDate(day, { timeZone }), 'MMM dd', { locale: es }),
+                total: dailyConsumptions[day],
+            }));
+    }, [consumptions]);
 
-  const stats = useMemo(() => {
-    if (!consumptions) return { total: 0, avg: 0, peakDay: 'N/A', peakTotal: 0};
-    const total = consumptions.filter(c => !c.voided).length;
-    const avg = chartData.length > 0 ? total / chartData.length : 0;
-    const peak = chartData.reduce((max, item) => item.total > max.total ? item : max, {name: 'N/A', total: 0});
-    return {
-      total,
-      avg: Math.round(avg),
-      peakDay: peak.name,
-      peakTotal: peak.total,
+    const stats = useMemo(() => {
+        if (!consumptions) return { total: 0, avg: 0, peakDay: 'N/A', peakTotal: 0 };
+        
+        const monthlyTotal = consumptions.filter(c => !c.voided).length;
+        const today = new Date();
+        const dayOfMonth = today.getDate();
+        const dailyAvg = dayOfMonth > 0 ? monthlyTotal / dayOfMonth : 0;
+        
+        const peak = chartData.reduce((max, item) => item.total > max.total ? item : max, {name: 'N/A', total: 0});
+
+        return {
+            total: monthlyTotal,
+            avg: Math.round(dailyAvg),
+            peakDay: peak.name,
+            peakTotal: peak.total,
+        };
+    }, [consumptions, chartData]);
+
+    if (!consumptions || consumptions.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center h-80 border rounded-md bg-gray-50 dark:bg-gray-800/50">
+                <BarChart className="h-10 w-10 text-muted-foreground" />
+                <p className="text-muted-foreground mt-4">No hay datos de consumo para mostrar el gráfico.</p>
+            </div>
+        );
     }
-  }, [consumptions, chartData]);
-  
-  if (!consumptions || consumptions.length === 0) {
+
     return (
-      <div className="flex flex-col items-center justify-center h-80 border rounded-md bg-gray-50 dark:bg-gray-800/50">
-        <BarChart className="h-10 w-10 text-muted-foreground" />
-        <p className="text-muted-foreground mt-4">No hay datos de consumo para mostrar el gráfico.</p>
-      </div>
+        <div className="space-y-4">
+            <h3 className="font-semibold text-sm">Tendencia de Consumo (Mes Actual)</h3>
+            <div className="grid gap-4 grid-cols-2">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Consumos del Periodo</CardTitle>
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.total}</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Promedio Diario</CardTitle>
+                        <BarChart className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.avg}</div>
+                    </CardContent>
+                </Card>
+            </div>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Día Pico ({stats.peakDay})</CardTitle>
+                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{stats.peakTotal}</div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardContent className="pt-6">
+                    <ResponsiveContainer width="100%" height={250}>
+                        <RechartsBarChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
+                            <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={false} tickLine={false} />
+                            <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={false} tickLine={false}/>
+                            <Tooltip 
+                                cursor={{fill: 'hsl(var(--muted))'}}
+                                contentStyle={{ 
+                                    backgroundColor: 'hsl(var(--background))',
+                                    borderColor: 'hsl(var(--border))',
+                                    fontSize: '12px',
+                                    borderRadius: '0.5rem',
+                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+                                }} 
+                            />
+                            <Bar dataKey="total" fill="hsl(var(--primary))" name="Consumos" radius={[4, 4, 0, 0]} />
+                        </RechartsBarChart>
+                    </ResponsiveContainer>
+                </CardContent>
+            </Card>
+        </div>
     );
-  }
-
-  return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-sm">Tendencia de Consumo (Mes Actual)</h3>
-       <div className="grid gap-4 grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Consumos del Periodo</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Promedio Diario</CardTitle>
-            <BarChart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.avg}</div>
-          </CardContent>
-        </Card>
-      </div>
-       <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Día Pico ({stats.peakDay})</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.peakTotal}</div>
-          </CardContent>
-        </Card>
-
-      <Card>
-        <CardContent className="pt-6">
-          <ResponsiveContainer width="100%" height={250}>
-            <RechartsBarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
-              <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={false} tickLine={false}/>
-              <Tooltip 
-                cursor={{fill: 'hsl(var(--muted))'}}
-                contentStyle={{ 
-                  backgroundColor: 'hsl(var(--background))',
-                  borderColor: 'hsl(var(--border))',
-                  fontSize: '12px',
-                  borderRadius: '0.5rem',
-                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
-                }} 
-              />
-              <Bar dataKey="total" fill="hsl(var(--primary))" name="Consumos" radius={[4, 4, 0, 0]} />
-            </RechartsBarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-    </div>
-  );
 };

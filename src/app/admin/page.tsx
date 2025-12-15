@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { toDate, formatInTimeZone } from 'date-fns-tz';
+import { toDate, formatInTimeZone, utcToZonedTime } from 'date-fns-tz';
 import { getTodayInMexicoCity } from '@/lib/utils';
 import { DollarSign, Users, BarChart, LogOut, Loader2, CalendarDays, ShieldAlert, Home } from 'lucide-react';
 import { Logo } from '@/components/logo';
@@ -87,7 +87,6 @@ const AdminDashboard: FC = () => {
         const fetchAll = async () => {
             setConsumptionsLoading(true);
             if (companies && companies.length > 0) {
-                // Fetch consumptions only for the current month to improve performance
                 const startOfCurrentMonth = startOfMonth(new Date());
                 
                 const promises = companies.map(c => {
@@ -112,40 +111,35 @@ const AdminDashboard: FC = () => {
 
     const statsByCompany = useMemo(() => {
         if (isLoading || !companies) return [];
-        const todayMexico = getTodayInMexicoCity();
-        const now = new Date();
         const timeZone = 'America/Mexico_City';
-
+        const nowInMexicoCity = utcToZonedTime(new Date(), timeZone);
+        const todayMexico = format(nowInMexicoCity, 'yyyy-MM-dd');
+        
         return companies.map(company => {
             const companyName = company.name || 'Empresa sin nombre';
             const companyConsumptions = allConsumptions.filter(c => c.companyId === company.id && !c.voided);
             
             const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd') === todayMexico);
             
-            // Monthly consumptions are already pre-filtered by the fetch query
             const monthlyConsumptions = companyConsumptions;
             
             const mealPrice = company.mealPrice || 0;
             const dailyTarget = company.dailyTarget || 0;
 
             let dailyRevenue = todayConsumptions.length * mealPrice;
-            let monthlyRevenue = monthlyConsumptions.length * mealPrice;
+            let monthlyRevenue = 0;
             
             if (dailyTarget > 0) {
                 const todayDate = toDate(todayMexico, { timeZone });
-                const dayOfWeek = todayDate.getDay(); // Sunday = 0, Monday = 1...
+                const dayOfWeek = getDay(todayDate);
                 const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4; // Monday to Thursday
 
                 if (isChargeableDay) {
                     dailyRevenue = Math.max(todayConsumptions.length, dailyTarget) * mealPrice;
-                } else {
-                    dailyRevenue = todayConsumptions.length * mealPrice; // On other days, charge actual consumption
                 }
-
-                // Correctly calculate monthly revenue for companies with targets
-                const start = startOfMonth(now);
-                const end = now; // up to today
-                const daysInMonthSoFar = eachDayOfInterval({ start, end });
+                
+                const startOfMonthDate = startOfMonth(nowInMexicoCity);
+                const daysInMonthSoFar = eachDayOfInterval({ start: startOfMonthDate, end: nowInMexicoCity });
                 
                 const monthlyConsumptionsByDay: { [key: string]: number } = {};
                 monthlyConsumptions.forEach(c => {
@@ -156,7 +150,7 @@ const AdminDashboard: FC = () => {
                 monthlyRevenue = daysInMonthSoFar.reduce((total, date) => {
                     const dayStr = format(date, 'yyyy-MM-dd');
                     const dayOfWeek = getDay(date);
-                    const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4; // Mon-Thu
+                    const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4;
                     const countForDay = monthlyConsumptionsByDay[dayStr] || 0;
 
                     if (isChargeableDay) {
@@ -166,6 +160,8 @@ const AdminDashboard: FC = () => {
                     }
                 }, 0);
 
+            } else {
+                 monthlyRevenue = monthlyConsumptions.length * mealPrice;
             }
 
             return {
@@ -298,7 +294,7 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: numbe
         if (hasTarget) {
             Object.keys(dailyConsumptions).forEach(day => {
                 const date = toDate(day, { timeZone });
-                const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon...
+                const dayOfWeek = getDay(date); // 0=Sun, 1=Mon...
                 const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4;
                 
                 if (isChargeableDay) {
@@ -362,7 +358,3 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: numbe
         </div>
     );
 };
-
-    
-
-    

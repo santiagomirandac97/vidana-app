@@ -25,7 +25,7 @@ import {
   ChevronLeft,
   Home
 } from 'lucide-react';
-import { format, subDays, startOfMonth } from 'date-fns';
+import { format, subDays, startOfMonth, getDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -34,7 +34,7 @@ import { useFirebase, useCollection, useDoc, useMemoFirebase, useUser, useAuth }
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, query, where, orderBy, limit, getDocs, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { signOut, type User } from 'firebase/auth';
-import { formatInTimeZone, toDate } from 'date-fns-tz';
+import { formatInTimeZone, toDate, utcToZonedTime } from 'date-fns-tz';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 
@@ -128,32 +128,34 @@ function AppContent({ user }: { user: User }) {
   , [firestore, selectedCompanyId]);
   const { data: employees } = useCollection<Employee>(employeesQuery);
 
-    const todayStart = useMemo(() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return Timestamp.fromDate(today);
-    }, []);
-
     const startOfCurrentMonth = useMemo(() => {
         const date = new Date();
         return startOfMonth(date);
     }, []);
 
-    const todaysConsumptionsQuery = useMemoFirebase(() => 
-        firestore && selectedCompanyId ? query(
+    const todaysConsumptionsQuery = useMemoFirebase(() => {
+        if (!firestore || !selectedCompanyId) return null;
+        const todayMexico = getTodayInMexicoCity();
+        const startOfDay = new Date(todayMexico + 'T00:00:00');
+        const endOfDay = new Date(todayMexico + 'T23:59:59');
+
+        return query(
             collection(firestore, `companies/${selectedCompanyId}/consumptions`), 
-            where('timestamp', '>=', todayStart.toDate().toISOString())
-        ) : null, 
-    [firestore, selectedCompanyId, todayStart]);
+            where('timestamp', '>=', startOfDay.toISOString()),
+            where('timestamp', '<=', endOfDay.toISOString())
+        );
+    }, [firestore, selectedCompanyId]);
     const { data: todaysConsumptions } = useCollection<Consumption>(todaysConsumptionsQuery);
 
-    const recentConsumptionsQuery = useMemoFirebase(() =>
-        firestore && selectedCompanyId ? query(
+    const recentConsumptionsQuery = useMemoFirebase(() => {
+         if (!firestore || !selectedCompanyId) return null;
+        const tenDaysAgo = subDays(new Date(), 10);
+        return query(
             collection(firestore, `companies/${selectedCompanyId}/consumptions`),
-            orderBy('timestamp', 'desc'),
-            limit(10)
-        ) : null
-    , [firestore, selectedCompanyId]);
+            where('timestamp', '>=', tenDaysAgo.toISOString()),
+            orderBy('timestamp', 'desc')
+        )
+    }, [firestore, selectedCompanyId]);
     const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
 
     const monthlyConsumptionsQuery = useMemoFirebase(() =>
@@ -816,7 +818,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, monthl
               <Button className="w-full" onClick={handleExportConsumptions}><Download className="mr-2 h-4 w-4"/> Exportar Reporte</Button>
             </TabsContent>
             <TabsContent value="statistics" className="space-y-4 pt-6">
-              <ConsumptionChart consumptions={monthlyConsumptions} />
+              <ConsumptionChart consumptions={monthlyConsumptions} chartConsumptions={recentConsumptions} />
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -1078,17 +1080,17 @@ const PaymentDialog: FC<PaymentDialogProps> = ({ isOpen, onClose, onConfirm, amo
 };
 
 
-const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumptions }) => {
+const ConsumptionChart: FC<{ consumptions: Consumption[] | null, chartConsumptions: Consumption[] | null }> = ({ consumptions, chartConsumptions }) => {
     const chartData = useMemo(() => {
-        if (!consumptions) return [];
+        if (!chartConsumptions) return [];
         const dailyConsumptions: { [key: string]: number } = {};
         const timeZone = 'America/Mexico_City';
         
-        const lastActiveDays = [...new Set(consumptions.map(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd')))]
+        const lastActiveDays = [...new Set(chartConsumptions.map(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd')))]
             .sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
             .slice(0, 10);
 
-        consumptions.forEach(c => {
+        chartConsumptions.forEach(c => {
             if (!c.voided) {
                 const day = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
                 if (lastActiveDays.includes(day)) {
@@ -1103,14 +1105,15 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
                 name: format(toDate(day, { timeZone }), 'MMM dd', { locale: es }),
                 total: dailyConsumptions[day],
             }));
-    }, [consumptions]);
+    }, [chartConsumptions]);
 
     const stats = useMemo(() => {
         if (!consumptions) return { total: 0, avg: 0, peakDay: 'N/A', peakTotal: 0 };
         
         const monthlyTotal = consumptions.filter(c => !c.voided).length;
-        const today = new Date();
-        const dayOfMonth = today.getDate();
+        const nowInMexicoCity = utcToZonedTime(new Date(), 'America/Mexico_City');
+        const dayOfMonth = getDate(nowInMexicoCity);
+
         const dailyAvg = dayOfMonth > 0 ? monthlyTotal / dayOfMonth : 0;
         
         const peak = chartData.reduce((max, item) => item.total > max.total ? item : max, {name: 'N/A', total: 0});
@@ -1123,7 +1126,15 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
         };
     }, [consumptions, chartData]);
 
-    if (!consumptions || consumptions.length === 0) {
+    if (!consumptions) {
+        return (
+            <div className="flex flex-col items-center justify-center h-80 border rounded-md bg-gray-50 dark:bg-gray-800/50">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        );
+    }
+    
+    if (consumptions.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-80 border rounded-md bg-gray-50 dark:bg-gray-800/50">
                 <BarChart className="h-10 w-10 text-muted-foreground" />

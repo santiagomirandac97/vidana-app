@@ -481,6 +481,7 @@ function AppContent({ user }: { user: User }) {
             employees={employees || []}
             todaysConsumptions={todaysConsumptions || []}
             monthlyConsumptions={monthlyConsumptions || []}
+            recentConsumptions={recentConsumptions || []}
             selectedCompanyId={selectedCompanyId} 
             company={company}
             allCompanies={allCompanies || []}
@@ -589,12 +590,13 @@ interface AdminPanelProps {
   employees: Employee[];
   todaysConsumptions: Consumption[];
   monthlyConsumptions: Consumption[];
+  recentConsumptions: Consumption[];
   selectedCompanyId: string;
   company: Company | null;
   allCompanies: Company[];
 }
 
-const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, monthlyConsumptions, selectedCompanyId, company, allCompanies }) => {
+const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, monthlyConsumptions, recentConsumptions, selectedCompanyId, company, allCompanies }) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { firestore } = useFirebase();

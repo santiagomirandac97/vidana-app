@@ -25,7 +25,7 @@ import {
   ChevronLeft,
   Home
 } from 'lucide-react';
-import { format, subDays } from 'date-fns';
+import { format, subDays, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -134,11 +134,9 @@ function AppContent({ user }: { user: User }) {
         return Timestamp.fromDate(today);
     }, []);
 
-    const tenDaysAgo = useMemo(() => {
+    const startOfCurrentMonth = useMemo(() => {
         const date = new Date();
-        date.setDate(date.getDate() - 10);
-        date.setHours(0, 0, 0, 0);
-        return Timestamp.fromDate(date);
+        return startOfMonth(date);
     }, []);
 
     const todaysConsumptionsQuery = useMemoFirebase(() => 
@@ -159,14 +157,14 @@ function AppContent({ user }: { user: User }) {
     , [firestore, selectedCompanyId]);
     const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
 
-    const graphConsumptionsQuery = useMemoFirebase(() =>
+    const monthlyConsumptionsQuery = useMemoFirebase(() =>
         firestore && selectedCompanyId ? query(
             collection(firestore, `companies/${selectedCompanyId}/consumptions`),
-            where('timestamp', '>=', tenDaysAgo.toDate().toISOString()),
+            where('timestamp', '>=', startOfCurrentMonth.toISOString()),
             orderBy('timestamp', 'desc')
         ) : null
-    , [firestore, selectedCompanyId, tenDaysAgo]);
-    const { data: graphConsumptions } = useCollection<Consumption>(graphConsumptionsQuery);
+    , [firestore, selectedCompanyId, startOfCurrentMonth]);
+    const { data: monthlyConsumptions } = useCollection<Consumption>(monthlyConsumptionsQuery);
 
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [nameSearch, setNameSearch] = useState('');
@@ -349,45 +347,49 @@ function AppContent({ user }: { user: User }) {
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 md:p-8">
-      <header className="flex justify-between items-center mb-8">
-        <Logo />
-        <div className="flex items-center gap-4">
-             <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-10 w-48 justify-start">
-                        <Building className="mr-2 h-5 w-5 text-gray-500" />
-                        <span className="font-medium mr-2 flex-1 text-left truncate">{company?.name}</span>
-                        <ChevronDown className="h-4 w-4" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-48">
-                    {allCompanies.map(c => (
-                        <DropdownMenuItem key={c.id} onSelect={() => setSelectedCompanyId(c.id)}>
-                            {c.name}
-                        </DropdownMenuItem>
-                    ))}
-                </DropdownMenuContent>
-             </DropdownMenu>
+    <div className="bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">
+      <header className="bg-white dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-3">
+              <Logo />
+              <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="w-48 justify-start">
+                              <Building className="mr-2 h-4 w-4" />
+                              <span className="truncate">{company?.name}</span>
+                              <ChevronDown className="ml-auto h-4 w-4" />
+                          </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-48">
+                          {allCompanies.map(c => (
+                              <DropdownMenuItem key={c.id} onSelect={() => setSelectedCompanyId(c.id)}>
+                                  {c.name}
+                              </DropdownMenuItem>
+                          ))}
+                      </DropdownMenuContent>
+                  </DropdownMenu>
 
-            {userProfile?.role === 'admin' && (
-                <Button variant="outline" onClick={() => router.push('/selection')} className="h-10">
-                    <Home className="mr-2 h-4 w-4" />
-                    Volver al menú
+                  {userProfile?.role === 'admin' && (
+                      <Button variant="outline" onClick={() => router.push('/selection')}>
+                          <Home className="mr-2 h-4 w-4" />
+                          Menú
+                      </Button>
+                  )}
+                <Button variant="outline" onClick={handleSignOut}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Salir
                 </Button>
-            )}
-           <Button variant="outline" onClick={handleSignOut} className="h-10">
-            <LogOut className="mr-2 h-4 w-4" />
-            Cerrar Sesión
-          </Button>
+              </div>
+          </div>
         </div>
       </header>
 
-      <main className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2 space-y-8">
-          <Card className="shadow-lg">
+      <main className="container mx-auto p-4 sm:p-6 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+          <Card className="shadow-lg border-gray-200/80 dark:border-gray-800/80">
             <CardHeader>
-              <CardTitle className="text-2xl">Registrar Acceso a Comida</CardTitle>
+              <CardTitle className="text-2xl font-bold tracking-tight">Registrar Acceso a Comida</CardTitle>
               <CardDescription>Usa las pestañas para registrar por número de empleado o buscar por nombre.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -396,7 +398,7 @@ function AppContent({ user }: { user: User }) {
                   <TabsTrigger value="number">Por Número</TabsTrigger>
                   <TabsTrigger value="name">Por Nombre</TabsTrigger>
                 </TabsList>
-                <TabsContent value="number" className="pt-4">
+                <TabsContent value="number" className="pt-6">
                   <div className="flex gap-4">
                     <Input
                       ref={inputRef}
@@ -405,28 +407,28 @@ function AppContent({ user }: { user: User }) {
                       onChange={(e) => setEmployeeNumber(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder={`Número de Empleado para ${company?.name}`}
-                      className="text-2xl h-16 flex-grow"
+                      className="text-xl h-14 flex-grow rounded-lg"
                       disabled={isProcessing}
                     />
-                    <Button onClick={handleRegistrationByNumber} className="h-16 text-lg" disabled={isProcessing}>
-                       {isProcessing ? <><Loader2 className="h-6 w-6 mr-2 animate-spin" /> Procesando...</> : <><ChevronLeft className="h-6 w-6 mr-2 rotate-180" /> Enviar</>}
+                    <Button onClick={handleRegistrationByNumber} className="h-14 text-lg rounded-lg" disabled={isProcessing}>
+                       {isProcessing ? <><Loader2 className="h-6 w-6 mr-2 animate-spin" /> Procesando...</> : <>Registrar</>}
                     </Button>
                   </div>
                 </TabsContent>
-                <TabsContent value="name" className="pt-4">
+                <TabsContent value="name" className="pt-6">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <Input
                         placeholder="Buscar por nombre o número de empleado..."
                         value={nameSearch}
                         onChange={(e) => setNameSearch(e.target.value)}
-                        className="text-lg h-16 pl-10"
+                        className="text-lg h-14 pl-10 rounded-lg"
                         disabled={isProcessing}
                         />
                     </div>
                     {nameSearch && (
-                        <ScrollArea className="mt-4 h-72 w-full rounded-md border">
-                            <div className="p-4">
+                        <ScrollArea className="mt-4 h-[22rem] w-full rounded-md border">
+                            <div className="p-2">
                                 {filteredEmployees.length > 0 ? (
                                     filteredEmployees.map((employee) => (
                                     <div key={employee.id} onClick={() => !isProcessing && registerConsumption(employee)} className={cn("flex justify-between items-center p-3 rounded-md", isProcessing ? 'cursor-not-allowed text-muted-foreground' : 'hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer')}>
@@ -435,7 +437,7 @@ function AppContent({ user }: { user: User }) {
                                             <p className="text-sm text-gray-500">#{employee.employeeNumber}</p>
                                         </div>
                                         {employee.paymentAmount && employee.paymentAmount > 0 && (
-                                            <div className="flex items-center text-yellow-600">
+                                            <div className="flex items-center text-yellow-600 dark:text-yellow-400">
                                                 <DollarSign className="h-4 w-4 mr-1" />
                                                 {employee.paymentAmount.toFixed(2)}
                                             </div>
@@ -453,15 +455,15 @@ function AppContent({ user }: { user: User }) {
               </Tabs>
 
               {feedback && (
-                <div className={cn("mt-4 p-3 rounded-md flex items-center gap-2 text-lg", {
-                  'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300': feedback.type === 'success',
-                  'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300': feedback.type === 'warning',
-                  'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300': feedback.type === 'error',
+                <div className={cn("mt-6 p-4 rounded-lg flex items-center gap-3 text-base font-medium", {
+                  'bg-teal-50 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200': feedback.type === 'success',
+                  'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300': feedback.type === 'warning',
+                  'bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-300': feedback.type === 'error',
                 })}>
                   {feedback.type === 'success' && <CheckCircle className="h-6 w-6" />}
                   {feedback.type === 'warning' && <AlertCircle className="h-6 w-6" />}
                   {feedback.type === 'error' && <XCircle className="h-6 w-6" />}
-                  <span className="font-medium">{feedback.message}</span>
+                  <span>{feedback.message}</span>
                 </div>
               )}
             </CardContent>
@@ -471,11 +473,11 @@ function AppContent({ user }: { user: User }) {
 
         </div>
 
-        <div className="md:col-span-1 space-y-8">
+        <div className="lg:col-span-1 space-y-8">
           <AdminPanel 
             employees={employees || []}
             todaysConsumptions={todaysConsumptions || []}
-            graphConsumptions={graphConsumptions || []}
+            monthlyConsumptions={monthlyConsumptions || []}
             selectedCompanyId={selectedCompanyId} 
             company={company}
             allCompanies={allCompanies || []}
@@ -532,7 +534,7 @@ const RecentConsumptionsCard: FC<{recentConsumptions: Consumption[] | null, comp
 
 
     return (
-        <Card className="shadow-lg">
+        <Card className="shadow-lg border-gray-200/80 dark:border-gray-800/80">
             <CardHeader>
                 <CardTitle>Últimos 10 Consumos</CardTitle>
             </CardHeader>
@@ -563,7 +565,7 @@ const RecentConsumptionsCard: FC<{recentConsumptions: Consumption[] | null, comp
                                     key={c.id}
                                     className={cn(
                                         "transition-colors duration-1000",
-                                        c.id && highlighted.includes(c.id) ? 'bg-green-100 dark:bg-green-900/30' : ''
+                                        c.id && highlighted.includes(c.id) ? 'bg-teal-50 dark:bg-teal-900/30' : ''
                                     )}
                                 >
                                     <TableCell>{c.name}</TableCell>
@@ -583,13 +585,13 @@ const RecentConsumptionsCard: FC<{recentConsumptions: Consumption[] | null, comp
 interface AdminPanelProps {
   employees: Employee[];
   todaysConsumptions: Consumption[];
-  graphConsumptions: Consumption[];
+  monthlyConsumptions: Consumption[];
   selectedCompanyId: string;
   company: Company | null;
   allCompanies: Company[];
 }
 
-const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, graphConsumptions, selectedCompanyId, company, allCompanies }) => {
+const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, monthlyConsumptions, selectedCompanyId, company, allCompanies }) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { firestore } = useFirebase();
@@ -733,7 +735,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, graphC
 
   return (
     <>
-      <Card className="shadow-lg">
+      <Card className="shadow-lg border-gray-200/80 dark:border-gray-800/80">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium">Consumos {todayStr}</CardTitle>
           <Users className="h-4 w-4 text-muted-foreground" />
@@ -745,7 +747,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, graphC
           </p>
         </CardContent>
       </Card>
-      <Card className="shadow-lg">
+      <Card className="shadow-lg border-gray-200/80 dark:border-gray-800/80">
         <CardHeader>
           <CardTitle>Panel de Administración</CardTitle>
         </CardHeader>
@@ -756,7 +758,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, graphC
               <TabsTrigger value="consumptions">Reportes</TabsTrigger>
               <TabsTrigger value="statistics">Estadísticas</TabsTrigger>
             </TabsList>
-            <TabsContent value="employees" className="space-y-4 pt-4">
+            <TabsContent value="employees" className="space-y-4 pt-6">
               <h3 className="font-semibold">Importar Empleados (CSV)</h3>
               <Button variant="outline" className="w-full" onClick={() => { fileInputRef.current?.click();}} disabled={isLoading}>
                 <Upload className="mr-2 h-4 w-4" /> {isLoading ? `Importando...` : `Importar para ${company?.name}`}
@@ -770,7 +772,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, graphC
               <h3 className="font-semibold">Añadir Rápido Empleado</h3>
               <QuickAddForm onAdd={handleAddEmployee} company={company} />
             </TabsContent>
-            <TabsContent value="consumptions" className="space-y-4 pt-4">
+            <TabsContent value="consumptions" className="space-y-4 pt-6">
               <h3 className="font-semibold">Exportar Consumos</h3>
               
               <div className="space-y-2">
@@ -814,8 +816,8 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, graphC
               </div>
               <Button className="w-full" onClick={handleExportConsumptions}><Download className="mr-2 h-4 w-4"/> Exportar Reporte</Button>
             </TabsContent>
-            <TabsContent value="statistics" className="space-y-4 pt-4">
-              <ConsumptionChart consumptions={graphConsumptions} />
+            <TabsContent value="statistics" className="space-y-4 pt-6">
+              <ConsumptionChart consumptions={monthlyConsumptions} />
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -1083,10 +1085,17 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
     const dailyConsumptions: { [key: string]: number } = {};
     const timeZone = 'America/Mexico_City';
     
+    // Create a map for the last 10 active days
+    const lastActiveDays = [...new Set(consumptions.map(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd')))]
+        .sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
+        .slice(0, 10);
+
     consumptions.forEach(c => {
       if (!c.voided) {
         const day = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
-        dailyConsumptions[day] = (dailyConsumptions[day] || 0) + 1;
+        if (lastActiveDays.includes(day)) {
+            dailyConsumptions[day] = (dailyConsumptions[day] || 0) + 1;
+        }
       }
     });
 
@@ -1099,9 +1108,9 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
   }, [consumptions]);
 
   const stats = useMemo(() => {
-    if (!chartData) return { total: 0, avg: 0, peakDay: 'N/A', peakTotal: 0};
-    const total = chartData.reduce((acc, item) => acc + item.total, 0);
-    const avg = total > 0 ? total / chartData.length : 0;
+    if (!consumptions) return { total: 0, avg: 0, peakDay: 'N/A', peakTotal: 0};
+    const total = consumptions.filter(c => !c.voided).length;
+    const avg = chartData.length > 0 ? total / chartData.length : 0;
     const peak = chartData.reduce((max, item) => item.total > max.total ? item : max, {name: 'N/A', total: 0});
     return {
       total,
@@ -1109,21 +1118,21 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
       peakDay: peak.name,
       peakTotal: peak.total,
     }
-  }, [chartData]);
+  }, [consumptions, chartData]);
   
-  if (!consumptions || chartData.length === 0) {
+  if (!consumptions || consumptions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-80 border rounded-md">
+      <div className="flex flex-col items-center justify-center h-80 border rounded-md bg-gray-50 dark:bg-gray-800/50">
         <BarChart className="h-10 w-10 text-muted-foreground" />
-        <p className="text-muted-foreground mt-4">No hay suficientes datos de consumo para mostrar el gráfico.</p>
+        <p className="text-muted-foreground mt-4">No hay datos de consumo para mostrar el gráfico.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <h3 className="font-semibold">Tendencia de Consumo (Últimos 10 Días de Actividad)</h3>
-       <div className="grid gap-4 grid-cols-3">
+      <h3 className="font-semibold text-sm">Tendencia de Consumo (Mes Actual)</h3>
+       <div className="grid gap-4 grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Consumos del Periodo</CardTitle>
@@ -1142,7 +1151,8 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
             <div className="text-2xl font-bold">{stats.avg}</div>
           </CardContent>
         </Card>
-         <Card>
+      </div>
+       <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Día Pico ({stats.peakDay})</CardTitle>
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
@@ -1151,20 +1161,22 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
             <div className="text-2xl font-bold">{stats.peakTotal}</div>
           </CardContent>
         </Card>
-      </div>
 
       <Card>
         <CardContent className="pt-6">
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={250}>
             <RechartsBarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-              <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
+              <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={false} tickLine={false}/>
               <Tooltip 
                 cursor={{fill: 'hsl(var(--muted))'}}
                 contentStyle={{ 
                   backgroundColor: 'hsl(var(--background))',
-                  borderColor: 'hsl(var(--border))'
+                  borderColor: 'hsl(var(--border))',
+                  fontSize: '12px',
+                  borderRadius: '0.5rem',
+                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
                 }} 
               />
               <Bar dataKey="total" fill="hsl(var(--primary))" name="Consumos" radius={[4, 4, 0, 0]} />

@@ -1,111 +1,91 @@
 
-/**
- * @fileoverview Firestore Security Rules for ReceptionRGSTR application.
- *
- * Core Philosophy:
- * This ruleset enforces a company-centric security model where access to employee and consumption
- * data is primarily controlled by the company to which the data belongs.
- * The rules prioritize authorization independence by denormalizing the 'companyId' into employee and consumption documents.
- *
- * Data Structure:
- * The Firestore database is structured as follows:
- * /companies/{companyId} - Contains company information.
- * /companies/{companyId}/employees/{employeeId} - Contains employee data for a specific company.
- * /companies/{companyId}/consumptions/{consumptionId} - Contains consumption records for a specific company.
- *
- * Key Security Decisions:
- * - Data is segregated by 'companyId' for secure and efficient listing within each company.
- * - Authorization rules are written without relying on 'get()' calls to parent documents for better performance and security.
- * - Write permissions to employee and consumption data are restricted and depend on authorization logic.
- *
- * Denormalization for Authorization:
- * The 'companyId' is denormalized (copied) into the employee and consumption documents.
- * This avoids the need for costly 'get()' calls to the parent 'company' document when evaluating security rules.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper functions
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
     /**
      * @description Allows read access to company information for all users.
      * @path /companies/{companyId}
      * @allow (get, list) - Any user can read company data.
-     * @deny (create, update, delete) - No user can create, update, or delete company data without specific authorization logic.
-     * @principle Public read, restricted write for company data.
+     * @allow (create, update) - Only admins can write to company data.
+     * @deny (delete) - No one can delete company data from the client.
      */
     match /companies/{companyId} {
       allow get, list: if request.auth != null;
-      allow create, update, delete: if request.auth != null; // TODO: Add specific authorization logic if needed
+      allow create, update: if isAdmin();
+      allow delete: if false; // Protect against accidental deletion
     }
 
     /**
-     * @description Allows creating, reading, updating and deleting employee data only if the user is authorized to do so.
+     * @description Rules for employee data within a company.
      * @path /companies/{companyId}/employees/{employeeId}
-     * @allow (create) - Authorized users can create employee data.
-     * @allow (get, list) - Any user can read employee data.
-     * @allow (update, delete) - Authorized users can update and delete employee data.
-     * @deny (create) - Unauthorized user attempts to create employee data.
-     * @principle Enforces company-level authorization for employee data management.
+     * @allow (get, list) - Any authenticated user can read employee data.
+     * @allow (create) - Any authenticated user can create employee data (for quick activation).
+     * @allow (update) - Only admins can update employee data.
+     * @allow (delete) - Only admins can delete employee data.
      */
     match /companies/{companyId}/employees/{employeeId} {
       allow get, list: if request.auth != null;
       allow create: if request.auth != null && request.resource.data.companyId == companyId;
-      allow update: if request.auth != null; // TODO: Add specific authorization logic if needed && resource != null;
-      allow delete: if request.auth != null; // TODO: Add specific authorization logic if needed && resource != null;
+      allow update, delete: if isAdmin();
     }
 
     /**
-     * @description Allows creating, reading, updating and deleting consumption data only if the user is authorized to do so.
+     * @description Rules for consumption data within a company.
      * @path /companies/{companyId}/consumptions/{consumptionId}
-     * @allow (create) - Authorized users can create consumption data.
+     * @allow (create) - Any authenticated user can create consumption data.
      * @allow (get, list) - Any user can read consumption data.
-     * @allow (update, delete) - Authorized users can update and delete consumption data.
-     * @deny (create) - Unauthorized user attempts to create consumption data.
-     * @principle Enforces company-level authorization for consumption data management.
+     * @allow (update, delete) - Only admins can void (update) or delete records.
      */
     match /companies/{companyId}/consumptions/{consumptionId} {
       allow get, list: if request.auth != null;
       allow create: if request.auth != null && request.resource.data.companyId == companyId;
-      allow update: if request.auth != null; // TODO: Add specific authorization logic if needed && resource != null;
-      allow delete: if request.auth != null; // TODO: Add specific authorization logic if needed && resource != null;
+      allow update, delete: if isAdmin();
     }
 
     /**
-     * @description Allows authorized users to manage menu items for a specific company.
+     * @description Rules for menu items for a specific company's kiosk.
      * @path /companies/{companyId}/menuItems/{menuItemId}
-     * @allow (get, list, create, update, delete) - Any authenticated user can manage menu items.
-     * @principle Company-specific menu management.
+     * @allow (get, list) - Any authenticated user can read menu items.
+     * @allow (create, update, delete) - Only admins can manage menu items.
      */
     match /companies/{companyId}/menuItems/{menuItemId} {
         allow get, list: if request.auth != null;
-        allow create: if request.auth != null && request.resource.data.companyId == companyId;
-        allow update, delete: if request.auth != null; // TODO: Add admin role check if needed
+        allow create, update, delete: if isAdmin() && request.resource.data.companyId == companyId;
     }
 
     /**
      * @description Rules for user profile documents.
      * @path /users/{userId}
      * @allow (read) - Any authenticated user can read any user's profile.
-     * @allow (create) - A user can create their own profile document.
-     * @allow (update) - A user can only update their own profile.
+     * @allow (create, update) - A user can only create or update their own profile.
      * @deny (delete) - No user can delete a profile.
      */
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if isOwner(userId);
       allow delete: if false;
     }
 
     /**
      * @description Rules for the application configuration document.
      * @path /configuration/app
-     * @allow (read) - The app configuration is public and can be read by anyone.
-     * @deny (write) - The configuration can only be changed from the Firebase Console.
+     * @allow (get) - The app configuration is public for domain validation.
+     * @allow (list, write) - Admins can manage the configuration.
      */
     match /configuration/app {
       allow get: if true;
-      allow list, create, update, delete: if false;
+      allow list, create, update, delete: if isAdmin();
     }
   }
 }

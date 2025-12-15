@@ -9,7 +9,7 @@ import { type Company, type Consumption, type UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { format, startOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDate, formatInTimeZone } from 'date-fns-tz';
 import { getTodayInMexicoCity } from '@/lib/utils';
@@ -89,8 +89,7 @@ const AdminDashboard: FC = () => {
             if (companies && companies.length > 0) {
                 // Fetch consumptions only for the current month to improve performance
                 const startOfCurrentMonth = startOfMonth(new Date());
-                const startOfMonthTimestamp = Timestamp.fromDate(startOfCurrentMonth);
-
+                
                 const promises = companies.map(c => {
                     const consumptionsQuery = query(
                         collection(firestore, `companies/${c.id}/consumptions`),
@@ -113,18 +112,17 @@ const AdminDashboard: FC = () => {
 
     const statsByCompany = useMemo(() => {
         if (isLoading || !companies) return [];
-        const today = getTodayInMexicoCity();
+        const todayMexico = getTodayInMexicoCity();
         const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
+        const timeZone = 'America/Mexico_City';
 
         return companies.map(company => {
             const companyName = company.name || 'Empresa sin nombre';
             const companyConsumptions = allConsumptions.filter(c => c.companyId === company.id && !c.voided);
             
-            const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd') === today);
+            const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd') === todayMexico);
             
-            // Monthly consumptions are now pre-filtered by the fetch query
+            // Monthly consumptions are already pre-filtered by the fetch query
             const monthlyConsumptions = companyConsumptions;
             
             const mealPrice = company.mealPrice || 0;
@@ -133,35 +131,41 @@ const AdminDashboard: FC = () => {
             let dailyRevenue = todayConsumptions.length * mealPrice;
             let monthlyRevenue = monthlyConsumptions.length * mealPrice;
             
-            // Logic for companies with a daily target
             if (dailyTarget > 0) {
-                const todayDate = toDate(today, { timeZone: 'America/Mexico_City' });
+                const todayDate = toDate(todayMexico, { timeZone });
                 const dayOfWeek = todayDate.getDay(); // Sunday = 0, Monday = 1...
                 const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4; // Monday to Thursday
 
                 if (isChargeableDay) {
                     dailyRevenue = Math.max(todayConsumptions.length, dailyTarget) * mealPrice;
                 } else {
-                    dailyRevenue = 0; // No revenue on Fri, Sat, Sun for targeted companies
+                    dailyRevenue = todayConsumptions.length * mealPrice; // On other days, charge actual consumption
                 }
 
-                // Calculate monthly revenue based on daily logic for targeted companies
+                // Correctly calculate monthly revenue for companies with targets
+                const start = startOfMonth(now);
+                const end = now; // up to today
+                const daysInMonthSoFar = eachDayOfInterval({ start, end });
+                
                 const monthlyConsumptionsByDay: { [key: string]: number } = {};
                 monthlyConsumptions.forEach(c => {
-                    const day = formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd');
+                    const day = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
                     monthlyConsumptionsByDay[day] = (monthlyConsumptionsByDay[day] || 0) + 1;
                 });
-                
-                monthlyRevenue = Object.entries(monthlyConsumptionsByDay).reduce((total, [day, count]) => {
-                    const date = toDate(day, { timeZone: 'America/Mexico_City' });
-                    const dayOfWeek = date.getDay();
-                    const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4;
-                    
+
+                monthlyRevenue = daysInMonthSoFar.reduce((total, date) => {
+                    const dayStr = format(date, 'yyyy-MM-dd');
+                    const dayOfWeek = getDay(date);
+                    const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4; // Mon-Thu
+                    const countForDay = monthlyConsumptionsByDay[dayStr] || 0;
+
                     if (isChargeableDay) {
-                        return total + (Math.max(count, dailyTarget) * mealPrice);
+                        return total + (Math.max(countForDay, dailyTarget) * mealPrice);
+                    } else {
+                        return total + (countForDay * mealPrice);
                     }
-                    return total;
                 }, 0);
+
             }
 
             return {
@@ -358,5 +362,7 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: numbe
         </div>
     );
 };
+
+    
 
     

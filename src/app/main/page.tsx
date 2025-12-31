@@ -199,6 +199,7 @@ function AppContent({ user }: { user: User }) {
   const proceedWithConsumption = (employee: Employee) => {
     if (!firestore || !selectedCompanyId || isProcessing) return;
     
+    // This check is re-asserted here to prevent double submissions
     if (isProcessing) return;
     setIsProcessing(true);
 
@@ -282,7 +283,7 @@ function AppContent({ user }: { user: User }) {
       });
       setPendingEmployee({ number: employeeNumber, name: '' });
       setQuickAddOpen(true);
-      setIsProcessing(false);
+      // Don't set isProcessing to false here, wait for dialog outcome
     }
   };
 
@@ -292,6 +293,7 @@ function AppContent({ user }: { user: User }) {
       return;
     }
 
+    // isProcessing should already be true, but we ensure it here
     setIsProcessing(true);
 
     const newEmployeeData: Omit<Employee, 'id'> = {
@@ -305,12 +307,16 @@ function AppContent({ user }: { user: User }) {
 
     const employeesCollection = collection(firestore, `companies/${selectedCompanyId}/employees`);
     addDocumentNonBlocking(employeesCollection, newEmployeeData).then(docRef => {
-        if (!docRef) {
+        if (!docRef?.id) {
+          toast({ variant: "destructive", title: "Error de Permisos", description: "No se pudo crear el nuevo empleado. Verifique sus permisos de administrador." });
           resetInputAndFeedback();
           return;
         };
         const newEmployee: Employee = { ...newEmployeeData, id: docRef.id };
         proceedWithConsumption(newEmployee); 
+    }).catch(error => {
+        toast({ variant: "destructive", title: "Error de Creación", description: error.message || "No se pudo crear el nuevo empleado." });
+        resetInputAndFeedback();
     });
 
     setQuickAddOpen(false);
@@ -491,7 +497,13 @@ function AppContent({ user }: { user: User }) {
 
       <QuickAddDialog 
         isOpen={isQuickAddOpen}
-        setIsOpen={setQuickAddOpen}
+        setIsOpen={(open) => {
+            setQuickAddOpen(open);
+            // If closing the dialog, reset the processing state
+            if (!open) {
+                resetInputAndFeedback();
+            }
+        }}
         onActivate={handleQuickActivate}
         employeeNumber={pendingEmployee?.number ?? ''}
         company={company}
@@ -653,7 +665,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, monthl
 
             if (!querySnapshot.empty) {
                 const docToUpdate = querySnapshot.docs[0];
-                updateDoc(docToUpdate.ref, { ...newEmp }).catch((e) => console.error("Error updating doc:", e));
+                updateDocumentNonBlocking(docToUpdate.ref, { ...newEmp }).catch((e) => console.error("Error updating doc:", e));
                 updatedCount++;
             } else {
                 addDocumentNonBlocking(employeesCollection, newEmp).catch((e) => console.error("Error adding doc:", e));

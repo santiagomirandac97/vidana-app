@@ -18,7 +18,7 @@ export interface Employee {
   email?: string;
   active: boolean;
   paymentAmount?: number;
-  voided: boolean;
+  voided?: boolean;
 }
 
 export interface OrderItem {

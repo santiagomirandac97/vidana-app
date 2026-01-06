@@ -290,7 +290,7 @@ const OrderCard: FC<{ order: Consumption, onMarkAsDone: (orderId: string) => voi
 
 const CompletedOrderCard: FC<{ order: Consumption }> = ({ order }) => {
     return (
-        <Card className="shadow-sm border-gray-200 dark:border-gray-800 bg-green-50/50 dark:bg-green-900/10">
+        <Card className="shadow-sm border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20">
             <CardHeader className="p-4">
                 <CardTitle className="text-base flex justify-between items-center">
                     <span>{order.name}</span>

@@ -167,29 +167,30 @@ const CommandDashboard: FC = () => {
 
 
 const OrderCard: FC<{ order: Consumption, onMarkAsDone: (orderId: string) => void }> = ({ order, onMarkAsDone }) => {
-    const [urgency, setUrgency] = useState<'normal' | 'warning' | 'danger'>('normal');
+    const [minutesSinceOrder, setMinutesSinceOrder] = useState(0);
 
     useEffect(() => {
-        const calculateUrgency = () => {
+        const calculateMinutes = () => {
             const now = new Date();
             const orderTime = new Date(order.timestamp);
-            const diffMinutes = (now.getTime() - orderTime.getTime()) / (1000 * 60);
-
-            if (diffMinutes >= URGENCY_DANGER_MINUTES) {
-                setUrgency('danger');
-            } else if (diffMinutes >= URGENCY_WARNING_MINUTES) {
-                setUrgency('warning');
-            } else {
-                setUrgency('normal');
-            }
+            const diffMs = now.getTime() - orderTime.getTime();
+            setMinutesSinceOrder(Math.floor(diffMs / (1000 * 60)));
         };
 
-        calculateUrgency(); // Calculate on initial render
-        const interval = setInterval(calculateUrgency, 60000); // Re-check every minute
+        calculateMinutes(); // Calculate initial difference immediately
 
-        return () => clearInterval(interval); // Cleanup on unmount
+        const interval = setInterval(calculateMinutes, 60000); // Re-calculate every minute
+
+        // Cleanup function to clear the interval when the component unmounts
+        return () => clearInterval(interval);
     }, [order.timestamp]);
     
+    const urgency = useMemo(() => {
+        if (minutesSinceOrder >= URGENCY_DANGER_MINUTES) return 'danger';
+        if (minutesSinceOrder >= URGENCY_WARNING_MINUTES) return 'warning';
+        return 'normal';
+    }, [minutesSinceOrder]);
+
     const cardBorderColor = {
         normal: 'border-gray-200 dark:border-gray-700',
         warning: 'border-orange-400 dark:border-orange-500',
@@ -236,7 +237,3 @@ const OrderCard: FC<{ order: Consumption, onMarkAsDone: (orderId: string) => voi
         </Card>
     )
 }
-
-    
-
-    

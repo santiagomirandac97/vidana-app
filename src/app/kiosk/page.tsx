@@ -184,7 +184,7 @@ const KioskDashboard: FC = () => {
         }
         setIsSubmitting(true);
         try {
-            const consumptionData = {
+            const consumptionData: Omit<Consumption, 'id'> = {
                 employeeId: selectedEmployee.id!,
                 employeeNumber: selectedEmployee.employeeNumber,
                 name: selectedEmployee.name,
@@ -193,7 +193,7 @@ const KioskDashboard: FC = () => {
                 voided: false,
                 items: order,
                 totalAmount: orderTotal,
-                status: 'pending' as const,
+                status: 'pending',
             };
 
             const consumptionsCollection = collection(firestore, `companies/${kioskCompany.id}/consumptions`);
@@ -574,3 +574,4 @@ const DownloadReportDialog: FC<{company: Company, consumptions: Consumption[]}> 
     
 
     
+

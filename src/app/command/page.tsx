@@ -184,10 +184,10 @@ const OrderCard: FC<{ order: Consumption, onMarkAsDone: (orderId: string) => voi
             }
         };
 
-        calculateUrgency();
-        const interval = setInterval(calculateUrgency, 60000); // Check every minute
+        calculateUrgency(); // Calculate on initial render
+        const interval = setInterval(calculateUrgency, 60000); // Re-check every minute
 
-        return () => clearInterval(interval);
+        return () => clearInterval(interval); // Cleanup on unmount
     }, [order.timestamp]);
     
     const cardBorderColor = {
@@ -236,5 +236,7 @@ const OrderCard: FC<{ order: Consumption, onMarkAsDone: (orderId: string) => voi
         </Card>
     )
 }
+
+    
 
     

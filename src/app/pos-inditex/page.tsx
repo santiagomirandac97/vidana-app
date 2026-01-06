@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, doc, getDocs, orderBy, getDoc } from 'firebase/firestore';
+import { collection, query, where, doc, getDocs, orderBy, getDoc } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { type Company, type UserProfile, type MenuItem, type OrderItem, type Consumption } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,6 @@ import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-// Hardcoded Company ID for Inditex
-const INDITEX_COMPANY_ID = "E7Fz3iAbaH314m59t7qR";
 
 export default function PosInditexPage() {
     const { user, isLoading: userLoading } = useUser();
@@ -89,15 +87,17 @@ const PosDashboard: FC = () => {
         const fetchPosData = async () => {
             setIsLoading(true);
             try {
-                const companyDocRef = doc(firestore, 'companies', INDITEX_COMPANY_ID);
-                const companySnapshot = await getDoc(companyDocRef);
+                // Fetch all companies to find Inditex dynamically
+                const companiesQuery = query(collection(firestore, 'companies'), where('name', '==', 'Inditex'));
+                const companiesSnapshot = await getDocs(companiesQuery);
 
-                if (!companySnapshot.exists()) {
-                    toast({ variant: 'destructive', title: 'Error de Configuración', description: `La empresa Inditex con ID "${INDITEX_COMPANY_ID}" no fue encontrada.` });
+                if (companiesSnapshot.empty) {
+                    toast({ variant: 'destructive', title: 'Error de Configuración', description: `La empresa "Inditex" no fue encontrada.` });
                     setIsLoading(false);
                     return;
                 }
-                const companyData = { ...companySnapshot.data(), id: companySnapshot.id } as Company;
+                
+                const companyData = { ...companiesSnapshot.docs[0].data(), id: companiesSnapshot.docs[0].id } as Company;
                 setInditexCompany(companyData);
                 
                 const menuQuery = query(collection(firestore, `companies/${companyData.id}/menuItems`), orderBy('name'));
@@ -205,7 +205,7 @@ const PosDashboard: FC = () => {
                             <ShieldAlert className="h-12 w-12 text-destructive" />
                             Error de Configuración
                         </CardTitle>
-                        <CardDescription>La empresa Inditex no se pudo encontrar. Verifique el ID en el código fuente.</CardDescription>
+                        <CardDescription>La empresa "Inditex" no se pudo encontrar. Verifique que exista en la pestaña de configuración.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Button onClick={() => router.push('/selection')} className="w-full">

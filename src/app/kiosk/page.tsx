@@ -193,6 +193,7 @@ const KioskDashboard: FC = () => {
                 voided: false,
                 items: order,
                 totalAmount: orderTotal,
+                status: 'pending' as const,
             };
 
             const consumptionsCollection = collection(firestore, `companies/${kioskCompany.id}/consumptions`);

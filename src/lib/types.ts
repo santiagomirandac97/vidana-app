@@ -38,6 +38,7 @@ export interface Consumption {
   voided: boolean;
   items?: OrderItem[];
   totalAmount?: number;
+  status?: 'pending' | 'completed';
 }
 
 export interface UserProfile {
@@ -60,3 +61,4 @@ export interface MenuItem {
     category: string;
     companyId: string;
 }
+

@@ -167,54 +167,11 @@ const CommandDashboard: FC = () => {
 
 
 const OrderCard: FC<{ order: Consumption, onMarkAsDone: (orderId: string) => void }> = ({ order, onMarkAsDone }) => {
-    const [minutesSinceOrder, setMinutesSinceOrder] = useState(0);
-
-    useEffect(() => {
-        const calculateMinutes = () => {
-            const now = new Date();
-            const orderTime = new Date(order.timestamp);
-            const diffMs = now.getTime() - orderTime.getTime();
-            setMinutesSinceOrder(Math.floor(diffMs / (1000 * 60)));
-        };
-
-        calculateMinutes(); // Calculate initial difference immediately
-
-        const interval = setInterval(calculateMinutes, 60000); // Re-calculate every minute
-
-        // Cleanup function to clear the interval when the component unmounts
-        return () => clearInterval(interval);
-    }, [order.timestamp]);
-    
-    const urgency = useMemo(() => {
-        if (minutesSinceOrder >= URGENCY_DANGER_MINUTES) return 'danger';
-        if (minutesSinceOrder >= URGENCY_WARNING_MINUTES) return 'warning';
-        return 'normal';
-    }, [minutesSinceOrder]);
-
-    const cardBorderColor = {
-        normal: 'border-gray-200 dark:border-gray-700',
-        warning: 'border-orange-400 dark:border-orange-500',
-        danger: 'border-red-500 dark:border-red-600',
-    }[urgency];
-    
-     const cardHeaderColor = {
-        normal: 'bg-gray-50 dark:bg-gray-800',
-        warning: 'bg-orange-100 dark:bg-orange-900/50',
-        danger: 'bg-red-100 dark:bg-red-900/50',
-    }[urgency];
-    
-    const urgencyIcon = {
-        normal: <Clock className="h-5 w-5 text-gray-500" />,
-        warning: <AlertTriangle className="h-5 w-5 text-orange-500 animate-pulse" />,
-        danger: <Flame className="h-5 w-5 text-red-500 animate-bounce" />,
-    }[urgency];
-
     return (
-        <Card className={cn("shadow-md hover:shadow-xl transition-shadow duration-300 border-2", cardBorderColor)}>
-            <CardHeader className={cn("p-4", cardHeaderColor)}>
+        <Card className="shadow-md hover:shadow-xl transition-shadow duration-300 border-2 border-gray-200 dark:border-gray-700">
+            <CardHeader className="p-4 bg-gray-50 dark:bg-gray-800">
                 <CardTitle className="text-lg flex justify-between items-center">
                     <span>{order.name}</span>
-                    {urgencyIcon}
                 </CardTitle>
                 <CardDescription className="flex items-center gap-2">
                     <Clock className="h-4 w-4" /> 
@@ -235,5 +192,5 @@ const OrderCard: FC<{ order: Consumption, onMarkAsDone: (orderId: string) => voi
                 </Button>
             </CardContent>
         </Card>
-    )
+    );
 }

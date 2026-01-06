@@ -9,7 +9,7 @@ import { type Company, type Consumption, type UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ShieldAlert, Home, ChefHat, Clock, AlertTriangle, Flame, CheckCircle, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, ChefHat, Clock, AlertTriangle, Flame, CheckCircle, Calendar as CalendarIcon, RotateCcw } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { cn, formatTimestamp, getTodayInMexicoCity } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format as formatDate } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const KIOSK_COMPANY_ID = "Yzf6ucrafGkOPqbqCJpl"; // Noticieros Televisa Company ID
 
@@ -177,7 +178,9 @@ const PendingOrdersTab: FC = () => {
 
 const CompletedOrdersTab: FC = () => {
     const { firestore } = useFirebase();
+    const { toast } = useToast();
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const [recoveryCandidate, setRecoveryCandidate] = useState<Consumption | null>(null);
 
     const allCompletedOrdersQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -203,6 +206,19 @@ const CompletedOrdersTab: FC = () => {
 
     }, [allCompletedOrders, selectedDate]);
     
+    const handleRecoverOrder = async () => {
+        if (!firestore || !recoveryCandidate) return;
+        const orderDocRef = doc(firestore, `companies/${KIOSK_COMPANY_ID}/consumptions`, recoveryCandidate.id!);
+        try {
+            await updateDoc(orderDocRef, { status: 'pending' });
+            toast({ title: 'Orden Recuperada', description: `La orden de ${recoveryCandidate.name} ha vuelto a pendientes.` });
+        } catch (error) {
+             toast({ variant: 'destructive', title: 'Error', description: 'No se pudo recuperar la orden.' });
+        } finally {
+            setRecoveryCandidate(null);
+        }
+    }
+
     return (
         <div>
             <div className="flex items-center gap-4 mb-6">
@@ -249,11 +265,27 @@ const CompletedOrdersTab: FC = () => {
                  <ScrollArea className="h-[70vh]">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-1">
                         {filteredAndSortedOrders.map(order => (
-                            <CompletedOrderCard key={order.id} order={order} />
+                            <CompletedOrderCard key={order.id} order={order} onRecoverRequest={() => setRecoveryCandidate(order)} />
                         ))}
                     </div>
                 </ScrollArea>
             )}
+            
+            <AlertDialog open={!!recoveryCandidate} onOpenChange={(isOpen) => !isOpen && setRecoveryCandidate(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción devolverá la orden de <span className="font-bold">{recoveryCandidate?.name}</span> a la lista de pendientes.
+                            Solo se recomienda para corregir errores.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleRecoverOrder}>Recuperar</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };
@@ -288,7 +320,13 @@ const OrderCard: FC<{ order: Consumption, onMarkAsDone: (orderId: string) => voi
     );
 }
 
-const CompletedOrderCard: FC<{ order: Consumption }> = ({ order }) => {
+const CompletedOrderCard: FC<{ order: Consumption, onRecoverRequest: () => void }> = ({ order, onRecoverRequest }) => {
+    const isToday = useMemo(() => {
+        const todayString = getTodayInMexicoCity();
+        const orderDateString = formatDate(new Date(order.timestamp), 'yyyy-MM-dd');
+        return todayString === orderDateString;
+    }, [order.timestamp]);
+    
     return (
         <Card className="shadow-sm border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20">
             <CardHeader className="p-4">
@@ -314,6 +352,12 @@ const CompletedOrderCard: FC<{ order: Consumption }> = ({ order }) => {
                     <span>Total:</span>
                     <span>${order.totalAmount?.toFixed(2) ?? '0.00'}</span>
                 </div>
+                 {isToday && (
+                    <Button variant="outline" size="sm" className="w-full mt-3" onClick={onRecoverRequest}>
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Recuperar
+                    </Button>
+                )}
             </CardContent>
         </Card>
     );

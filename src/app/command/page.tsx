@@ -236,3 +236,5 @@ const OrderCard: FC<{ order: Consumption, onMarkAsDone: (orderId: string) => voi
         </Card>
     )
 }
+
+    

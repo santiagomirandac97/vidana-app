@@ -275,7 +275,7 @@ function LoginPageContent() {
         </CardContent>
       </Card>
       <p className="absolute bottom-4 text-sm text-muted-foreground">
-        © 2025 Vidana. All rights reserved.
+        © 2026 Vidana. Todos los derechos reservados.
       </p>
     </div>
   );
@@ -302,7 +302,5 @@ export default function LoginPage() {
 
   return <LoginPageContent />;
 }
-
-    
 
     

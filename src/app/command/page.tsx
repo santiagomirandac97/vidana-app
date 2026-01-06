@@ -4,16 +4,21 @@
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc, useAuth } from '@/firebase';
-import { collection, query, where, doc, updateDoc, orderBy } from 'firebase/firestore';
-import { type Company, type Consumption, type UserProfile, type OrderItem } from '@/lib/types';
+import { collection, query, where, doc, updateDoc, orderBy, Timestamp } from 'firebase/firestore';
+import { type Company, type Consumption, type UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ShieldAlert, Home, ChefHat, Clock, AlertTriangle, Flame } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, ChefHat, Clock, AlertTriangle, Flame, CheckCircle, Calendar as CalendarIcon } from 'lucide-react';
 import { Logo } from '@/components/logo';
-import { cn, formatTimestamp } from '@/lib/utils';
+import { cn, formatTimestamp, getTodayInMexicoCity } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 const KIOSK_COMPANY_ID = "Yzf6ucrafGkOPqbqCJpl"; // Noticieros Televisa Company ID
 
@@ -72,45 +77,10 @@ export default function CommandPage() {
 
 const CommandDashboard: FC = () => {
     const { firestore } = useFirebase();
-    const auth = useAuth();
     const router = useRouter();
 
     const companyDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'companies', KIOSK_COMPANY_ID) : null, [firestore]);
     const { data: company, isLoading: companyLoading } = useDoc<Company>(companyDocRef);
-
-    const pendingOrdersQuery = useMemoFirebase(() => 
-        firestore 
-            ? query(
-                collection(firestore, `companies/${KIOSK_COMPANY_ID}/consumptions`), 
-                where('status', '==', 'pending')
-              ) 
-            : null
-    , [firestore]);
-
-    const { data: pendingOrders, isLoading: ordersLoading } = useCollection<Consumption>(pendingOrdersQuery);
-    
-    const { toast } = useToast();
-
-    const handleSignOut = async () => {
-        if (auth) {
-            await signOut(auth);
-            localStorage.removeItem('selectedCompanyId');
-            router.push('/login');
-        }
-    };
-    
-    const handleMarkAsDone = async (orderId: string) => {
-        if (!firestore) return;
-        const orderDocRef = doc(firestore, `companies/${KIOSK_COMPANY_ID}/consumptions`, orderId);
-        try {
-            await updateDoc(orderDocRef, { status: 'completed' });
-            toast({ title: 'Orden Completada', description: 'La orden ha sido marcada como completada.' });
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo actualizar la orden.' });
-        }
-    }
-
-    const isLoading = companyLoading || ordersLoading;
 
     return (
         <div className="bg-gray-100 dark:bg-gray-950 min-h-screen">
@@ -134,29 +104,152 @@ const CommandDashboard: FC = () => {
                 </div>
             </header>
              <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-                {isLoading ? (
-                    <div className="flex h-[70vh] w-full items-center justify-center">
-                        <Loader2 className="h-10 w-10 animate-spin" />
-                        <p className="ml-4 text-lg">Cargando órdenes pendientes...</p>
-                    </div>
-                ) : !pendingOrders || pendingOrders.length === 0 ? (
-                     <div className="flex h-[70vh] w-full items-center justify-center">
-                        <div className='text-center text-muted-foreground'>
-                            <ChefHat className="h-16 w-16 mx-auto" />
-                            <h2 className='text-2xl font-semibold mt-4'>Todo en orden</h2>
-                            <p>No hay órdenes pendientes en este momento.</p>
-                        </div>
-                    </div>
-                ) : (
-                    <ScrollArea className="h-[85vh]">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-1">
-                            {pendingOrders.map(order => (
-                                <OrderCard key={order.id} order={order} onMarkAsDone={handleMarkAsDone} />
-                            ))}
-                        </div>
-                    </ScrollArea>
-                )}
+                <Tabs defaultValue="pending">
+                    <TabsList className="grid w-full grid-cols-2 mb-6">
+                        <TabsTrigger value="pending">Órdenes Pendientes</TabsTrigger>
+                        <TabsTrigger value="completed">Órdenes Completadas</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="pending">
+                        <PendingOrdersTab />
+                    </TabsContent>
+                    <TabsContent value="completed">
+                        <CompletedOrdersTab />
+                    </TabsContent>
+                </Tabs>
             </main>
+        </div>
+    );
+};
+
+const PendingOrdersTab: FC = () => {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+
+     const pendingOrdersQuery = useMemoFirebase(() => 
+        firestore 
+            ? query(
+                collection(firestore, `companies/${KIOSK_COMPANY_ID}/consumptions`), 
+                where('status', '==', 'pending')
+              ) 
+            : null
+    , [firestore]);
+
+    const { data: pendingOrders, isLoading: ordersLoading } = useCollection<Consumption>(pendingOrdersQuery);
+    
+    const handleMarkAsDone = async (orderId: string) => {
+        if (!firestore) return;
+        const orderDocRef = doc(firestore, `companies/${KIOSK_COMPANY_ID}/consumptions`, orderId);
+        try {
+            await updateDoc(orderDocRef, { status: 'completed' });
+            toast({ title: 'Orden Completada', description: 'La orden ha sido marcada como completada.' });
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo actualizar la orden.' });
+        }
+    }
+
+    if (ordersLoading) {
+        return (
+            <div className="flex h-[70vh] w-full items-center justify-center">
+                <Loader2 className="h-10 w-10 animate-spin" />
+                <p className="ml-4 text-lg">Cargando órdenes pendientes...</p>
+            </div>
+        );
+    }
+    
+    return !pendingOrders || pendingOrders.length === 0 ? (
+        <div className="flex h-[70vh] w-full items-center justify-center">
+            <div className='text-center text-muted-foreground'>
+                <ChefHat className="h-16 w-16 mx-auto" />
+                <h2 className='text-2xl font-semibold mt-4'>Todo en orden</h2>
+                <p>No hay órdenes pendientes en este momento.</p>
+            </div>
+        </div>
+    ) : (
+        <ScrollArea className="h-[80vh]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-1">
+                {pendingOrders.map(order => (
+                    <OrderCard key={order.id} order={order} onMarkAsDone={handleMarkAsDone} />
+                ))}
+            </div>
+        </ScrollArea>
+    );
+}
+
+const CompletedOrdersTab: FC = () => {
+    const { firestore } = useFirebase();
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+    const completedOrdersQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        
+        const startOfDay = new Date(selectedDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        
+        const endOfDay = new Date(selectedDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        return query(
+            collection(firestore, `companies/${KIOSK_COMPANY_ID}/consumptions`),
+            where('status', '==', 'completed'),
+            where('timestamp', '>=', startOfDay.toISOString()),
+            where('timestamp', '<=', endOfDay.toISOString()),
+            orderBy('timestamp', 'desc')
+        );
+    }, [firestore, selectedDate]);
+    
+    const { data: completedOrders, isLoading: ordersLoading } = useCollection<Consumption>(completedOrdersQuery);
+    
+    return (
+        <div>
+            <div className="flex items-center gap-4 mb-6">
+                <h3 className="text-lg font-medium">Ver completadas del día:</h3>
+                 <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                        variant={"outline"}
+                        className={cn(
+                            "w-[280px] justify-start text-left font-normal",
+                            !selectedDate && "text-muted-foreground"
+                        )}
+                        >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {selectedDate ? format(selectedDate, "PPP", { locale: es }) : <span>Elige una fecha</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={(date) => date && setSelectedDate(date)}
+                            initialFocus
+                            locale={es}
+                        />
+                    </PopoverContent>
+                </Popover>
+            </div>
+
+            {ordersLoading ? (
+                <div className="flex h-[60vh] w-full items-center justify-center">
+                    <Loader2 className="h-10 w-10 animate-spin" />
+                    <p className="ml-4 text-lg">Cargando órdenes completadas...</p>
+                </div>
+            ) : !completedOrders || completedOrders.length === 0 ? (
+                <div className="flex h-[60vh] w-full items-center justify-center">
+                    <div className='text-center text-muted-foreground'>
+                        <CheckCircle className="h-16 w-16 mx-auto" />
+                        <h2 className='text-2xl font-semibold mt-4'>Sin Órdenes</h2>
+                        <p>No se encontraron órdenes completadas para la fecha seleccionada.</p>
+                    </div>
+                </div>
+            ) : (
+                 <ScrollArea className="h-[70vh]">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-1">
+                        {completedOrders.map(order => (
+                            <CompletedOrderCard key={order.id} order={order} />
+                        ))}
+                    </div>
+                </ScrollArea>
+            )}
         </div>
     );
 };
@@ -186,6 +279,37 @@ const OrderCard: FC<{ order: Consumption, onMarkAsDone: (orderId: string) => voi
                 <Button className="w-full mt-4 bg-green-600 hover:bg-green-700" onClick={() => onMarkAsDone(order.id!)}>
                     Completada
                 </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
+const CompletedOrderCard: FC<{ order: Consumption }> = ({ order }) => {
+    return (
+        <Card className="shadow-sm border-gray-200 dark:border-gray-800 bg-green-50/50 dark:bg-green-900/10">
+            <CardHeader className="p-4">
+                <CardTitle className="text-base flex justify-between items-center">
+                    <span>{order.name}</span>
+                    <span className="text-xs font-mono text-muted-foreground">#{order.employeeNumber}</span>
+                </CardTitle>
+                <CardDescription className="flex items-center gap-2 text-xs">
+                    <Clock className="h-3 w-3" /> 
+                    Completada: {formatTimestamp(order.timestamp)}
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+                <ul className="space-y-1 text-xs">
+                    {order.items?.map(item => (
+                        <li key={item.itemId} className="flex justify-between items-center">
+                            <span>{item.name}</span>
+                            <span className="text-muted-foreground font-medium">x {item.quantity}</span>
+                        </li>
+                    ))}
+                </ul>
+                 <div className="border-t mt-2 pt-2 flex justify-between items-center font-bold text-sm">
+                    <span>Total:</span>
+                    <span>${order.totalAmount?.toFixed(2) ?? '0.00'}</span>
+                </div>
             </CardContent>
         </Card>
     );

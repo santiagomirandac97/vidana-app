@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, doc, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, doc, getDocs, orderBy, getDoc } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { type Company, type UserProfile, type MenuItem, type OrderItem, type Consumption } from '@/lib/types';
 import { Button } from '@/components/ui/button';

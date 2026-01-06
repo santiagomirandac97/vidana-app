@@ -17,11 +17,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ShieldAlert, Home, PlusCircle, Edit, Utensils, Trash2 } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, PlusCircle, Edit, Utensils, Trash2, Users, ChevronDown } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
 // Zod schema for company form validation
@@ -117,15 +118,19 @@ const ConfiguracionDashboard: FC = () => {
             </header>
             <main className="container mx-auto p-4 sm:p-6 lg:p-8">
                  <Tabs defaultValue="companies">
-                    <TabsList className="grid w-full grid-cols-2 mb-8">
+                    <TabsList className="grid w-full grid-cols-3 mb-8">
                         <TabsTrigger value="companies">Gestionar Empresas</TabsTrigger>
                         <TabsTrigger value="menus">Gestionar Menús</TabsTrigger>
+                        <TabsTrigger value="users">Gestionar Usuarios</TabsTrigger>
                     </TabsList>
                     <TabsContent value="companies">
                         <CompanyManagementTab companies={companies} companiesLoading={companiesLoading} />
                     </TabsContent>
                     <TabsContent value="menus">
                         <MenuManagementTab companies={companies} companiesLoading={companiesLoading} />
+                    </TabsContent>
+                    <TabsContent value="users">
+                        <UserManagementTab />
                     </TabsContent>
                 </Tabs>
             </main>
@@ -380,6 +385,93 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
     );
 };
 
+// =================================================================
+// User Management Tab
+// =================================================================
+
+const UserManagementTab: FC = () => {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const { user: currentUser } = useUser();
+
+    const usersQuery = useMemoFirebase(() => 
+        firestore ? query(collection(firestore, 'users'), orderBy('name')) : null,
+    [firestore]);
+    const { data: users, isLoading: usersLoading } = useCollection<UserProfile>(usersQuery);
+
+    const handleRoleChange = (user: UserProfile, newRole: 'admin' | 'user') => {
+        if (!firestore) return;
+        if (user.uid === currentUser?.uid) {
+            toast({ variant: 'destructive', title: 'Error', description: 'No puede cambiar su propio rol.' });
+            return;
+        }
+
+        const userDocRef = doc(firestore, 'users', user.uid);
+        updateDoc(userDocRef, { role: newRole })
+            .then(() => {
+                toast({ title: 'Rol Actualizado', description: `El rol de ${user.name} ha sido cambiado a ${newRole}.` });
+            })
+            .catch((error) => {
+                toast({ variant: 'destructive', title: 'Error al actualizar rol', description: error.message });
+            });
+    };
+
+    return (
+        <Card className="shadow-lg">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Gestionar Usuarios</CardTitle>
+                <CardDescription>Vea y gestione los roles de los usuarios registrados en el sistema.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {usersLoading ? (
+                    <div className="flex h-64 w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                ) : (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Nombre</TableHead>
+                                <TableHead>Email</TableHead>
+                                <TableHead className="text-center">Rol Actual</TableHead>
+                                <TableHead className="text-right">Cambiar Rol</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {users?.map(user => (
+                                <TableRow key={user.uid}>
+                                    <TableCell className="font-medium">{user.name}</TableCell>
+                                    <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                                    <TableCell className="text-center">
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                                            {user.role}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" disabled={user.uid === currentUser?.uid}>
+                                                    Cambiar <ChevronDown className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onSelect={() => handleRoleChange(user, 'admin')} disabled={user.role === 'admin'}>
+                                                    Hacer Administrador
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => handleRoleChange(user, 'user')} disabled={user.role === 'user'}>
+                                                    Hacer Usuario
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                )}
+            </CardContent>
+        </Card>
+    );
+};
+
 
 interface EditCompanyDialogProps {
     company: Company;
@@ -491,7 +583,3 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
         </Dialog>
     );
 }
-
-    
-
-    

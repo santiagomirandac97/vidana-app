@@ -132,6 +132,11 @@
         "totalAmount": {
           "type": "number",
           "description": "The total amount of the transaction (for Kiosk mode)."
+        },
+        "status": {
+            "type": "string",
+            "description": "The status of an order in the kitchen command center.",
+            "enum": ["pending", "completed"]
         }
       },
       "required": [

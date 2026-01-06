@@ -13,7 +13,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'dat
 import { es } from 'date-fns/locale';
 import { toZonedTime, toDate, formatInTimeZone } from 'date-fns-tz';
 import { getTodayInMexicoCity } from '@/lib/utils';
-import { DollarSign, Users, BarChart, LogOut, Loader2, CalendarDays, ShieldAlert, Home } from 'lucide-react';
+import { DollarSign, Users, BarChart, LogOut, Loader2, CalendarDays, ShieldAlert, Home, TrendingUp, Utensils } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
 export default function AdminDashboardPage() {
@@ -180,6 +180,16 @@ const AdminDashboard: FC = () => {
         });
     }, [companies, allConsumptions, isLoading, timeZone]);
 
+    const totalStats = useMemo(() => {
+        return statsByCompany.reduce((acc, company) => {
+            acc.monthlyRevenue += company.monthlyRevenue;
+            acc.monthlyCount += company.monthlyCount;
+            acc.todayCount += company.todayCount;
+            acc.dailyRevenue += company.dailyRevenue;
+            return acc;
+        }, { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 });
+    }, [statsByCompany]);
+
 
     if (isLoading) {
         return (
@@ -204,7 +214,8 @@ const AdminDashboard: FC = () => {
                 </div>
             </header>
             <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <TotalStatsCard totalStats={totalStats} allConsumptions={allConsumptions} />
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
                     {statsByCompany.map(companyStats => (
                         <CompanyStatCard key={companyStats.id} companyStats={companyStats} />
                     ))}
@@ -213,6 +224,52 @@ const AdminDashboard: FC = () => {
         </div>
     );
 };
+
+
+const TotalStatsCard: FC<{ totalStats: any, allConsumptions: Consumption[] }> = ({ totalStats, allConsumptions }) => {
+    return (
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 col-span-1 sm:col-span-2 lg:col-span-3">
+            <CardHeader>
+                <CardTitle className="flex justify-between items-start text-2xl">
+                    <span>Ventas Totales del Periodo</span>
+                    <TrendingUp className="h-7 w-7 text-gray-400" />
+                </CardTitle>
+                <CardDescription>Resumen consolidado de todas las empresas.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-1 space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                         <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                            <p className="text-sm text-muted-foreground flex items-center gap-1"><Users className="h-4 w-4"/> Consumos Hoy</p>
+                            <p className="text-2xl font-bold">{totalStats.todayCount}</p>
+                        </div>
+                        <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                            <p className="text-sm text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4"/> Ingresos Hoy</p>
+                            <p className="text-2xl font-bold">${totalStats.dailyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        </div>
+                        <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                            <p className="text-sm text-muted-foreground flex items-center gap-1"><CalendarDays className="h-4 w-4"/> Comidas Mes</p>
+                            <p className="text-2xl font-bold">{totalStats.monthlyCount}</p>
+                        </div>
+                        <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                            <p className="text-sm text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4"/> Ingresos Mes</p>
+                            <p className="text-2xl font-bold">${totalStats.monthlyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        </div>
+                    </div>
+                </div>
+                 <div className="md:col-span-2 space-y-2">
+                     <h4 className="font-semibold text-sm">Tendencia de Consumo Total</h4>
+                     <div className="h-56">
+                        <MiniConsumptionChart 
+                            consumptions={allConsumptions}
+                            dailyTarget={0}
+                        />
+                     </div>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
 
 
 interface CompanyStatCardProps {
@@ -360,5 +417,7 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: numbe
         </div>
     );
 };
+
+    
 
     

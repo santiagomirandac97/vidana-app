@@ -17,7 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { format as formatDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const KIOSK_COMPANY_ID = "Yzf6ucrafGkOPqbqCJpl"; // Noticieros Televisa Company ID
@@ -179,25 +179,29 @@ const CompletedOrdersTab: FC = () => {
     const { firestore } = useFirebase();
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
-    const completedOrdersQuery = useMemoFirebase(() => {
+    const allCompletedOrdersQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        
-        const startOfDay = new Date(selectedDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        
-        const endOfDay = new Date(selectedDate);
-        endOfDay.setHours(23, 59, 59, 999);
-
         return query(
             collection(firestore, `companies/${KIOSK_COMPANY_ID}/consumptions`),
-            where('status', '==', 'completed'),
-            where('timestamp', '>=', startOfDay.toISOString()),
-            where('timestamp', '<=', endOfDay.toISOString()),
-            orderBy('timestamp', 'desc')
+            where('status', '==', 'completed')
         );
-    }, [firestore, selectedDate]);
+    }, [firestore]);
     
-    const { data: completedOrders, isLoading: ordersLoading } = useCollection<Consumption>(completedOrdersQuery);
+    const { data: allCompletedOrders, isLoading: ordersLoading } = useCollection<Consumption>(allCompletedOrdersQuery);
+
+    const filteredAndSortedOrders = useMemo(() => {
+        if (!allCompletedOrders) return [];
+        
+        const targetDate = formatDate(selectedDate, "yyyy-MM-dd");
+
+        return allCompletedOrders
+            .filter(order => {
+                const orderDate = formatDate(new Date(order.timestamp), "yyyy-MM-dd");
+                return orderDate === targetDate;
+            })
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    }, [allCompletedOrders, selectedDate]);
     
     return (
         <div>
@@ -213,7 +217,7 @@ const CompletedOrdersTab: FC = () => {
                         )}
                         >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {selectedDate ? format(selectedDate, "PPP", { locale: es }) : <span>Elige una fecha</span>}
+                        {selectedDate ? formatDate(selectedDate, "PPP", { locale: es }) : <span>Elige una fecha</span>}
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
@@ -233,7 +237,7 @@ const CompletedOrdersTab: FC = () => {
                     <Loader2 className="h-10 w-10 animate-spin" />
                     <p className="ml-4 text-lg">Cargando órdenes completadas...</p>
                 </div>
-            ) : !completedOrders || completedOrders.length === 0 ? (
+            ) : filteredAndSortedOrders.length === 0 ? (
                 <div className="flex h-[60vh] w-full items-center justify-center">
                     <div className='text-center text-muted-foreground'>
                         <CheckCircle className="h-16 w-16 mx-auto" />
@@ -244,7 +248,7 @@ const CompletedOrdersTab: FC = () => {
             ) : (
                  <ScrollArea className="h-[70vh]">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-1">
-                        {completedOrders.map(order => (
+                        {filteredAndSortedOrders.map(order => (
                             <CompletedOrderCard key={order.id} order={order} />
                         ))}
                     </div>
@@ -314,5 +318,3 @@ const CompletedOrderCard: FC<{ order: Consumption }> = ({ order }) => {
         </Card>
     );
 }
-
-    

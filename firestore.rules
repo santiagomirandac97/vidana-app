@@ -68,12 +68,14 @@ service cloud.firestore {
      * @description Rules for user profile documents.
      * @path /users/{userId}
      * @allow (read) - Any authenticated user can read any user's profile.
-     * @allow (create, update) - A user can only create or update their own profile.
+     * @allow (create) - A user can only create their own profile.
+     * @allow (update) - A user can update their own profile, or an admin can update any profile.
      * @deny (delete) - No user can delete a profile.
      */
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow create, update: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
       allow delete: if false;
     }
 

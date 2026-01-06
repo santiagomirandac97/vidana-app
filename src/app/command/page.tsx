@@ -192,8 +192,7 @@ const CompletedOrdersTab: FC = () => {
             collection(firestore, `companies/${KIOSK_COMPANY_ID}/consumptions`),
             where('status', '==', 'completed'),
             where('timestamp', '>=', startOfDay.toISOString()),
-            where('timestamp', '<=', endOfDay.toISOString()),
-            orderBy('timestamp', 'desc')
+            where('timestamp', '<=', endOfDay.toISOString())
         );
     }, [firestore, selectedDate]);
     

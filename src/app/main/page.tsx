@@ -210,6 +210,7 @@ function AppContent({ user }: { user: User }) {
       companyId: selectedCompanyId,
       timestamp: new Date().toISOString(),
       voided: false,
+      status: 'completed', // Default status for non-kiosk consumptions
     };
     
     const newConsumption: Consumption = {
@@ -1219,3 +1220,4 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null, chartConsumptio
 };
 
     
+

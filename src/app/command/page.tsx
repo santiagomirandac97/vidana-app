@@ -17,10 +17,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 const KIOSK_COMPANY_ID = "Yzf6ucrafGkOPqbqCJpl"; // Noticieros Televisa Company ID
 
-// Urgency thresholds in minutes
-const URGENCY_WARNING_MINUTES = 10;
-const URGENCY_DANGER_MINUTES = 15;
-
 export default function CommandPage() {
     const { user, isLoading: userLoading } = useUser();
     const router = useRouter();
@@ -86,11 +82,11 @@ const CommandDashboard: FC = () => {
         firestore 
             ? query(
                 collection(firestore, `companies/${KIOSK_COMPANY_ID}/consumptions`), 
-                where('status', '==', 'pending'),
-                orderBy('timestamp', 'asc')
+                where('status', '==', 'pending')
               ) 
             : null
     , [firestore]);
+
     const { data: pendingOrders, isLoading: ordersLoading } = useCollection<Consumption>(pendingOrdersQuery);
     
     const { toast } = useToast();

@@ -192,7 +192,8 @@ const CompletedOrdersTab: FC = () => {
             collection(firestore, `companies/${KIOSK_COMPANY_ID}/consumptions`),
             where('status', '==', 'completed'),
             where('timestamp', '>=', startOfDay.toISOString()),
-            where('timestamp', '<=', endOfDay.toISOString())
+            where('timestamp', '<=', endOfDay.toISOString()),
+            orderBy('timestamp', 'desc')
         );
     }, [firestore, selectedDate]);
     
@@ -313,3 +314,5 @@ const CompletedOrderCard: FC<{ order: Consumption }> = ({ order }) => {
         </Card>
     );
 }
+
+    

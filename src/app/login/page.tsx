@@ -5,7 +5,7 @@ import { useState, useEffect, type FC } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, sendPasswordResetEmail } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, sendPasswordResetEmail, type ActionCodeSettings } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,8 +47,14 @@ function PasswordResetDialog() {
         }
 
         setIsSending(true);
+
+        const actionCodeSettings: ActionCodeSettings = {
+            url: `${window.location.origin}/reset-password`,
+            handleCodeInApp: true,
+        };
+
         try {
-            await sendPasswordResetEmail(auth, email);
+            await sendPasswordResetEmail(auth, email, actionCodeSettings);
             toast({ title: 'Correo Enviado', description: 'Revise su bandeja de entrada para restablecer su contraseña.' });
             setIsOpen(false);
         } catch (error: any) {
@@ -302,5 +308,3 @@ export default function LoginPage() {
 
   return <LoginPageContent />;
 }
-
-    

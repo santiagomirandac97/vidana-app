@@ -119,7 +119,8 @@ const AdminDashboard: FC = () => {
         
         return companies.map(company => {
             const companyName = company.name || 'Empresa sin nombre';
-            const companyConsumptions = allConsumptions.filter(c => c.companyId === company.id && !c.voided);
+            // Exclude anonymous (POS) sales from employee meal stats
+            const companyConsumptions = allConsumptions.filter(c => c.companyId === company.id && !c.voided && c.employeeId !== 'anonymous');
             
             const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd') === todayMexico);
             
@@ -200,6 +201,9 @@ const AdminDashboard: FC = () => {
         )
     }
 
+    // We filter all consumptions to only include employee-specific ones for the total chart
+    const employeeOnlyConsumptions = useMemo(() => allConsumptions.filter(c => c.employeeId !== 'anonymous'), [allConsumptions]);
+
     return (
         <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
             <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10">
@@ -214,7 +218,7 @@ const AdminDashboard: FC = () => {
                 </div>
             </header>
             <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-                <TotalStatsCard totalStats={totalStats} allConsumptions={allConsumptions} />
+                <TotalStatsCard totalStats={totalStats} allConsumptions={employeeOnlyConsumptions} />
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
                     {statsByCompany.map(companyStats => (
                         <CompanyStatCard key={companyStats.id} companyStats={companyStats} />
@@ -231,10 +235,10 @@ const TotalStatsCard: FC<{ totalStats: any, allConsumptions: Consumption[] }> = 
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 col-span-1 sm:col-span-2 lg:col-span-3">
             <CardHeader>
                 <CardTitle className="flex justify-between items-start text-2xl">
-                    <span>Ventas Totales del Periodo</span>
+                    <span>Ventas Totales de Comedor del Periodo</span>
                     <TrendingUp className="h-7 w-7 text-gray-400" />
                 </CardTitle>
-                <CardDescription>Resumen consolidado de todas las empresas.</CardDescription>
+                <CardDescription>Resumen consolidado de todas las empresas (excluye ventas de POS).</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-1 space-y-6">
@@ -258,7 +262,7 @@ const TotalStatsCard: FC<{ totalStats: any, allConsumptions: Consumption[] }> = 
                     </div>
                 </div>
                  <div className="md:col-span-2 space-y-2">
-                     <h4 className="font-semibold text-sm">Tendencia de Consumo Total</h4>
+                     <h4 className="font-semibold text-sm">Tendencia de Consumo Total de Comedor</h4>
                      <div className="h-56">
                         <MiniConsumptionChart 
                             consumptions={allConsumptions}
@@ -294,7 +298,7 @@ const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
                         ${companyStats.mealPrice}/comida
                     </span>
                 </CardTitle>
-                <CardDescription>Resumen del día y tendencias</CardDescription>
+                <CardDescription>Resumen del día y tendencias (solo comedor)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
@@ -323,7 +327,7 @@ const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
                 )}
                 
                 <div className="space-y-2">
-                     <h4 className="font-semibold text-sm">Tendencia de Consumo</h4>
+                     <h4 className="font-semibold text-sm">Tendencia de Consumo de Comedor</h4>
                      <MiniConsumptionChart 
                         consumptions={companyStats.consumptions}
                         dailyTarget={companyStats.dailyTarget}
@@ -417,7 +421,3 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: numbe
         </div>
     );
 };
-
-    
-
-    

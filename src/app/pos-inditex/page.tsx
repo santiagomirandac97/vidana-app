@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, type FC } from 'react';
+import { useState, useEffect, useMemo, type FC, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, where, doc, getDocs, orderBy, getDoc } from 'firebase/firestore';
@@ -11,10 +11,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ShieldAlert, Home, Utensils, PlusCircle, ShoppingCart, Trash2, CheckCircle } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, Utensils, PlusCircle, ShoppingCart, Trash2, CheckCircle, Printer } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
 
 export default function PosInditexPage() {
@@ -81,6 +82,9 @@ const PosDashboard: FC = () => {
 
     const [order, setOrder] = useState<OrderItem[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const [confirmationData, setConfirmationData] = useState<Consumption | null>(null);
+    const [isConfirmationOpen, setConfirmationOpen] = useState(false);
 
     useEffect(() => {
         if (!firestore) return;
@@ -155,19 +159,20 @@ const PosDashboard: FC = () => {
             return;
         }
         setIsSubmitting(true);
-        try {
-            const consumptionData: Omit<Consumption, 'id'> = {
-                employeeId: 'anonymous',
-                employeeNumber: 'N/A',
-                name: 'Venta General',
-                companyId: inditexCompany.id,
-                timestamp: new Date().toISOString(),
-                voided: false,
-                items: order,
-                totalAmount: orderTotal,
-                status: 'completed',
-            };
+        
+        const consumptionData: Omit<Consumption, 'id'> = {
+            employeeId: 'anonymous',
+            employeeNumber: 'N/A',
+            name: 'Venta General',
+            companyId: inditexCompany.id,
+            timestamp: new Date().toISOString(),
+            voided: false,
+            items: order,
+            totalAmount: orderTotal,
+            status: 'completed',
+        };
 
+        try {
             const consumptionsCollection = collection(firestore, `companies/${inditexCompany.id}/consumptions`);
             await addDocumentNonBlocking(consumptionsCollection, consumptionData);
 
@@ -177,6 +182,9 @@ const PosDashboard: FC = () => {
                 className: 'bg-green-100 dark:bg-green-900 border-green-500'
             });
 
+            // Set data for confirmation dialog and open it
+            setConfirmationData({ ...consumptionData, id: `temp-${Date.now()}` });
+            setConfirmationOpen(true);
             setOrder([]);
 
         } catch (error: any) {
@@ -258,6 +266,12 @@ const PosDashboard: FC = () => {
                     </div>
                 </div>
             </main>
+            <ConfirmationDialog
+                isOpen={isConfirmationOpen}
+                setIsOpen={setConfirmationOpen}
+                consumption={confirmationData}
+                company={inditexCompany}
+            />
         </div>
     );
 };
@@ -375,4 +389,96 @@ const OrderSummary: FC<{ order: OrderItem[], total: number, onRemove: (itemId: s
     )
 }
 
-    
+interface ConfirmationDialogProps {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  consumption: Consumption | null;
+  company: Company | null;
+}
+
+const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, setIsOpen, consumption, company }) => {
+    const receiptRef = useRef<HTMLDivElement>(null);
+
+    const handlePrint = () => {
+        const printContent = receiptRef.current;
+        if (printContent) {
+            const receiptWindow = window.open('', '_blank', 'height=500,width=400');
+            receiptWindow?.document.write('<html><head><title>Recibo de Venta</title>');
+            receiptWindow?.document.write(`
+                <style>
+                    body { font-family: monospace; width: 300px; margin: 0 auto; padding: 20px; }
+                    .header { text-align: center; margin-bottom: 15px; }
+                    .item-list { font-size: 14px; }
+                    .item { display: flex; justify-content: space-between; margin-bottom: 5px; }
+                    .item-name { flex-grow: 1; }
+                    .item-price { white-space: nowrap; }
+                    .total { display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; border-top: 1px dashed black; margin-top: 10px; padding-top: 10px; }
+                    .footer { text-align: center; margin-top: 20px; font-size: 12px; }
+                     @media print {
+                        @page {
+                           size: 80mm;
+                           margin: 0;
+                        }
+                    }
+                </style>
+            `);
+            receiptWindow?.document.write('</head><body>');
+            receiptWindow?.document.write(printContent.innerHTML);
+            receiptWindow?.document.write('</body></html>');
+            receiptWindow?.document.close();
+            receiptWindow?.focus();
+            setTimeout(() => {
+                receiptWindow?.print();
+                receiptWindow?.close();
+            }, 250);
+        }
+    };
+
+    if (!consumption) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <CheckCircle className="h-7 w-7 text-green-500" />
+                        Venta Confirmada
+                    </DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                    <div ref={receiptRef}>
+                        <div className="header">
+                            <h3 className="text-lg font-bold">{company?.name}</h3>
+                            <p className="text-sm">Recibo de Venta</p>
+                            <p className="text-xs">{new Date(consumption.timestamp).toLocaleString()}</p>
+                        </div>
+                        <div className="item-list space-y-2">
+                            {consumption.items?.map(item => (
+                                <div key={item.itemId} className="item">
+                                    <span className="item-name">{item.quantity}x {item.name}</span>
+                                    <span className="item-price">${(item.price * item.quantity).toFixed(2)}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="total">
+                            <span>TOTAL:</span>
+                            <span>${consumption.totalAmount?.toFixed(2)}</span>
+                        </div>
+                         <div className="footer">
+                            <p>¡Gracias por su compra!</p>
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter className="sm:justify-between">
+                     <Button onClick={handlePrint} variant="outline">
+                        <Printer className="mr-2 h-4 w-4" /> Imprimir Recibo
+                    </Button>
+                    <DialogClose asChild>
+                        <Button>Cerrar</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+

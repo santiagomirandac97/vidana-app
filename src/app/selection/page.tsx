@@ -27,20 +27,12 @@ export default function SelectionPage() {
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
   useEffect(() => {
-    // Wait for both user auth and profile to be loaded
-    if (userLoading || profileLoading) {
-      return; // Still loading, do nothing yet
-    }
-
-    if (!user) {
-      // If no user is logged in after loading, go to login
+    // The root page (`/`) now handles all redirection. 
+    // This page only needs to protect against unauthenticated access after loading.
+    if (!userLoading && !user) {
       router.replace('/login');
-    } else if (userProfile && userProfile.role !== 'admin') {
-      // If a user is logged in but is not an admin, go to main
-      router.replace('/main');
     }
-    // If user is an admin, they stay on this page
-  }, [user, userLoading, userProfile, profileLoading, router]);
+  }, [user, userLoading, router]);
 
 
   const handleSignOut = async () => {
@@ -51,7 +43,7 @@ export default function SelectionPage() {
     }
   };
 
-  if (userLoading || profileLoading) {
+  if (userLoading || profileLoading || !userProfile) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -59,14 +51,12 @@ export default function SelectionPage() {
       </div>
     );
   }
-
-  // This check handles the case where there is a user but no profile, or the user is not an admin.
-  // The useEffect will handle redirection, but this prevents flashing the content.
-  if (!userProfile || userProfile.role !== 'admin') {
+  
+  // If a non-admin somehow reaches this page, deny access.
+  if (userProfile.role !== 'admin') {
       return (
          <div className="flex h-screen items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin" />
-            <p className="ml-3 text-lg">Redirigiendo...</p>
+            <p className="ml-3 text-lg">Acceso denegado. Redirigiendo...</p>
          </div>
       )
   }

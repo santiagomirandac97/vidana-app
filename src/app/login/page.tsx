@@ -164,7 +164,7 @@ export default function LoginPage() {
       setError('Por favor, ingrese su email y contraseña.');
       return;
     }
-    if (!auth) {
+    if (!auth || !firestore) {
         setError('Servicio de autenticación no disponible.');
         return;
     }
@@ -173,8 +173,9 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       // Let the useEffect handle redirection
+      await checkAndCreateUserProfile(firestore, userCredential.user);
     } catch (err: any) {
       let friendlyMessage = 'Ocurrió un error al iniciar sesión.';
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
@@ -202,12 +203,12 @@ export default function LoginPage() {
     const provider = new GoogleAuthProvider();
     
     try {
-      const result = await signInWithPopup(auth, provider);
-      await checkAndCreateUserProfile(firestore, result.user);
-      // Success will be handled by the main useEffect
+        const result = await signInWithPopup(auth, provider);
+        await checkAndCreateUserProfile(firestore, result.user);
     } catch (error: any) {
         if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
             try {
+                // Fallback to redirect method for Safari
                 await signInWithRedirect(auth, provider);
             } catch (redirectError: any) {
                  const friendlyMessage = redirectError.message.includes("El dominio de su correo no está autorizado") 

@@ -169,7 +169,6 @@ export default function SignupPage() {
         const result = await signInWithPopup(auth, provider);
         await checkAndCreateUserProfile(firestore, result.user);
         toast({ title: '¡Cuenta Creada!', description: 'Hemos creado tu cuenta exitosamente con Google.' });
-        // Success will be handled by the main useEffect
     } catch (error: any) {
         if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
             try {

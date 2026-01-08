@@ -145,12 +145,6 @@ export default function MainPage() {
   }, [user, userLoading, router]);
 
   useEffect(() => {
-    if (!profileLoading && userProfile && userProfile.role !== 'user') {
-      router.replace('/selection');
-    }
-  }, [userProfile, profileLoading, router]);
-
-  useEffect(() => {
     if (!selectedCompanyId && allCompanies && allCompanies.length > 0) {
         const storedCompanyId = localStorage.getItem('selectedCompanyId');
         if (storedCompanyId && allCompanies.some(c => c.id === storedCompanyId)) {
@@ -1206,3 +1200,4 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
         </div>
     );
 };
+

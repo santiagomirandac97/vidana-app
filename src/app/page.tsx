@@ -14,28 +14,8 @@ export default function HomeRedirector() {
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        // If user is logged in, decide where to send them based on role.
-        // We get the role from custom claims in the ID token for performance.
-        const fetchProfileAndRedirect = async () => {
-          try {
-            // Force a token refresh to get the latest custom claims.
-            const tokenResult = await user.getIdTokenResult(true);
-            const isAdmin = tokenResult.claims.role === 'admin';
-            
-            if (isAdmin) {
-                router.replace('/selection');
-            } else {
-                router.replace('/main');
-            }
-          } catch (e) {
-             console.error("Redirection error", e);
-             // Fallback for non-admin or error fetching profile
-            router.replace('/main');
-          }
-        };
-        fetchProfileAndRedirect();
+        router.replace('/selection');
       } else {
-        // If no user, always go to login.
         router.replace('/login');
       }
     }

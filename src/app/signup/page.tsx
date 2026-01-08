@@ -71,51 +71,11 @@ export default function SignupPage() {
   const [isGoogleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const redirectToDashboard = async (user: User) => {
-    try {
-        const tokenResult = await user.getIdTokenResult(true);
-        const isAdmin = tokenResult.claims.role === 'admin';
-        router.replace(isAdmin ? '/selection' : '/main');
-    } catch (e) {
-        console.error("Failed to get token result, redirecting to default", e);
-        router.replace('/main');
-    }
-  };
-  
    useEffect(() => {
     if (!isUserLoading && user) {
-       redirectToDashboard(user);
+       router.replace('/selection');
     }
-  }, [user, isUserLoading]);
-
-  // Handle Google redirect result
-  useEffect(() => {
-    if (!auth || isUserLoading || user) return;
-
-    setGoogleLoading(true);
-    getRedirectResult(auth)
-      .then(async (result) => {
-        if (result && firestore) {
-          try {
-            await checkAndCreateUserProfile(firestore, result.user);
-            toast({ title: '¡Cuenta Creada!', description: 'Hemos creado tu cuenta exitosamente con Google.' });
-            // Redirection will be handled by the main user effect
-          } catch(e: any) {
-              setError(e.message);
-              toast({ variant: 'destructive', title: 'Error de registro con Google', description: e.message });
-              if (auth.currentUser) await signOut(auth);
-          }
-        }
-      })
-      .catch((error) => {
-        console.error("Google redirect error:", error);
-        setError("Error al registrarse con Google.");
-        toast({ variant: 'destructive', title: 'Error de Google', description: 'No se pudo completar el registro.' });
-      })
-      .finally(() => {
-        setGoogleLoading(false);
-      });
-  }, [auth, firestore, isUserLoading, user]);
+  }, [user, isUserLoading, router]);
 
   const handleSignup = async () => {
     if (!name || !email || !password) {
@@ -206,11 +166,22 @@ export default function SignupPage() {
     const provider = new GoogleAuthProvider();
 
     try {
-        await signInWithPopup(auth, provider);
+        const result = await signInWithPopup(auth, provider);
+        await checkAndCreateUserProfile(firestore, result.user);
+        toast({ title: '¡Cuenta Creada!', description: 'Hemos creado tu cuenta exitosamente con Google.' });
         // Success will be handled by the main useEffect
     } catch (error: any) {
         if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
-            await signInWithRedirect(auth, provider);
+            try {
+                await signInWithRedirect(auth, provider);
+            } catch(redirectError: any) {
+                 const friendlyMessage = redirectError.message.includes("El dominio de su correo no está autorizado") 
+                    ? redirectError.message 
+                    : 'No se pudo completar el registro con Google.';
+                setError(friendlyMessage);
+                toast({ variant: 'destructive', title: 'Error de Google', description: friendlyMessage });
+                setGoogleLoading(false);
+            }
         } else {
             let friendlyMessage = 'Ocurrió un error al registrarse con Google.';
             if (error.message.includes("El dominio de su correo no está autorizado")) {

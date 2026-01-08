@@ -4,8 +4,8 @@
 import { useState, useEffect, type FC } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, sendPasswordResetEmail, type ActionCodeSettings, type User } from 'firebase/auth';
+import { useAuth, useUser, useFirestore } from '@/firebase';
+import { signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, sendPasswordResetEmail, type ActionCodeSettings, type User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,7 +49,7 @@ function PasswordResetDialog() {
         setIsSending(true);
 
         const actionCodeSettings: ActionCodeSettings = {
-            url: `${window.location.origin}/reset-password`,
+            url: `${window.location.origin}/login`,
             handleCodeInApp: true,
         };
 
@@ -111,10 +111,14 @@ function PasswordResetDialog() {
     );
 }
 
-async function checkAndCreateUserProfile(firestore: any, user: any, allowedDomains: string[]): Promise<boolean> {
+async function checkAndCreateUserProfile(firestore: any, user: User) {
     if (!user.email) {
         throw new Error("No se pudo obtener el email de la cuenta de Google.");
     }
+
+    const configDocRef = doc(firestore, 'configuration', 'app');
+    const configDoc = await getDoc(configDocRef);
+    const allowedDomains = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
     
     const userDomain = user.email.split('@')[1];
     
@@ -134,9 +138,7 @@ async function checkAndCreateUserProfile(firestore: any, user: any, allowedDomai
         };
         await setDoc(userDocRef, newUserProfile);
     }
-    return true;
 }
-
 
 export default function LoginPage() {
   const auth = useAuth();
@@ -166,7 +168,35 @@ export default function LoginPage() {
     if (!isUserLoading && user) {
        redirectToDashboard(user);
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading]);
+
+  // Handle Google redirect result
+  useEffect(() => {
+    if (!auth || isUserLoading || user) return;
+    
+    setGoogleLoading(true);
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result && firestore) {
+          try {
+            await checkAndCreateUserProfile(firestore, result.user);
+            // Redirection will be handled by the main user effect
+          } catch(e: any) {
+              setError(e.message);
+              toast({ variant: 'destructive', title: 'Error de acceso con Google', description: e.message });
+              if (auth.currentUser) await signOut(auth);
+          }
+        }
+      })
+      .catch((error) => {
+        console.error("Google redirect error:", error);
+        setError("Error al iniciar sesión con Google.");
+        toast({ variant: 'destructive', title: 'Error de Google', description: 'No se pudo completar el inicio de sesión.' });
+      })
+      .finally(() => {
+        setGoogleLoading(false);
+      });
+  }, [auth, firestore, isUserLoading, user]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -182,7 +212,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, email, password);
       // Let the useEffect handle redirection
     } catch (err: any) {
       let friendlyMessage = 'Ocurrió un error al iniciar sesión.';
@@ -195,7 +225,8 @@ export default function LoginPage() {
         title: 'Error de acceso',
         description: friendlyMessage,
       });
-      setIsLoading(false);
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -210,31 +241,23 @@ export default function LoginPage() {
     const provider = new GoogleAuthProvider();
     
     try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      
-      const configDocRef = doc(firestore, 'configuration', 'app');
-      const configDoc = await getDoc(configDocRef);
-      const allowedDomains = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
-
-      await checkAndCreateUserProfile(firestore, user, allowedDomains);
-      // Let the useEffect handle redirection
+      await signInWithPopup(auth, provider);
+      // Success will be handled by the main useEffect
     } catch (error: any) {
-        let friendlyMessage = 'Ocurrió un error al iniciar sesión con Google.';
-        if (error.code === 'auth/popup-closed-by-user') {
-            friendlyMessage = 'El inicio de sesión fue cancelado.';
-        } else if (error.message.includes("El dominio de su correo no está autorizado")) {
-            friendlyMessage = error.message;
-        }
-        setError(friendlyMessage);
-        toast({ variant: 'destructive', title: 'Error de acceso con Google', description: friendlyMessage });
+        // This is the fallback for Safari and other browsers with popup blockers
+        if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+            await signInWithRedirect(auth, provider);
+        } else {
+             let friendlyMessage = 'Ocurrió un error al iniciar sesión con Google.';
+            if (error.message.includes("El dominio de su correo no está autorizado")) {
+                friendlyMessage = error.message;
+            }
+            setError(friendlyMessage);
+            toast({ variant: 'destructive', title: 'Error de acceso con Google', description: friendlyMessage });
 
-        // Ensure user is signed out if profile creation fails
-        if (auth.currentUser) {
-            await signOut(auth);
+            if (auth.currentUser) await signOut(auth);
+            setGoogleLoading(false);
         }
-    } finally {
-        setGoogleLoading(false);
     }
   };
 

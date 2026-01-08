@@ -150,14 +150,12 @@ function AppContent({ user }: { user: User }) {
 
     const recentConsumptionsQuery = useMemoFirebase(() => {
         if (!firestore || !selectedCompanyId) return null;
-        const nowInMexicoCity = toZonedTime(new Date(), timeZone);
-        const tenDaysAgo = subDays(nowInMexicoCity, 10);
         return query(
             collection(firestore, `companies/${selectedCompanyId}/consumptions`),
-            where('timestamp', '>=', tenDaysAgo.toISOString()),
-            orderBy('timestamp', 'desc')
+            orderBy('timestamp', 'desc'),
+            limit(10)
         )
-    }, [firestore, selectedCompanyId, timeZone]);
+    }, [firestore, selectedCompanyId]);
     const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
 
     const monthlyConsumptionsQuery = useMemoFirebase(() =>
@@ -1221,3 +1219,6 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null, chartConsumptio
 
     
 
+
+
+    

@@ -19,60 +19,13 @@ import { Logo } from '@/components/logo';
 export default function AdminDashboardPage() {
     const { user, isLoading: userLoading } = useUser();
     const router = useRouter();
-
-    useEffect(() => {
-        if (!userLoading && !user) {
-            router.push('/login');
-        }
-    }, [user, userLoading, router]);
-
     const { firestore } = useFirebase();
+    const timeZone = 'America/Mexico_City';
+
     const userProfileRef = useMemoFirebase(() => 
         firestore && user ? doc(firestore, `users/${user.uid}`) : null
     , [firestore, user]);
     const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
-
-    const isLoading = userLoading || profileLoading;
-
-    if (isLoading) {
-        return (
-            <div className="flex h-screen w-full items-center justify-center">
-                <Loader2 className="h-10 w-10 animate-spin" />
-                <p className="ml-4 text-lg">Verificando acceso de administrador...</p>
-            </div>
-        );
-    }
-    
-    if (!user || userProfile?.role !== 'admin') {
-         return (
-            <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-                <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
-                    <CardHeader>
-                        <CardTitle className="flex flex-col items-center gap-2">
-                            <ShieldAlert className="h-12 w-12 text-destructive" />
-                            Acceso Denegado
-                        </CardTitle>
-                        <CardDescription>No tiene los permisos necesarios para ver esta página.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button onClick={() => router.push('/selection')} className="w-full">
-                            <Home className="mr-2 h-4 w-4" />
-                            Volver al Inicio
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-
-    return <AdminDashboard />;
-}
-
-
-const AdminDashboard: FC = () => {
-    const { firestore } = useFirebase();
-    const router = useRouter();
-    const timeZone = 'America/Mexico_City';
 
     const companiesQuery = useMemoFirebase(() =>
         firestore ? query(collection(firestore, 'companies')) : null
@@ -91,10 +44,16 @@ const AdminDashboard: FC = () => {
 
     const { data: allConsumptions, isLoading: consumptionsLoading } = useCollection<Consumption>(monthlyConsumptionsQuery);
     
-    const isLoading = companiesLoading || consumptionsLoading;
+    useEffect(() => {
+        if (!userLoading && !user) {
+            router.push('/login');
+        }
+    }, [user, userLoading, router]);
+
+    const pageIsLoading = userLoading || profileLoading || companiesLoading || consumptionsLoading;
 
     const statsByCompany = useMemo(() => {
-        if (isLoading || !companies || !allConsumptions) return [];
+        if (pageIsLoading || !companies || !allConsumptions) return [];
         
         const nowInMexicoCity = toZonedTime(new Date(), timeZone);
         const todayMexico = formatInTimeZone(nowInMexicoCity, timeZone, 'yyyy-MM-dd');
@@ -160,10 +119,10 @@ const AdminDashboard: FC = () => {
                 dailyTarget,
             };
         });
-    }, [companies, allConsumptions, isLoading, timeZone]);
+    }, [companies, allConsumptions, pageIsLoading, timeZone]);
 
     const totalStats = useMemo(() => {
-        if (isLoading || !statsByCompany) return { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 };
+        if (pageIsLoading || !statsByCompany) return { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 };
         return statsByCompany.reduce((acc, company) => {
             acc.monthlyRevenue += company.monthlyRevenue;
             acc.monthlyCount += company.monthlyCount;
@@ -171,20 +130,42 @@ const AdminDashboard: FC = () => {
             acc.dailyRevenue += company.dailyRevenue;
             return acc;
         }, { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 });
-    }, [statsByCompany, isLoading]);
+    }, [statsByCompany, pageIsLoading]);
+
+    // We filter all consumptions to only include employee-specific ones for the total chart
+    const employeeOnlyConsumptions = useMemo(() => allConsumptions?.filter(c => c.employeeId !== 'anonymous' && !c.voided) || [], [allConsumptions]);
 
 
-    if (isLoading) {
+    if (pageIsLoading) {
         return (
             <div className="flex h-screen w-full items-center justify-center">
                 <Loader2 className="h-10 w-10 animate-spin" />
                 <p className="ml-4 text-lg">Cargando datos del administrador...</p>
             </div>
-        )
+        );
     }
-
-    // We filter all consumptions to only include employee-specific ones for the total chart
-    const employeeOnlyConsumptions = useMemo(() => allConsumptions?.filter(c => c.employeeId !== 'anonymous' && !c.voided) || [], [allConsumptions]);
+    
+    if (!user || userProfile?.role !== 'admin') {
+         return (
+            <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
+                <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
+                    <CardHeader>
+                        <CardTitle className="flex flex-col items-center gap-2">
+                            <ShieldAlert className="h-12 w-12 text-destructive" />
+                            Acceso Denegado
+                        </CardTitle>
+                        <CardDescription>No tiene los permisos necesarios para ver esta página.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={() => router.push('/selection')} className="w-full">
+                            <Home className="mr-2 h-4 w-4" />
+                            Volver al Inicio
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
@@ -200,7 +181,7 @@ const AdminDashboard: FC = () => {
                 </div>
             </header>
             <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-                <TotalStatsCard totalStats={totalStats} allConsumptions={employeeOnlyConsumptions} isLoading={isLoading} />
+                <TotalStatsCard totalStats={totalStats} allConsumptions={employeeOnlyConsumptions} isLoading={pageIsLoading} />
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
                     {statsByCompany.map(companyStats => (
                         <CompanyStatCard key={companyStats.id} companyStats={companyStats} />

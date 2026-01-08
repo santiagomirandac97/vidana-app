@@ -5,7 +5,7 @@ import { useState, useEffect, type FC } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider, signOut, type User } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider, signOut, type User, getRedirectResult, signInWithRedirect } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,6 +84,43 @@ export default function SignupPage() {
        redirectToDashboard(user);
     }
   }, [user, isUserLoading, router]);
+
+  useEffect(() => {
+    if (!auth || isUserLoading) return;
+    
+    setGoogleLoading(true);
+
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result && result.user) {
+          try {
+            const configDocRef = doc(firestore, 'configuration', 'app');
+            const configDoc = await getDoc(configDocRef);
+            const allowedDomains = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
+            await checkAndCreateUserProfile(firestore, result.user, allowedDomains);
+             toast({
+                title: '¡Cuenta Creada!',
+                description: 'Hemos creado tu cuenta exitosamente con Google.'
+             });
+          } catch(error: any) {
+             setError(error.message || 'Error al verificar el perfil de usuario.');
+             toast({ variant: 'destructive', title: 'Error de registro con Google', description: error.message });
+             if (auth.currentUser) {
+                await signOut(auth);
+             }
+          }
+        }
+      })
+      .catch((error) => {
+        console.error("Google Redirect Error: ", error);
+        setError(error.message || 'Ocurrió un error al registrarse con Google.');
+        toast({ variant: 'destructive', title: 'Error de registro con Google', description: error.message });
+      })
+      .finally(() => {
+        setGoogleLoading(false);
+      });
+  }, [auth, firestore, isUserLoading, toast]);
+
 
   const handleSignup = async () => {
     if (!name || !email || !password) {
@@ -171,36 +208,8 @@ export default function SignupPage() {
     setGoogleLoading(true);
     setError(null);
 
-    try {
-      const configDocRef = doc(firestore, 'configuration', 'app');
-      const configDoc = await getDoc(configDocRef);
-      const allowedDomains = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
-
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      await checkAndCreateUserProfile(firestore, result.user, allowedDomains);
-      
-      toast({
-        title: '¡Cuenta Creada!',
-        description: 'Hemos creado tu cuenta exitosamente con Google.'
-      });
-
-      // Let useEffect handle redirection
-
-    } catch (error: any) {
-      let friendlyMessage = 'Ocurrió un error al registrarse con Google.';
-       if (error.code !== 'auth/cancelled-popup-request') {
-        console.error("Google Sign-Up Error: ", error);
-        setError(error.message || friendlyMessage);
-        toast({ variant: 'destructive', title: 'Error de registro con Google', description: error.message || friendlyMessage });
-      }
-       // Sign out if domain check failed or any other error occurred after popup
-       if (auth.currentUser) {
-          await signOut(auth);
-       }
-    } finally {
-      setGoogleLoading(false);
-    }
+    const provider = new GoogleAuthProvider();
+    await signInWithRedirect(auth, provider);
   };
   
   if (isUserLoading || user) {

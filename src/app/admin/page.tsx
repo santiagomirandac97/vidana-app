@@ -402,3 +402,4 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: numbe
     );
 };
 
+    

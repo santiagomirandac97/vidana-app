@@ -5,7 +5,7 @@ import { useState, useEffect, type FC } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider, signOut, type User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,10 +67,21 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const redirectToDashboard = async (user: User) => {
+    try {
+        const tokenResult = await user.getIdTokenResult(true);
+        const isAdmin = tokenResult.claims.role === 'admin';
+        router.replace(isAdmin ? '/selection' : '/main');
+    } catch (e) {
+        console.error("Failed to get token result, redirecting to default", e);
+        router.replace('/main');
+    }
+  };
   
    useEffect(() => {
     if (!isUserLoading && user) {
-       router.push('/');
+       redirectToDashboard(user);
     }
   }, [user, isUserLoading, router]);
 
@@ -128,9 +139,7 @@ export default function SignupPage() {
           description: 'Hemos creado tu cuenta exitosamente. Serás redirigido.'
         });
         
-        // No need to reload, redirect will trigger claim refresh
-      
-        router.push('/');
+        // Let useEffect handle redirection
     } catch (err: any) {
       let friendlyMessage = 'Ocurrió un error al registrar la cuenta.';
       if (err.code === 'auth/email-already-in-use') {
@@ -176,7 +185,7 @@ export default function SignupPage() {
         description: 'Hemos creado tu cuenta exitosamente con Google.'
       });
 
-      router.push('/');
+      // Let useEffect handle redirection
 
     } catch (error: any) {
       let friendlyMessage = 'Ocurrió un error al registrarse con Google.';
@@ -198,6 +207,7 @@ export default function SignupPage() {
      return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
+         <p className="ml-3 text-lg">Redirigiendo...</p>
       </div>
     );
   }

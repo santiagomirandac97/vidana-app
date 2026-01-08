@@ -5,7 +5,7 @@ import { useState, useEffect, type FC } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, sendPasswordResetEmail, type ActionCodeSettings } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, sendPasswordResetEmail, type ActionCodeSettings, type User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -151,9 +151,20 @@ export default function LoginPage() {
   const [isGoogleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const redirectToDashboard = async (user: User) => {
+    try {
+        const tokenResult = await user.getIdTokenResult(true);
+        const isAdmin = tokenResult.claims.role === 'admin';
+        router.replace(isAdmin ? '/selection' : '/main');
+    } catch (e) {
+        console.error("Failed to get token result, redirecting to default", e);
+        router.replace('/main');
+    }
+  };
+
   useEffect(() => {
     if (!isUserLoading && user) {
-       router.push('/');
+       redirectToDashboard(user);
     }
   }, [user, isUserLoading, router]);
 
@@ -171,8 +182,8 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.push('/'); // Redirect to root, which will handle role-based redirection
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Let the useEffect handle redirection
     } catch (err: any) {
       let friendlyMessage = 'Ocurrió un error al iniciar sesión.';
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
@@ -206,7 +217,7 @@ export default function LoginPage() {
       const result = await signInWithPopup(auth, provider);
       await checkAndCreateUserProfile(firestore, result.user, allowedDomains);
       
-      router.push('/'); // Redirect to root
+      // Let the useEffect handle redirection
 
     } catch (error: any) {
       let friendlyMessage = 'Ocurrió un error al iniciar sesión con Google.';
@@ -228,6 +239,7 @@ export default function LoginPage() {
      return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
+        <p className="ml-3 text-lg">Redirigiendo...</p>
       </div>
     );
   }
@@ -301,5 +313,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

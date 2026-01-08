@@ -27,7 +27,8 @@ export default function HomeRedirector() {
             } else {
                 router.replace('/main');
             }
-          } catch {
+          } catch (e) {
+             console.error("Redirection error", e);
              // Fallback for non-admin or error fetching profile
             router.replace('/main');
           }

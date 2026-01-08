@@ -19,8 +19,6 @@ export default function SelectionPage() {
     if (!isLoading && !user) {
       router.replace('/login');
     }
-    // A full check including profile could be added here if needed,
-    // but for now, just ensuring a user is logged in is enough.
   }, [user, isLoading, router]);
 
   const handleSignOut = async () => {

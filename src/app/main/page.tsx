@@ -1216,9 +1216,3 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null, chartConsumptio
         </div>
     );
 };
-
-    
-
-
-
-    

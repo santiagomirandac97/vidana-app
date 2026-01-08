@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, type FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, getDocs, doc, where, Timestamp } from 'firebase/firestore';
+import { collection, query, getDocs, doc, where, Timestamp, collectionGroup } from 'firebase/firestore';
 import { type Company, type Consumption, type UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -79,47 +79,28 @@ const AdminDashboard: FC = () => {
     , [firestore]);
     const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesQuery);
 
-    const [allConsumptions, setAllConsumptions] = useState<Consumption[]>([]);
-    const [consumptionsLoading, setConsumptionsLoading] = useState(true);
+    const monthlyConsumptionsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        const nowInMexicoCity = toZonedTime(new Date(), timeZone);
+        const startOfCurrentMonth = startOfMonth(nowInMexicoCity);
+        return query(
+            collectionGroup(firestore, 'consumptions'),
+            where('timestamp', '>=', startOfCurrentMonth.toISOString())
+        );
+    }, [firestore, timeZone]);
 
-    useEffect(() => {
-        if (!firestore || !companies) return;
-
-        const fetchAll = async () => {
-            setConsumptionsLoading(true);
-            if (companies && companies.length > 0) {
-                const nowInMexicoCity = toZonedTime(new Date(), timeZone);
-                const startOfCurrentMonth = startOfMonth(nowInMexicoCity);
-                
-                const promises = companies.map(c => {
-                    const consumptionsQuery = query(
-                        collection(firestore, `companies/${c.id}/consumptions`),
-                        where('timestamp', '>=', startOfCurrentMonth.toISOString())
-                    );
-                    return getDocs(consumptionsQuery);
-                });
-                const results = await Promise.all(promises);
-                const combined = results.flatMap(snapshot => snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Consumption)));
-                setAllConsumptions(combined);
-            } else {
-                setAllConsumptions([]);
-            }
-            setConsumptionsLoading(false);
-        };
-        fetchAll();
-    }, [firestore, companies, timeZone]);
+    const { data: allConsumptions, isLoading: consumptionsLoading } = useCollection<Consumption>(monthlyConsumptionsQuery);
     
     const isLoading = companiesLoading || consumptionsLoading;
 
     const statsByCompany = useMemo(() => {
-        if (isLoading || !companies) return [];
+        if (isLoading || !companies || !allConsumptions) return [];
         
         const nowInMexicoCity = toZonedTime(new Date(), timeZone);
         const todayMexico = formatInTimeZone(nowInMexicoCity, timeZone, 'yyyy-MM-dd');
         
         return companies.map(company => {
             const companyName = company.name || 'Empresa sin nombre';
-            // Exclude anonymous (POS) sales from employee meal stats
             const companyConsumptions = allConsumptions.filter(c => c.companyId === company.id && !c.voided && c.employeeId !== 'anonymous');
             
             const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd') === todayMexico);
@@ -203,7 +184,7 @@ const AdminDashboard: FC = () => {
     }
 
     // We filter all consumptions to only include employee-specific ones for the total chart
-    const employeeOnlyConsumptions = useMemo(() => allConsumptions.filter(c => c.employeeId !== 'anonymous'), [allConsumptions]);
+    const employeeOnlyConsumptions = useMemo(() => allConsumptions?.filter(c => c.employeeId !== 'anonymous') || [], [allConsumptions]);
 
     return (
         <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
@@ -422,7 +403,3 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: numbe
         </div>
     );
 };
-
-    
-
-    

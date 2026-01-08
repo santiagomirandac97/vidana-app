@@ -3,7 +3,7 @@
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore, DocumentReference, Query } from 'firebase/firestore';
-import { getAuth, Auth } from 'firebase/auth';
+import { getAuth, Auth, browserSessionPersistence, inMemoryPersistence, setPersistence } from 'firebase/auth';
 import { useMemo } from 'react';
 import { useCollection as useCollectionHook } from './firestore/use-collection';
 import { useDoc as useDocHook } from './firestore/use-doc';
@@ -18,10 +18,25 @@ import {
 } from './provider';
 import { FirebaseClientProvider } from './client-provider';
 
+// Helper to get a memoized Auth instance with persistence
+const getAuthInstance = (app: FirebaseApp): Auth => {
+    const auth = getAuth(app);
+    // Use a flag to ensure persistence is only set once
+    if (!(auth as any)._persistenceInitialized) {
+        (auth as any)._persistenceInitialized = true;
+        setPersistence(auth, typeof window !== 'undefined' ? browserSessionPersistence : inMemoryPersistence)
+            .catch((error) => {
+                console.error("Firebase persistence error:", error);
+            });
+    }
+    return auth;
+};
+
+
 export function initializeFirebase() {
     const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
     const firestore = getFirestore(app);
-    const auth = getAuth(app);
+    const auth = getAuthInstance(app);
     return { app, auth, firestore };
 }
 

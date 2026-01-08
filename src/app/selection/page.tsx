@@ -51,7 +51,7 @@ export default function SelectionPage() {
           <div className="mx-auto mb-4">
             <Logo />
           </div>
-          <CardTitle className="text-3xl">Panel de Administrador</CardTitle>
+          <CardTitle className="text-3xl">Hola, {user?.displayName || 'Administrador'}</CardTitle>
           <CardDescription>Por favor, seleccione a dónde le gustaría ir.</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">

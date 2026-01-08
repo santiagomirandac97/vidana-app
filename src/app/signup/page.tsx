@@ -128,7 +128,7 @@ export default function SignupPage() {
           description: 'Hemos creado tu cuenta exitosamente. Serás redirigido.'
         });
         
-        await user.reload();
+        // No need to reload, redirect will trigger claim refresh
       
         router.push('/');
     } catch (err: any) {

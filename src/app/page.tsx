@@ -15,15 +15,18 @@ export default function HomeRedirector() {
     if (!isLoading) {
       if (user) {
         // If user is logged in, decide where to send them based on role.
-        // We will fetch the profile here just for this initial redirection.
-        // AuthGuard will handle protection on subsequent navigations.
+        // We get the role from custom claims in the ID token for performance.
         const fetchProfileAndRedirect = async () => {
           try {
-            const token = await user.getIdTokenResult();
-            // Assuming role is stored in custom claims, which is a common pattern.
-            // If not, we'd need a quick Firestore fetch. For now, let's assume 'admin' claim.
-            const isAdmin = token.claims.role === 'admin';
-            router.replace(isAdmin ? '/selection' : '/main');
+            // Force a token refresh to get the latest custom claims.
+            const tokenResult = await user.getIdTokenResult(true);
+            const isAdmin = tokenResult.claims.role === 'admin';
+            
+            if (isAdmin) {
+                router.replace('/selection');
+            } else {
+                router.replace('/main');
+            }
           } catch {
              // Fallback for non-admin or error fetching profile
             router.replace('/main');

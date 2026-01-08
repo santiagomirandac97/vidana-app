@@ -184,7 +184,7 @@ const AdminDashboard: FC = () => {
     }
 
     // We filter all consumptions to only include employee-specific ones for the total chart
-    const employeeOnlyConsumptions = useMemo(() => allConsumptions?.filter(c => c.employeeId !== 'anonymous') || [], [allConsumptions]);
+    const employeeOnlyConsumptions = useMemo(() => allConsumptions?.filter(c => c.employeeId !== 'anonymous' && !c.voided) || [], [allConsumptions]);
 
     return (
         <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
@@ -200,7 +200,7 @@ const AdminDashboard: FC = () => {
                 </div>
             </header>
             <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-                <TotalStatsCard totalStats={totalStats} allConsumptions={employeeOnlyConsumptions} />
+                <TotalStatsCard totalStats={totalStats} allConsumptions={employeeOnlyConsumptions} isLoading={isLoading} />
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
                     {statsByCompany.map(companyStats => (
                         <CompanyStatCard key={companyStats.id} companyStats={companyStats} />
@@ -212,7 +212,24 @@ const AdminDashboard: FC = () => {
 };
 
 
-const TotalStatsCard: FC<{ totalStats: any, allConsumptions: Consumption[] }> = ({ totalStats, allConsumptions }) => {
+const TotalStatsCard: FC<{ totalStats: any, allConsumptions: Consumption[], isLoading: boolean }> = ({ totalStats, allConsumptions, isLoading }) => {
+    if (isLoading) {
+        return (
+            <Card className="shadow-lg col-span-1 sm:col-span-2 lg:col-span-3">
+                <CardHeader>
+                    <CardTitle className="flex justify-between items-start text-2xl">
+                        <span>Ventas Totales de Comedor del Periodo</span>
+                        <TrendingUp className="h-7 w-7 text-gray-400" />
+                    </CardTitle>
+                    <CardDescription>Resumen consolidado de todas las empresas (excluye ventas de POS).</CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center h-64">
+                    <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                </CardContent>
+            </Card>
+        )
+    }
+    
     return (
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 col-span-1 sm:col-span-2 lg:col-span-3">
             <CardHeader>

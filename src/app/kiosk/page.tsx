@@ -570,10 +570,3 @@ const DownloadReportDialog: FC<{company: Company, consumptions: Consumption[]}> 
         </Dialog>
     )
 }
-    
-
-    
-
-    
-
-

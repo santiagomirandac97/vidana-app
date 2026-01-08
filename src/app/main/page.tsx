@@ -89,6 +89,12 @@ function AppContent({ user }: { user: User }) {
   );
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
+  useEffect(() => {
+    if (!profileLoading && userProfile && userProfile.role !== 'user') {
+      router.replace('/selection');
+    }
+  }, [userProfile, profileLoading, router]);
+
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -1122,7 +1128,7 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
     }, [consumptions, timeZone]);
 
     const stats = useMemo(() => {
-        if (!consumptions) return { total: 0, avg: 0, peakDay: 'N/A', peakTotal: 0 };
+        if (!consumptions || !chartData) return { total: 0, avg: 0, peakDay: 'N/A', peakTotal: 0 };
         
         const monthlyTotal = consumptions.filter(c => !c.voided).length;
         const nowInMexicoCity = toZonedTime(new Date(), timeZone);
@@ -1130,7 +1136,7 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
 
         const dailyAvg = dayOfMonth > 0 ? monthlyTotal / dayOfMonth : 0;
         
-        const peak = chartData.reduce((max, item) => item.total > max.total ? item : max, {name: 'N/A', total: 0});
+        const peak = chartData.reduce((max, item) => (item.total > max.total ? item : max), {name: 'N/A', total: 0});
 
         return {
             total: monthlyTotal,
@@ -1215,5 +1221,3 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
         </div>
     );
 };
-
-    

@@ -1,39 +1,20 @@
 
 'use client';
 
-import { useEffect } from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useUser, useDoc, useFirebase, useMemoFirebase, useAuth } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { Loader2, LogOut, Settings, ClipboardList, AreaChart, Tablet, ChefHat, ShoppingCart } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
-import { type UserProfile } from '@/lib/types';
 
+// This page no longer needs to fetch the user profile for role checks,
+// as AuthGuard now protects it and only allows admins.
 
 export default function SelectionPage() {
-  const { user, isLoading: userLoading } = useUser();
-  const { firestore } = useFirebase();
   const auth = useAuth();
   const router = useRouter();
-
-  const userProfileRef = useMemoFirebase(() => 
-    firestore && user ? doc(firestore, `users/${user.uid}`) : null,
-    [firestore, user]
-  );
-  const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
-
-  useEffect(() => {
-    // The root page (`/`) now handles all redirection. 
-    // This page only needs to protect against unauthenticated access after loading.
-    if (!userLoading && !user) {
-      router.replace('/login');
-    }
-  }, [user, userLoading, router]);
-
 
   const handleSignOut = async () => {
     if (auth) {
@@ -43,26 +24,8 @@ export default function SelectionPage() {
     }
   };
 
-  if (userLoading || profileLoading || !userProfile) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <p className="ml-3 text-lg">Cargando perfil...</p>
-      </div>
-    );
-  }
-  
-  // If a non-admin somehow reaches this page, deny access.
-  if (userProfile.role !== 'admin') {
-      return (
-         <div className="flex h-screen items-center justify-center">
-            <p className="ml-3 text-lg">Acceso denegado. Redirigiendo...</p>
-         </div>
-      )
-  }
-
   return (
-    <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="absolute top-8 right-8">
         <Button variant="outline" onClick={handleSignOut}>
           <LogOut className="mr-2 h-4 w-4" />
@@ -74,7 +37,7 @@ export default function SelectionPage() {
           <div className="mx-auto mb-4">
             <Logo />
           </div>
-          <CardTitle className="text-3xl">Bienvenido, {userProfile.name}</CardTitle>
+          <CardTitle className="text-3xl">Panel de Administrador</CardTitle>
           <CardDescription>Por favor, seleccione a dónde le gustaría ir.</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">

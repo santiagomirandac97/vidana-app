@@ -486,7 +486,6 @@ function AppContent({ user }: { user: User }) {
             employees={employees || []}
             todaysConsumptions={todaysConsumptions || []}
             monthlyConsumptions={monthlyConsumptions || []}
-            recentConsumptions={recentConsumptions || []}
             selectedCompanyId={selectedCompanyId} 
             company={company}
             allCompanies={allCompanies || []}
@@ -601,13 +600,12 @@ interface AdminPanelProps {
   employees: Employee[];
   todaysConsumptions: Consumption[];
   monthlyConsumptions: Consumption[];
-  recentConsumptions: Consumption[];
   selectedCompanyId: string;
   company: Company | null;
   allCompanies: Company[];
 }
 
-const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, monthlyConsumptions, recentConsumptions, selectedCompanyId, company, allCompanies }) => {
+const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, monthlyConsumptions, selectedCompanyId, company, allCompanies }) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { firestore } = useFirebase();
@@ -833,7 +831,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, monthl
               <Button className="w-full" onClick={handleExportConsumptions}><Download className="mr-2 h-4 w-4"/> Exportar Reporte</Button>
             </TabsContent>
             <TabsContent value="statistics" className="space-y-4 pt-6">
-              <ConsumptionChart consumptions={monthlyConsumptions} chartConsumptions={recentConsumptions} />
+              <ConsumptionChart consumptions={monthlyConsumptions} />
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -1095,17 +1093,18 @@ const PaymentDialog: FC<PaymentDialogProps> = ({ isOpen, onClose, onConfirm, amo
 };
 
 
-const ConsumptionChart: FC<{ consumptions: Consumption[] | null, chartConsumptions: Consumption[] | null }> = ({ consumptions, chartConsumptions }) => {
+const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumptions }) => {
     const timeZone = 'America/Mexico_City';
+    
     const chartData = useMemo(() => {
-        if (!chartConsumptions) return [];
+        if (!consumptions) return [];
         const dailyConsumptions: { [key: string]: number } = {};
         
-        const lastActiveDays = [...new Set(chartConsumptions.map(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd')))]
+        const lastActiveDays = [...new Set(consumptions.map(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd')))]
             .sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
             .slice(0, 10);
 
-        chartConsumptions.forEach(c => {
+        consumptions.forEach(c => {
             if (!c.voided) {
                 const day = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
                 if (lastActiveDays.includes(day)) {
@@ -1120,7 +1119,7 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null, chartConsumptio
                 name: format(toDate(day, { timeZone }), 'MMM dd', { locale: es }),
                 total: dailyConsumptions[day],
             }));
-    }, [chartConsumptions, timeZone]);
+    }, [consumptions, timeZone]);
 
     const stats = useMemo(() => {
         if (!consumptions) return { total: 0, avg: 0, peakDay: 'N/A', peakTotal: 0 };
@@ -1216,3 +1215,5 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null, chartConsumptio
         </div>
     );
 };
+
+    

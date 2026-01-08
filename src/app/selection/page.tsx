@@ -27,14 +27,20 @@ export default function SelectionPage() {
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
   useEffect(() => {
-    if (!userLoading && !user) {
-      router.replace('/login');
+    // Wait for both user auth and profile to be loaded
+    if (userLoading || profileLoading) {
+      return; // Still loading, do nothing yet
     }
-    // If user is not admin, redirect to main app
-    if (!profileLoading && userProfile && userProfile.role !== 'admin') {
+
+    if (!user) {
+      // If no user is logged in after loading, go to login
+      router.replace('/login');
+    } else if (userProfile && userProfile.role !== 'admin') {
+      // If a user is logged in but is not an admin, go to main
       router.replace('/main');
     }
-  }, [user, userLoading, profileLoading, userProfile, router]);
+    // If user is an admin, they stay on this page
+  }, [user, userLoading, userProfile, profileLoading, router]);
 
 
   const handleSignOut = async () => {
@@ -54,8 +60,8 @@ export default function SelectionPage() {
     );
   }
 
-  // This should ideally not be reached for non-admins due to the useEffect redirect,
-  // but it's a good fallback.
+  // This check handles the case where there is a user but no profile, or the user is not an admin.
+  // The useEffect will handle redirection, but this prevents flashing the content.
   if (!userProfile || userProfile.role !== 'admin') {
       return (
          <div className="flex h-screen items-center justify-center">

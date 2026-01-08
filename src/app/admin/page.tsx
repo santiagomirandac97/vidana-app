@@ -19,20 +19,20 @@ import { Logo } from '@/components/logo';
 export default function AdminDashboardPage() {
     const { user, isLoading: userLoading } = useUser();
     const router = useRouter();
-    const { firestore } = useFirebase();
 
+    useEffect(() => {
+        if (!userLoading && !user) {
+            router.push('/login');
+        }
+    }, [user, userLoading, router]);
+
+    const { firestore } = useFirebase();
     const userProfileRef = useMemoFirebase(() => 
         firestore && user ? doc(firestore, `users/${user.uid}`) : null
     , [firestore, user]);
     const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
     const isLoading = userLoading || profileLoading;
-
-    useEffect(() => {
-        if (!isLoading && !user) {
-            router.replace('/login');
-        }
-    }, [user, isLoading, router]);
 
     if (isLoading) {
         return (
@@ -43,7 +43,7 @@ export default function AdminDashboardPage() {
         );
     }
     
-    if (userProfile?.role !== 'admin') {
+    if (!user || userProfile?.role !== 'admin') {
          return (
             <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
                 <Card className="w-full max-w-sm mx-4 shadow-xl text-center">

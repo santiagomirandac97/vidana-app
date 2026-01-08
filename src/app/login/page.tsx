@@ -138,17 +138,24 @@ async function checkAndCreateUserProfile(firestore: any, user: any, allowedDomai
 }
 
 
-function LoginPageContent() {
+export default function LoginPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const { user, isLoading: isUserLoading } = useUser();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isUserLoading && user) {
+       router.push('/');
+    }
+  }, [user, isUserLoading, router]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -165,7 +172,7 @@ function LoginPageContent() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.push('/selection');
+      router.push('/'); // Redirect to root, which will handle role-based redirection
     } catch (err: any) {
       let friendlyMessage = 'Ocurrió un error al iniciar sesión.';
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
@@ -199,7 +206,7 @@ function LoginPageContent() {
       const result = await signInWithPopup(auth, provider);
       await checkAndCreateUserProfile(firestore, result.user, allowedDomains);
       
-      router.push('/selection');
+      router.push('/'); // Redirect to root
 
     } catch (error: any) {
       let friendlyMessage = 'Ocurrió un error al iniciar sesión con Google.';
@@ -216,6 +223,14 @@ function LoginPageContent() {
       setGoogleLoading(false);
     }
   };
+
+  if (isUserLoading || user) {
+     return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -285,28 +300,6 @@ function LoginPageContent() {
       </p>
     </div>
   );
-}
-
-
-export default function LoginPage() {
-  const { user, isLoading } = useUser();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading && user) {
-      router.push('/selection');
-    }
-  }, [user, isLoading, router]);
-
-  if (isLoading || user) {
-     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
-  return <LoginPageContent />;
 }
 
     

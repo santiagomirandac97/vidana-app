@@ -54,11 +54,12 @@ async function checkAndCreateUserProfile(firestore: any, user: any, allowedDomai
     return true;
 }
 
-function SignupPageContent() {
+export default function SignupPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const { user, isLoading: isUserLoading } = useUser();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -67,6 +68,12 @@ function SignupPageContent() {
   const [isGoogleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+   useEffect(() => {
+    if (!isUserLoading && user) {
+       router.push('/');
+    }
+  }, [user, isUserLoading, router]);
+
   const handleSignup = async () => {
     if (!name || !email || !password) {
       setError('Por favor, complete todos los campos.');
@@ -123,7 +130,7 @@ function SignupPageContent() {
         
         await user.reload();
       
-        router.push('/selection');
+        router.push('/');
     } catch (err: any) {
       let friendlyMessage = 'Ocurrió un error al registrar la cuenta.';
       if (err.code === 'auth/email-already-in-use') {
@@ -169,7 +176,7 @@ function SignupPageContent() {
         description: 'Hemos creado tu cuenta exitosamente con Google.'
       });
 
-      router.push('/selection');
+      router.push('/');
 
     } catch (error: any) {
       let friendlyMessage = 'Ocurrió un error al registrarse con Google.';
@@ -186,6 +193,15 @@ function SignupPageContent() {
       setGoogleLoading(false);
     }
   };
+  
+  if (isUserLoading || user) {
+     return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -257,26 +273,4 @@ function SignupPageContent() {
       </Card>
     </div>
   );
-}
-
-
-export default function SignupPage() {
-  const { user, isLoading } = useUser();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading && user) {
-      router.push('/selection');
-    }
-  }, [user, isLoading, router]);
-
-  if (isLoading || user) {
-     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
-  return <SignupPageContent />;
 }

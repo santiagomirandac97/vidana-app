@@ -1,20 +1,27 @@
 
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { Loader2, LogOut, Settings, ClipboardList, AreaChart, Tablet, ChefHat, ShoppingCart } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 
-// This page no longer needs to fetch the user profile for role checks,
-// as AuthGuard now protects it and only allows admins.
-
 export default function SelectionPage() {
   const auth = useAuth();
   const router = useRouter();
+  const { user, isLoading } = useUser();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.replace('/login');
+    }
+    // A full check including profile could be added here if needed,
+    // but for now, just ensuring a user is logged in is enough.
+  }, [user, isLoading, router]);
 
   const handleSignOut = async () => {
     if (auth) {
@@ -23,6 +30,15 @@ export default function SelectionPage() {
         router.push('/login');
     }
   };
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <p className="ml-3 text-lg">Verificando acceso...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">

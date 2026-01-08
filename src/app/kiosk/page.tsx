@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, type FC } from 'react';
+import { useState, useEffect, useMemo, type FC, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, where, doc, getDocs, orderBy, limit, getDoc, Timestamp } from 'firebase/firestore';
@@ -29,20 +29,21 @@ const KIOSK_COMPANY_ID = "Yzf6ucrafGkOPqbqCJpl"; // Configure the target company
 export default function KioskPage() {
     const { user, isLoading: userLoading } = useUser();
     const router = useRouter();
-    const { firestore } = useFirebase();
 
+    useEffect(() => {
+        if (!userLoading && !user) {
+            router.push('/login');
+        }
+    }, [user, userLoading, router]);
+
+
+    const { firestore } = useFirebase();
     const userProfileRef = useMemoFirebase(() =>
         firestore && user ? doc(firestore, `users/${user.uid}`) : null
     , [firestore, user]);
     const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
     
     const isLoading = userLoading || profileLoading;
-
-    useEffect(() => {
-        if (!isLoading && !user) {
-            router.replace('/login');
-        }
-    }, [user, isLoading, router]);
 
     if (isLoading) {
         return (
@@ -53,7 +54,7 @@ export default function KioskPage() {
         );
     }
     
-    if (userProfile?.role !== 'admin') {
+    if (!user || userProfile?.role !== 'admin') {
          return (
             <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
                 <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
@@ -65,7 +66,7 @@ export default function KioskPage() {
                         <CardDescription>No tiene los permisos necesarios para ver esta página.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Button onClick={() => router.push('/selection')} className="w-full">
+                        <Button onClick={() => router.push('/')} className="w-full">
                             <Home className="mr-2 h-4 w-4" />
                             Volver al Inicio
                         </Button>
@@ -574,4 +575,5 @@ const DownloadReportDialog: FC<{company: Company, consumptions: Consumption[]}> 
     
 
     
+
 

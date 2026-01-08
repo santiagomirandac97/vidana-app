@@ -58,42 +58,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 export default function MainPage() {
   const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
-
-  useEffect(() => {
-    if (!userLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, userLoading, router]);
-
-  if (userLoading || !user) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-         <p className="ml-3 text-lg">Verificando sesión...</p>
-      </div>
-    );
-  }
-
-  return <AppContent user={user} />;
-}
-
-function AppContent({ user }: { user: User }) {
   const { firestore } = useFirebase();
   const auth = useAuth();
-  const router = useRouter();
   const timeZone = 'America/Mexico_City';
-
+  
   const userProfileRef = useMemoFirebase(() => 
     firestore && user ? doc(firestore, `users/${user.uid}`) : null,
     [firestore, user]
   );
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
-
-  useEffect(() => {
-    if (!profileLoading && userProfile && userProfile.role !== 'user') {
-      router.replace('/selection');
-    }
-  }, [userProfile, profileLoading, router]);
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -102,11 +75,80 @@ function AppContent({ user }: { user: User }) {
   const [isConfirmationOpen, setConfirmationOpen] = useState(false);
   const [paymentDue, setPaymentDue] = useState<{employee: Employee, amount: number} | null>(null);
 
-
   const allCompaniesQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, 'companies'), orderBy('name')) : null,
   [firestore]);
   const { data: allCompanies, isLoading: companiesLoading } = useCollection<Company>(allCompaniesQuery);
+
+  const companyDocRef = useMemoFirebase(() => 
+    firestore && selectedCompanyId ? doc(firestore, `companies/${selectedCompanyId}`) : null
+  , [firestore, selectedCompanyId]);
+  const { data: company } = useDoc<Company>(companyDocRef);
+
+  const employeesQuery = useMemoFirebase(() =>
+    firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/employees`)) : null
+  , [firestore, selectedCompanyId]);
+  const { data: employees } = useCollection<Employee>(employeesQuery);
+
+  const startOfCurrentMonth = useMemo(() => {
+      const nowInMexicoCity = toZonedTime(new Date(), timeZone);
+      return startOfMonth(nowInMexicoCity);
+  }, [timeZone]);
+
+  const todaysConsumptionsQuery = useMemoFirebase(() => {
+      if (!firestore || !selectedCompanyId) return null;
+      const todayMexico = getTodayInMexicoCity();
+      const startOfDay = new Date(todayMexico + 'T00:00:00');
+      const endOfDay = new Date(todayMexico + 'T23:59:59');
+
+      return query(
+          collection(firestore, `companies/${selectedCompanyId}/consumptions`), 
+          where('timestamp', '>=', startOfDay.toISOString()),
+          where('timestamp', '<=', endOfDay.toISOString())
+      );
+  }, [firestore, selectedCompanyId]);
+  const { data: todaysConsumptions } = useCollection<Consumption>(todaysConsumptionsQuery);
+
+  const recentConsumptionsQuery = useMemoFirebase(() => {
+      if (!firestore || !selectedCompanyId) return null;
+      return query(
+          collection(firestore, `companies/${selectedCompanyId}/consumptions`),
+          orderBy('timestamp', 'desc'),
+          limit(10)
+      )
+  }, [firestore, selectedCompanyId]);
+  const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
+
+  const monthlyConsumptionsQuery = useMemoFirebase(() =>
+      firestore && selectedCompanyId ? query(
+          collection(firestore, `companies/${selectedCompanyId}/consumptions`),
+          where('timestamp', '>=', startOfCurrentMonth.toISOString()),
+          orderBy('timestamp', 'desc')
+      ) : null
+  , [firestore, selectedCompanyId, startOfCurrentMonth]);
+  const { data: monthlyConsumptions } = useCollection<Consumption>(monthlyConsumptionsQuery);
+
+  const [employeeNumber, setEmployeeNumber] = useState('');
+  const [nameSearch, setNameSearch] = useState('');
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'warning' | 'error'; message: string } | null>(null);
+
+  const [isQuickAddOpen, setQuickAddOpen] = useState(false);
+  const [pendingEmployee, setPendingEmployee] = useState<{ number: string; name: string } | null>(null);
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, userLoading, router]);
+
+  useEffect(() => {
+    if (!profileLoading && userProfile && userProfile.role !== 'user') {
+      router.replace('/selection');
+    }
+  }, [userProfile, profileLoading, router]);
 
   useEffect(() => {
     if (!selectedCompanyId && allCompanies && allCompanies.length > 0) {
@@ -125,69 +167,12 @@ function AppContent({ user }: { user: User }) {
     }
   }, [selectedCompanyId]);
 
-  const companyDocRef = useMemoFirebase(() => 
-    firestore && selectedCompanyId ? doc(firestore, `companies/${selectedCompanyId}`) : null
-  , [firestore, selectedCompanyId]);
-  const { data: company } = useDoc<Company>(companyDocRef);
-
-  const employeesQuery = useMemoFirebase(() =>
-    firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/employees`)) : null
-  , [firestore, selectedCompanyId]);
-  const { data: employees } = useCollection<Employee>(employeesQuery);
-
-    const startOfCurrentMonth = useMemo(() => {
-        const nowInMexicoCity = toZonedTime(new Date(), timeZone);
-        return startOfMonth(nowInMexicoCity);
-    }, [timeZone]);
-
-    const todaysConsumptionsQuery = useMemoFirebase(() => {
-        if (!firestore || !selectedCompanyId) return null;
-        const todayMexico = getTodayInMexicoCity();
-        const startOfDay = new Date(todayMexico + 'T00:00:00');
-        const endOfDay = new Date(todayMexico + 'T23:59:59');
-
-        return query(
-            collection(firestore, `companies/${selectedCompanyId}/consumptions`), 
-            where('timestamp', '>=', startOfDay.toISOString()),
-            where('timestamp', '<=', endOfDay.toISOString())
-        );
-    }, [firestore, selectedCompanyId]);
-    const { data: todaysConsumptions } = useCollection<Consumption>(todaysConsumptionsQuery);
-
-    const recentConsumptionsQuery = useMemoFirebase(() => {
-        if (!firestore || !selectedCompanyId) return null;
-        return query(
-            collection(firestore, `companies/${selectedCompanyId}/consumptions`),
-            orderBy('timestamp', 'desc'),
-            limit(10)
-        )
-    }, [firestore, selectedCompanyId]);
-    const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
-
-    const monthlyConsumptionsQuery = useMemoFirebase(() =>
-        firestore && selectedCompanyId ? query(
-            collection(firestore, `companies/${selectedCompanyId}/consumptions`),
-            where('timestamp', '>=', startOfCurrentMonth.toISOString()),
-            orderBy('timestamp', 'desc')
-        ) : null
-    , [firestore, selectedCompanyId, startOfCurrentMonth]);
-    const { data: monthlyConsumptions } = useCollection<Consumption>(monthlyConsumptionsQuery);
-
-  const [employeeNumber, setEmployeeNumber] = useState('');
-  const [nameSearch, setNameSearch] = useState('');
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'warning' | 'error'; message: string } | null>(null);
-
-  const [isQuickAddOpen, setQuickAddOpen] = useState(false);
-  const [pendingEmployee, setPendingEmployee] = useState<{ number: string; name: string } | null>(null);
-
-  const inputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
-
   useEffect(() => {
     if (selectedCompanyId) {
       inputRef.current?.focus();
     }
   }, [selectedCompanyId]);
+
 
   const resetInputAndFeedback = () => {
     setEmployeeNumber('');
@@ -351,7 +336,7 @@ function AppContent({ user }: { user: User }) {
     );
   }, [nameSearch, employees]);
 
-  if (companiesLoading || profileLoading || !selectedCompanyId || !company || !allCompanies) {
+  if (userLoading || !user || companiesLoading || profileLoading || !selectedCompanyId || !company || !allCompanies) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />

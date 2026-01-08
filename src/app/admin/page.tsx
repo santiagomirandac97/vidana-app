@@ -182,6 +182,7 @@ const AdminDashboard: FC = () => {
     }, [companies, allConsumptions, isLoading, timeZone]);
 
     const totalStats = useMemo(() => {
+        if (isLoading || !statsByCompany) return { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 };
         return statsByCompany.reduce((acc, company) => {
             acc.monthlyRevenue += company.monthlyRevenue;
             acc.monthlyCount += company.monthlyCount;
@@ -189,7 +190,7 @@ const AdminDashboard: FC = () => {
             acc.dailyRevenue += company.dailyRevenue;
             return acc;
         }, { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 });
-    }, [statsByCompany]);
+    }, [statsByCompany, isLoading]);
 
 
     if (isLoading) {
@@ -421,5 +422,7 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: numbe
         </div>
     );
 };
+
+    
 
     

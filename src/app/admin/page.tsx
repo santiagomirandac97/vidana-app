@@ -53,7 +53,7 @@ export default function AdminDashboardPage() {
     const pageIsLoading = userLoading || profileLoading || companiesLoading || consumptionsLoading;
 
     const statsByCompany = useMemo(() => {
-        if (pageIsLoading || !companies || !allConsumptions) return [];
+        if (pageIsLoading || !companies || companies.length === 0 || !allConsumptions) return [];
         
         const nowInMexicoCity = toZonedTime(new Date(), timeZone);
         const todayMexico = formatInTimeZone(nowInMexicoCity, timeZone, 'yyyy-MM-dd');
@@ -122,7 +122,7 @@ export default function AdminDashboardPage() {
     }, [companies, allConsumptions, pageIsLoading, timeZone]);
 
     const totalStats = useMemo(() => {
-        if (pageIsLoading || !statsByCompany) return { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 };
+        if (pageIsLoading || !statsByCompany || statsByCompany.length === 0) return { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 };
         return statsByCompany.reduce((acc, company) => {
             acc.monthlyRevenue += company.monthlyRevenue;
             acc.monthlyCount += company.monthlyCount;
@@ -401,3 +401,4 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: numbe
         </div>
     );
 };
+

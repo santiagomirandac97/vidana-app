@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, type FC } from 'react';
@@ -401,5 +400,3 @@ const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: numbe
         </div>
     );
 };
-
-    

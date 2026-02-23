@@ -95,5 +95,14 @@ service cloud.firestore {
       allow get: if true;
       allow list, create, update, delete: if isUserAdmin(request.auth.uid);
     }
+
+    /**
+     * @description Collection group rule required for cross-company queries in admin dashboard.
+     * @path collectionGroup consumptions
+     * @allow (list) - Only admins can run collection group queries across all companies.
+     */
+    match /{path=**}/consumptions/{consumptionId} {
+      allow get, list: if request.auth != null && isUserAdmin(request.auth.uid);
+    }
   }
 }

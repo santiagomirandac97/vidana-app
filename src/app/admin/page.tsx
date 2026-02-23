@@ -43,7 +43,13 @@ export default function AdminDashboardPage() {
     }, [firestore, timeZone]);
 
     const { data: allConsumptions, isLoading: consumptionsLoading } = useCollection<Consumption>(monthlyConsumptionsQuery);
-    
+
+    const [loadTimeout, setLoadTimeout] = useState(false);
+    useEffect(() => {
+        const timer = setTimeout(() => setLoadTimeout(true), 8000);
+        return () => clearTimeout(timer);
+    }, []);
+
     useEffect(() => {
         if (!userLoading && !user) {
             router.push('/login');
@@ -136,11 +142,34 @@ export default function AdminDashboardPage() {
     const employeeOnlyConsumptions = useMemo(() => allConsumptions?.filter(c => c.employeeId !== 'anonymous' && !c.voided) || [], [allConsumptions]);
 
 
-    if (pageIsLoading) {
+    if (pageIsLoading && !loadTimeout) {
         return (
             <div className="flex h-screen w-full items-center justify-center">
                 <Loader2 className="h-10 w-10 animate-spin" />
                 <p className="ml-4 text-lg">Cargando datos del administrador...</p>
+            </div>
+        );
+    }
+
+    if (loadTimeout && pageIsLoading) {
+        return (
+            <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
+                <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
+                    <CardHeader>
+                        <CardTitle className="flex flex-col items-center gap-2">
+                            <ShieldAlert className="h-12 w-12 text-destructive" />
+                            Error al cargar
+                        </CardTitle>
+                        <CardDescription>
+                            No se pudieron cargar los datos. Verifique su conexión y que tenga permisos de administrador.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={() => window.location.reload()} className="w-full">
+                            Reintentar
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
         );
     }

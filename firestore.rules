@@ -102,7 +102,7 @@ service cloud.firestore {
      * @allow (list) - Only admins can run collection group queries across all companies.
      */
     match /{path=**}/consumptions/{consumptionId} {
-      allow get, list: if request.auth != null && isUserAdmin(request.auth.uid);
+      allow list: if request.auth != null && isAdmin();
     }
   }
 }

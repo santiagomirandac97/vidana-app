@@ -276,6 +276,11 @@ export default function InventarioPage() {
     );
   }
 
+  // Avoid flashing the access-denied card while auth is still resolving
+  if (!userLoading && !user) {
+    return null; // router.push already fired in useEffect
+  }
+
   if (!user || userProfile?.role !== 'admin') {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
@@ -428,6 +433,7 @@ function StockTab({ ingredients, isLoading, suppliers, companyId, userId, firest
     handleSubmit: handleIngredientSubmit,
     reset: resetIngredient,
     setValue: setIngredientValue,
+    watch: watchIngredient,
     formState: { errors: ingredientErrors, isSubmitting: isIngredientSubmitting },
   } = useForm<IngredientFormValues>({
     resolver: zodResolver(ingredientSchema),
@@ -439,6 +445,7 @@ function StockTab({ ingredients, isLoading, suppliers, companyId, userId, firest
     handleSubmit: handleMovementSubmit,
     reset: resetMovement,
     setValue: setMovementValue,
+    watch: watchMovement,
     formState: { errors: movementErrors, isSubmitting: isMovementSubmitting },
   } = useForm<MovementFormValues>({
     resolver: zodResolver(movementSchema),
@@ -448,11 +455,11 @@ function StockTab({ ingredients, isLoading, suppliers, companyId, userId, firest
   const onAddIngredient = async (values: IngredientFormValues) => {
     if (!firestore) return;
     const colRef = collection(firestore, `companies/${companyId}/ingredients`);
-    await addDocumentNonBlocking(colRef as any, {
+    await addDocumentNonBlocking(colRef, {
       ...values,
       active: true,
       supplierId: values.supplierId ?? '',
-    } as any);
+    });
     toast({ title: 'Ingrediente agregado', description: `${values.name} fue registrado correctamente.` });
     resetIngredient();
     setAddOpen(false);
@@ -482,7 +489,7 @@ function StockTab({ ingredients, isLoading, suppliers, companyId, userId, firest
       timestamp: new Date().toISOString(),
       unitCost: selectedIngredient.costPerUnit,
     };
-    await addDocumentNonBlocking(movementsColRef as any, movement as any);
+    await addDocumentNonBlocking(movementsColRef, movement);
 
     toast({
       title: 'Movimiento registrado',
@@ -541,7 +548,7 @@ function StockTab({ ingredients, isLoading, suppliers, companyId, userId, firest
                 <div className="space-y-1">
                   <Label>Unidad</Label>
                   <Select
-                    defaultValue="kg"
+                    value={watchIngredient('unit')}
                     onValueChange={(v) => setIngredientValue('unit', v as StockUnit)}
                   >
                     <SelectTrigger>
@@ -636,7 +643,7 @@ function StockTab({ ingredients, isLoading, suppliers, companyId, userId, firest
             <div className="space-y-1">
               <Label>Tipo de Movimiento</Label>
               <Select
-                defaultValue="entrada"
+                value={watchMovement('type')}
                 onValueChange={(v) => setMovementValue('type', v as MovementType)}
               >
                 <SelectTrigger>
@@ -845,7 +852,7 @@ function ProveedoresTab({ suppliers, isLoading, companyId, firestore, toast }: P
   const onAddSupplier = async (values: SupplierFormValues) => {
     if (!firestore) return;
     const colRef = collection(firestore, `companies/${companyId}/suppliers`);
-    await addDocumentNonBlocking(colRef as any, { ...values, active: true } as any);
+    await addDocumentNonBlocking(colRef, { ...values, active: true });
     toast({ title: 'Proveedor agregado', description: `${values.name} fue registrado.` });
     reset();
     setAddOpen(false);
@@ -1010,7 +1017,7 @@ function OrdenesTab({
       createdAt: new Date().toISOString(),
       createdBy: userId,
     };
-    await addDocumentNonBlocking(colRef as any, order as any);
+    await addDocumentNonBlocking(colRef, order);
     toast({ title: 'Orden creada', description: `Orden para ${values.supplierName} registrada.` });
     reset();
     setAddOpen(false);
@@ -1036,7 +1043,7 @@ function OrdenesTab({
             firestore,
             `companies/${companyId}/ingredients/${item.ingredientId}`
           );
-          updateDocumentNonBlocking(ingredientDocRef, { currentStock: newStock });
+          await updateDocumentNonBlocking(ingredientDocRef, { currentStock: newStock });
 
           const movementsColRef = collection(
             firestore,
@@ -1053,7 +1060,7 @@ function OrdenesTab({
             timestamp: new Date().toISOString(),
             unitCost: item.unitCost,
           };
-          await addDocumentNonBlocking(movementsColRef as any, movement as any);
+          await addDocumentNonBlocking(movementsColRef, movement);
         }
       }
 
@@ -1106,6 +1113,7 @@ function OrdenesTab({
               <div className="space-y-1">
                 <Label>Proveedor</Label>
                 <Select
+                  value={watch('supplierId')}
                   onValueChange={(v) => {
                     const supplier = suppliers.find((s) => s.id === v);
                     setValue('supplierId', v);
@@ -1161,6 +1169,7 @@ function OrdenesTab({
                     {/* Ingredient selector */}
                     <div className="col-span-5">
                       <Select
+                        value={watch(`items.${index}.ingredientId`)}
                         onValueChange={(v) => {
                           const ingredient = ingredients.find((i) => i.id === v);
                           setValue(`items.${index}.ingredientId`, v);
@@ -1310,7 +1319,7 @@ function OrdenesTab({
                   </TableHeader>
                   <TableBody>
                     {order.items.map((item: PurchaseOrderItem, idx: number) => (
-                      <TableRow key={idx}>
+                      <TableRow key={`${item.ingredientId}-${idx}`}>
                         <TableCell>{item.ingredientName}</TableCell>
                         <TableCell>{item.quantity}</TableCell>
                         <TableCell>${item.unitCost.toFixed(2)}</TableCell>

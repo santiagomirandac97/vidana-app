@@ -155,6 +155,7 @@ export interface WeeklyMenu {
 
 export interface LaborCost {
   id?: string;
+  companyId: string;   // ADD THIS
   weekStartDate: string; // 'yyyy-MM-dd' — Monday
   amount: number; // MXN
   notes?: string;

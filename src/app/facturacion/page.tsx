@@ -216,63 +216,63 @@ export default function FacturacionPage() {
   ).length;
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-3">
-              <Logo />
-              <span className="text-lg font-semibold">Facturación</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {monthOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" onClick={() => router.push('/selection')}>
-                <Home className="mr-2 h-4 w-4" />
-                Menú
-              </Button>
-            </div>
+    <div className="min-h-screen bg-background">
+      {/* Shared page header */}
+      <header className="page-header">
+        <div className="page-header-inner">
+          <div className="page-header-brand">
+            <Logo />
+            <span className="page-header-title">Facturación</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-44 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="sm" onClick={() => router.push('/selection')} className="text-muted-foreground hover:text-foreground gap-1.5">
+              <Home className="h-3.5 w-3.5" />
+              Menú
+            </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-        <div className="flex items-center gap-2 mb-6">
-          <Receipt className="h-5 w-5 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground capitalize">{selectedMonthLabel}</p>
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-6xl">
+        {/* Page context row */}
+        <div className="flex items-center gap-2 mb-8">
+          <p className="text-xs font-medium text-primary uppercase tracking-widest">Estados de cuenta</p>
+          <span className="text-xs text-muted-foreground/50">·</span>
+          <p className="text-xs text-muted-foreground capitalize">{selectedMonthLabel}</p>
           {consumptionsLoading && (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-1" />
           )}
         </div>
 
-        {/* Summary KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        {/* Summary KPIs — accent bar cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
           {[
-            { label: 'Total Comidas', value: totalMeals.toLocaleString() },
-            { label: 'Total Facturado', value: fmt(totalBilled) },
-            { label: 'Cocinas', value: (companies ?? []).length },
-            { label: 'Pagadas', value: paidCount },
-          ].map(({ label, value }) => (
-            <Card key={label}>
-              <CardContent className="pt-4">
-                <p className="text-xs text-muted-foreground mb-1">{label}</p>
-                <p className="text-2xl font-bold">{value}</p>
-              </CardContent>
-            </Card>
+            { label: 'Total Comidas', value: totalMeals.toLocaleString(), color: 'kpi-card-blue' },
+            { label: 'Total Facturado', value: fmt(totalBilled), color: 'kpi-card-green' },
+            { label: 'Cocinas', value: (companies ?? []).length, color: 'kpi-card-amber' },
+            { label: 'Pagadas', value: paidCount, color: 'kpi-card-red' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className={`kpi-card ${color} px-5 py-4`}>
+              <p className="text-xs text-muted-foreground mb-1.5">{label}</p>
+              <p className="text-2xl font-bold tracking-tight text-foreground">{value}</p>
+            </div>
           ))}
         </div>
 
         {/* Per-company billing cards */}
+        <p className="section-label mb-4">Empresas</p>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {(companies ?? []).map((company) => {
             const consumptions = byCompany[company.id] ?? [];
@@ -281,51 +281,75 @@ export default function FacturacionPage() {
             const status = (company.billingStatus?.[selectedMonth] ??
               'pendiente') as 'pendiente' | 'enviado' | 'pagado';
             const isSending = sendingCompanyId === company.id;
-            const { Icon } = STATUS_CONFIG[status];
+            const { label: statusLabel, Icon } = STATUS_CONFIG[status];
+            const statusPillClass = {
+              pendiente: 'status-pill status-pill-pendiente',
+              enviado: 'status-pill status-pill-enviado',
+              pagado: 'status-pill status-pill-pagado',
+            }[status];
 
             return (
               <Card
                 key={company.id}
-                className={status === 'pagado' ? 'border-green-200 dark:border-green-800' : ''}
+                className="border-border/60 shadow-sm hover:shadow-md transition-shadow"
               >
-                <CardHeader className="pb-2">
+                <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base leading-tight">{company.name}</CardTitle>
+                    <div className="min-w-0">
+                      <CardTitle className="text-sm font-semibold leading-tight truncate">
+                        {company.name}
+                      </CardTitle>
+                      <CardDescription className="text-xs mt-0.5">
+                        {company.billingEmail ?? 'Sin correo configurado'}
+                      </CardDescription>
+                    </div>
+                    {/* Status pill as dropdown trigger */}
                     <Select
                       value={status}
                       onValueChange={(v) =>
                         handleStatusChange(company, v as 'pendiente' | 'enviado' | 'pagado')
                       }
                     >
-                      <SelectTrigger className="w-32 h-7 text-xs shrink-0">
-                        <Icon className="h-3 w-3 mr-1" />
-                        <SelectValue />
+                      <SelectTrigger className="border-0 shadow-none p-0 h-auto w-auto focus:ring-0 shrink-0 bg-transparent [&>svg]:hidden">
+                        <span className={statusPillClass}>
+                          <Icon className="h-3 w-3" />
+                          {statusLabel}
+                        </span>
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pendiente">Pendiente</SelectItem>
-                        <SelectItem value="enviado">Enviado</SelectItem>
-                        <SelectItem value="pagado">Pagado</SelectItem>
+                      <SelectContent align="end">
+                        <SelectItem value="pendiente">
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="h-3 w-3" /> Pendiente
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="enviado">
+                          <span className="flex items-center gap-1.5">
+                            <Send className="h-3 w-3" /> Enviado
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="pagado">
+                          <span className="flex items-center gap-1.5">
+                            <CheckCircle2 className="h-3 w-3" /> Pagado
+                          </span>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <CardDescription className="text-xs">
-                    {company.billingEmail ?? 'Sin correo configurado'}
-                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-3 pt-0">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Comidas servidas</span>
                     <span className="font-semibold">{totalMealsForCompany.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between text-sm border-t pt-2">
-                    <span className="font-semibold">Total</span>
-                    <span className="font-bold text-lg">{fmt(totalAmount)}</span>
+                  <div className="flex justify-between text-sm border-t border-border/60 pt-3">
+                    <span className="text-muted-foreground text-xs uppercase tracking-wider font-medium">Total</span>
+                    <span className="font-bold text-base text-foreground">{fmt(totalAmount)}</span>
                   </div>
-                  <div className="flex gap-2 pt-1">
+                  <div className="flex gap-1.5 pt-0.5">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
+                      className="flex-1 h-8 text-xs border-border/60 hover:border-primary/40 hover:text-primary"
                       onClick={() => handleDownloadPDF(company)}
                       disabled={totalMealsForCompany === 0}
                     >
@@ -335,7 +359,7 @@ export default function FacturacionPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
+                      className="flex-1 h-8 text-xs border-border/60 hover:border-primary/40 hover:text-primary"
                       onClick={() => handleDownloadExcel(company)}
                       disabled={totalMealsForCompany === 0}
                     >
@@ -344,7 +368,7 @@ export default function FacturacionPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
+                      className="flex-1 h-8 text-xs border-border/60 hover:border-primary/40 hover:text-primary"
                       onClick={() => handleSendEmail(company)}
                       disabled={isSending || !company.billingEmail || totalMealsForCompany === 0}
                     >
@@ -365,9 +389,9 @@ export default function FacturacionPage() {
         </div>
 
         {(companies ?? []).length === 0 && !companiesLoading && (
-          <div className="text-center py-16 text-muted-foreground">
-            <Receipt className="h-12 w-12 mx-auto mb-4 opacity-30" />
-            <p>No hay empresas configuradas.</p>
+          <div className="text-center py-20 text-muted-foreground">
+            <Receipt className="h-10 w-10 mx-auto mb-3 opacity-20" />
+            <p className="text-sm">No hay empresas configuradas.</p>
           </div>
         )}
       </main>

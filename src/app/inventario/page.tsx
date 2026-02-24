@@ -460,59 +460,53 @@ export default function InventarioPage() {
   }
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div className="min-h-screen bg-background">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4 gap-4 flex-wrap">
-            <div className="flex items-center gap-4">
-              <Logo />
-              <div className="flex items-center gap-2">
-                {lowStockCount > 0 && (
-                  <Badge variant="destructive" className="flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    {lowStockCount} bajo stock
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {/* Auto-Orden button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAutoOrder(true)}
-                disabled={!selectedCompanyId}
-              >
-                <Zap className="h-4 w-4 mr-1" />
-                Auto-Orden
-              </Button>
-              {/* Company selector */}
-              <Select value={selectedCompanyId} onValueChange={handleCompanyChange}>
-                <SelectTrigger className="w-52">
-                  <SelectValue placeholder="Seleccionar empresa" />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies?.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" onClick={() => router.push('/selection')}>
-                <Home className="mr-2 h-4 w-4" />
-                Volver al menú
-              </Button>
-            </div>
+      <header className="page-header">
+        <div className="page-header-inner">
+          <div className="page-header-brand">
+            <Logo />
+            <span className="page-header-title">Inventario</span>
+            {lowStockCount > 0 && (
+              <Badge variant="destructive" className="flex items-center gap-1 text-xs">
+                <AlertTriangle className="h-3 w-3" />
+                {lowStockCount} bajo stock
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-sm border-border/60"
+              onClick={() => setShowAutoOrder(true)}
+              disabled={!selectedCompanyId}
+            >
+              <Zap className="h-3.5 w-3.5 mr-1" />
+              Auto-Orden
+            </Button>
+            <Select value={selectedCompanyId} onValueChange={handleCompanyChange}>
+              <SelectTrigger className="w-44 h-8 text-sm">
+                <SelectValue placeholder="Seleccionar empresa" />
+              </SelectTrigger>
+              <SelectContent>
+                {companies?.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="sm" onClick={() => router.push('/selection')} className="text-muted-foreground hover:text-foreground gap-1.5">
+              <Home className="h-3.5 w-3.5" />
+              Menú
+            </Button>
           </div>
         </div>
       </header>
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
-      <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-        <h1 className="text-2xl font-bold mb-6">Gestión de Inventario</h1>
-
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!selectedCompanyId ? (
           <Card>
             <CardContent className="flex items-center justify-center h-40">

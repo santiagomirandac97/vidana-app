@@ -340,40 +340,39 @@ export default function MainPage() {
   }
 
   return (
-    <div className="bg-gray-50/50 dark:bg-gray-900/50 min-h-screen">
-      <header className="bg-white dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-3">
-              <Logo />
-              <div className="flex items-center gap-2">
-                  <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-48 justify-start h-10">
-                              <Building className="mr-2 h-4 w-4" />
-                              <span className="truncate">{company?.name}</span>
-                              <ChevronDown className="ml-auto h-4 w-4" />
-                          </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-48">
-                          {allCompanies.map(c => (
-                              <DropdownMenuItem key={c.id} onSelect={() => setSelectedCompanyId(c.id)}>
-                                  {c.name}
-                              </DropdownMenuItem>
-                          ))}
-                      </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {userProfile?.role === 'admin' && (
-                      <Button variant="outline" onClick={() => router.push('/selection')} className="h-10">
-                          <Home className="mr-2 h-4 w-4" />
-                          Menú
-                      </Button>
-                  )}
-                <Button variant="outline" onClick={handleSignOut} className="h-10">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Salir
+    <div className="min-h-screen bg-background">
+      <header className="page-header">
+        <div className="page-header-inner">
+          <div className="page-header-brand">
+            <Logo />
+          </div>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-44 justify-start h-8 text-sm border-border/60">
+                  <Building className="mr-2 h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{company?.name}</span>
+                  <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0" />
                 </Button>
-              </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-44">
+                {allCompanies.map(c => (
+                  <DropdownMenuItem key={c.id} onSelect={() => setSelectedCompanyId(c.id)}>
+                    {c.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {userProfile?.role === 'admin' && (
+              <Button variant="ghost" size="sm" onClick={() => router.push('/selection')} className="text-muted-foreground hover:text-foreground gap-1.5">
+                <Home className="h-3.5 w-3.5" />
+                Menú
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-muted-foreground hover:text-foreground gap-1.5">
+              <LogOut className="h-3.5 w-3.5" />
+              Salir
+            </Button>
           </div>
         </div>
       </header>

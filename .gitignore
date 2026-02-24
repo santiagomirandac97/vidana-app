@@ -44,5 +44,9 @@ next-env.d.ts
 firebase-debug.log
 firestore-debug.log
 
+# cloud functions
+functions/node_modules/
+functions/lib/
+
 # git worktrees
 .worktrees/

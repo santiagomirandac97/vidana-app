@@ -197,16 +197,17 @@ export default function AdminDashboardPage() {
     }
 
     return (
-        <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-            <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center py-4">
+        <div className="min-h-screen bg-background">
+            <header className="page-header">
+                <div className="page-header-inner">
+                    <div className="page-header-brand">
                         <Logo />
-                        <Button variant="outline" onClick={() => router.push('/selection')}>
-                            <Home className="mr-2 h-4 w-4" />
-                            Volver al menú
-                        </Button>
+                        <span className="page-header-title">Admin</span>
                     </div>
+                    <Button variant="ghost" size="sm" onClick={() => router.push('/selection')} className="text-muted-foreground hover:text-foreground gap-1.5">
+                        <Home className="h-3.5 w-3.5" />
+                        Menú
+                    </Button>
                 </div>
             </header>
             <main className="container mx-auto p-4 sm:p-6 lg:p-8">

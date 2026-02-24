@@ -169,22 +169,23 @@ export default function CostosPage() {
   }
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-3"><Logo /><span className="text-lg font-semibold">Dashboard de Costos</span></div>
-            <div className="flex items-center gap-2">
-              <Select value={filterCompanyId} onValueChange={setFilterCompanyId}>
-                <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las cocinas</SelectItem>
-                  {(companies || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Button onClick={() => setShowAddLabor(true)} variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" />Costo Laboral</Button>
-              <Button variant="outline" onClick={() => router.push('/selection')}><Home className="mr-2 h-4 w-4" />Menú</Button>
-            </div>
+    <div className="min-h-screen bg-background">
+      <header className="page-header">
+        <div className="page-header-inner">
+          <div className="page-header-brand">
+            <Logo />
+            <span className="page-header-title">Costos</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={filterCompanyId} onValueChange={setFilterCompanyId}>
+              <SelectTrigger className="w-44 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las cocinas</SelectItem>
+                {(companies || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button onClick={() => setShowAddLabor(true)} variant="outline" size="sm" className="h-8 text-sm"><Plus className="h-3.5 w-3.5 mr-1" />Costo Laboral</Button>
+            <Button variant="ghost" size="sm" onClick={() => router.push('/selection')} className="text-muted-foreground hover:text-foreground gap-1.5"><Home className="h-3.5 w-3.5" />Menú</Button>
           </div>
         </div>
       </header>

@@ -1,1 +1,2 @@
-// Flows will be imported for their side effects in this file.
+// Flows are imported for their side effects (registering with Genkit).
+import './flows/plan-weekly-menu';

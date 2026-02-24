@@ -31,6 +31,10 @@ const companySchema = z.object({
   mealPrice: z.coerce.number().min(0, { message: "El precio debe ser un número positivo." }).optional().default(0),
   dailyTarget: z.coerce.number().min(0, { message: "El objetivo debe ser un número positivo." }).optional().default(0),
   billingNote: z.string().optional(),
+  stockLookbackDays: z.coerce.number().min(7).max(90).optional().default(30),
+  restockLeadDays: z.coerce.number().min(1).max(30).optional().default(7),
+  targetFoodCostPct: z.coerce.number().min(1).max(100).optional().default(35),
+  billingEmail: z.string().email({ message: "Correo inválido." }).optional().or(z.literal('')),
 });
 type CompanyFormData = z.infer<typeof companySchema>;
 
@@ -149,7 +153,7 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
 
     const form = useForm<CompanyFormData>({
         resolver: zodResolver(companySchema),
-        defaultValues: { name: '', mealPrice: 0, dailyTarget: 0, billingNote: '' },
+        defaultValues: { name: '', mealPrice: 0, dailyTarget: 0, billingNote: '', stockLookbackDays: 30, restockLeadDays: 7, targetFoodCostPct: 35, billingEmail: '' },
     });
 
     const onSubmit: SubmitHandler<CompanyFormData> = async (data) => {
@@ -204,6 +208,10 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
                                 <FormField control={form.control} name="mealPrice" render={({ field }) => (<FormItem><FormLabel>Precio de Comida</FormLabel><FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="dailyTarget" render={({ field }) => (<FormItem><FormLabel>Objetivo Diario de Comidas</FormLabel><FormControl><Input type="number" placeholder="Ej., 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="billingNote" render={({ field }) => (<FormItem><FormLabel>Nota de Facturación</FormLabel><FormControl><Textarea placeholder="Ej., Se cobra un mínimo de 300 comidas de L-J." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="stockLookbackDays" render={({ field }) => (<FormItem><FormLabel>Historial Reabasto (días)</FormLabel><FormControl><Input type="number" min={7} max={90} {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="restockLeadDays" render={({ field }) => (<FormItem><FormLabel>Anticipo de Reabasto (días)</FormLabel><FormControl><Input type="number" min={1} max={30} {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="targetFoodCostPct" render={({ field }) => (<FormItem><FormLabel>% Costo Alimentos Objetivo (IA)</FormLabel><FormControl><Input type="number" min={1} max={100} {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="billingEmail" render={({ field }) => (<FormItem><FormLabel>Correo de Facturación</FormLabel><FormControl><Input type="email" placeholder="contacto@empresa.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creando...</>) : (<><PlusCircle className="mr-2 h-4 w-4" /> Crear Empresa</>)}</Button>
                             </form>
                         </Form>
@@ -488,6 +496,10 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
             mealPrice: company.mealPrice || 0,
             dailyTarget: company.dailyTarget || 0,
             billingNote: company.billingNote || '',
+            stockLookbackDays: company.stockLookbackDays || 30,
+            restockLeadDays: company.restockLeadDays || 7,
+            targetFoodCostPct: company.targetFoodCostPct || 35,
+            billingEmail: company.billingEmail || '',
         },
     });
 
@@ -497,6 +509,10 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
             mealPrice: company.mealPrice || 0,
             dailyTarget: company.dailyTarget || 0,
             billingNote: company.billingNote || '',
+            stockLookbackDays: company.stockLookbackDays || 30,
+            restockLeadDays: company.restockLeadDays || 7,
+            targetFoodCostPct: company.targetFoodCostPct || 35,
+            billingEmail: company.billingEmail || '',
         });
     }, [company, form]);
 
@@ -561,6 +577,50 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
                                     <FormControl>
                                         <Textarea placeholder="Ej., Se cobra un mínimo de 300 comidas de L-J." {...field} />
                                     </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="stockLookbackDays"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Historial Reabasto (días)</FormLabel>
+                                    <FormControl><Input type="number" min={7} max={90} {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="restockLeadDays"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Anticipo de Reabasto (días)</FormLabel>
+                                    <FormControl><Input type="number" min={1} max={30} {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="targetFoodCostPct"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>% Costo Alimentos Objetivo (IA)</FormLabel>
+                                    <FormControl><Input type="number" min={1} max={100} {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="billingEmail"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Correo de Facturación</FormLabel>
+                                    <FormControl><Input type="email" placeholder="contacto@empresa.com" {...field} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}

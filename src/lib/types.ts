@@ -7,6 +7,14 @@ export type Company = {
   mealPrice?: number;
   dailyTarget?: number;
   billingNote?: string;
+  // Predictive restocking
+  stockLookbackDays?: number;   // default 30 — how many days of movements to analyse
+  restockLeadDays?: number;     // default 7  — pre-fill PO for anything running out within N days
+  // AI planning
+  targetFoodCostPct?: number;   // default 35 — food cost % ceiling for AI menu suggestion
+  // Billing
+  billingEmail?: string;        // invoice recipient email
+  billingStatus?: Record<string, 'pendiente' | 'enviado' | 'pagado'>; // key = 'yyyy-MM'
 };
 
 export interface Employee {

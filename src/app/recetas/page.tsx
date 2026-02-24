@@ -10,6 +10,7 @@ import {
   doc,
   setDoc,
 } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import {
   type Ingredient,
   type MenuItem,
@@ -216,6 +217,12 @@ export default function RecetasPage() {
   );
   const { data: weeklyMenu } = useDoc<WeeklyMenu>(weeklyMenuRef);
 
+  // ── Selected company object ───────────────────────────────────────────────
+  const selectedCompany = useMemo(
+    () => companies?.find((c) => c.id === selectedCompanyId) ?? null,
+    [companies, selectedCompanyId]
+  );
+
   // ── Page loading state ───────────────────────────────────────────────────
   const pageIsLoading = userLoading || profileLoading || companiesLoading;
 
@@ -280,40 +287,37 @@ export default function RecetasPage() {
   }
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div className="min-h-screen bg-background">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4 gap-4 flex-wrap">
-            <div className="flex items-center gap-4">
-              <Logo />
-            </div>
-            <div className="flex items-center gap-3">
-              <Select value={selectedCompanyId} onValueChange={handleCompanyChange}>
-                <SelectTrigger className="w-52">
-                  <SelectValue placeholder="Seleccionar empresa" />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies?.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" onClick={() => router.push('/selection')}>
-                <Home className="mr-2 h-4 w-4" />
-                Volver al menú
-              </Button>
-            </div>
+      <header className="page-header">
+        <div className="page-header-inner">
+          <div className="page-header-brand">
+            <Logo />
+            <span className="page-header-title">Recetas</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={selectedCompanyId} onValueChange={handleCompanyChange}>
+              <SelectTrigger className="w-44 h-8 text-sm">
+                <SelectValue placeholder="Seleccionar empresa" />
+              </SelectTrigger>
+              <SelectContent>
+                {companies?.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="sm" onClick={() => router.push('/selection')} className="text-muted-foreground hover:text-foreground gap-1.5">
+              <Home className="h-3.5 w-3.5" />
+              Menú
+            </Button>
           </div>
         </div>
       </header>
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
-      <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-        <h1 className="text-2xl font-bold mb-6">Recetas y Menú</h1>
-
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!selectedCompanyId ? (
           <Card>
             <CardContent className="flex items-center justify-center h-40">
@@ -353,6 +357,9 @@ export default function RecetasPage() {
             <TabsContent value="menu">
               <MenuSemanalTab
                 menuItems={menuItems ?? []}
+                recipes={recipes ?? []}
+                ingredients={ingredients ?? []}
+                selectedCompany={selectedCompany}
                 weeklyMenu={weeklyMenu ?? null}
                 weekStartDate={weekStartDate}
                 companyId={selectedCompanyId}
@@ -726,6 +733,9 @@ function RecipeBuilderDialog({
 
 interface MenuSemanalTabProps {
   menuItems: MenuItem[];
+  recipes: Recipe[];
+  ingredients: Ingredient[];
+  selectedCompany: Company | null;
   weeklyMenu: WeeklyMenu | null;
   weekStartDate: string;
   companyId: string;
@@ -737,12 +747,16 @@ interface MenuSemanalTabProps {
 
 function MenuSemanalTab({
   menuItems,
+  recipes,
+  ingredients,
+  selectedCompany,
   weeklyMenu,
   weekStartDate,
   companyId,
   firestore,
   toast,
 }: MenuSemanalTabProps) {
+  const [aiLoading, setAiLoading] = useState(false);
   const menuItemsMap = useMemo<Record<string, MenuItem>>(() => {
     return menuItems.reduce<Record<string, MenuItem>>((acc, item) => {
       acc[item.id] = item;
@@ -789,6 +803,72 @@ function MenuSemanalTab({
     );
   };
 
+  const handleAiPlan = async () => {
+    if (!companyId || !menuItems.length) return;
+    setAiLoading(true);
+    try {
+      // Collect currently-used item IDs as "recent" to encourage variety
+      const recentItemIds = weeklyMenu?.days
+        ? Object.values(weeklyMenu.days).flat()
+        : [];
+
+      const body = {
+        menuItems: menuItems.map((m) => ({
+          id: m.id,
+          name: m.name,
+          category: m.category,
+          price: m.price,
+        })),
+        recipes: recipes.map((r) => ({
+          menuItemId: r.menuItemId,
+          menuItemName: r.menuItemName,
+          costPerPortion: r.costPerPortion,
+          servings: r.servings,
+        })),
+        availableIngredientIds: ingredients
+          .filter((i) => i.currentStock > 0)
+          .map((i) => i.id!),
+        recentMenuItemIds: [...new Set(recentItemIds)],
+        targetFoodCostPct: selectedCompany?.targetFoodCostPct ?? 35,
+        mealPrice: selectedCompany?.mealPrice ?? 0,
+      };
+
+      // Get the Firebase ID token to authenticate the server-side API call.
+      const idToken = await getAuth().currentUser?.getIdToken();
+      const response = await fetch('/api/ai/plan-menu', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error ?? 'Error desconocido');
+      }
+
+      const plan = await response.json();
+
+      // Apply each day's AI suggestion to Firestore
+      const days: DayOfWeek[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
+      for (const day of days) {
+        const itemIds: string[] = plan[day]?.menuItemIds ?? [];
+        if (itemIds.length > 0) {
+          await saveDay(day, itemIds);
+        }
+      }
+
+      toast({ title: '✨ Plan generado y aplicado. Revisa y ajusta si lo deseas.' });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Error desconocido';
+      toast({ title: `No se pudo generar el plan: ${message}`, variant: 'destructive' });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   // Compute the date for each weekday based on weekStartDate
   const dayDates = useMemo(() => {
     const [y, m, d] = weekStartDate.split('-').map(Number);
@@ -801,9 +881,24 @@ function MenuSemanalTab({
 
   return (
     <div>
-      <p className="text-sm text-muted-foreground mb-4">
-        Semana del {weekStartDate}
-      </p>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-muted-foreground">Semana del {weekStartDate}</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleAiPlan}
+          disabled={aiLoading || !companyId || !menuItems.length}
+        >
+          {aiLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Generando...
+            </>
+          ) : (
+            <>✨ Planificar con IA</>
+          )}
+        </Button>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {DAYS_OF_WEEK.map(({ key, label }) => {
           const dayItems = getDayItems(key);

@@ -1,12 +1,13 @@
-
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { Loader2, LogOut, Settings, ClipboardList, AreaChart, Tablet, ChefHat, ShoppingCart, Package, BookOpen, TrendingDown } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  Loader2, LogOut, Settings, ClipboardList, AreaChart, Tablet,
+  ChefHat, ShoppingCart, Package, BookOpen, TrendingDown, Receipt,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 
@@ -23,113 +24,119 @@ export default function SelectionPage() {
 
   const handleSignOut = async () => {
     if (auth) {
-        await signOut(auth);
-        localStorage.removeItem('selectedCompanyId');
-        router.push('/login');
+      await signOut(auth);
+      localStorage.removeItem('selectedCompanyId');
+      router.push('/login');
     }
   };
 
   if (isLoading || !user) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <p className="ml-3 text-lg">Verificando acceso...</p>
+      <div className="flex h-screen items-center justify-center gap-3">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Verificando acceso…</p>
       </div>
     );
   }
 
+  const firstName = user?.displayName?.split(' ')[0] ?? 'Administrador';
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="absolute top-8 right-8">
-        <Button variant="outline" onClick={handleSignOut}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Cerrar Sesión
-        </Button>
-      </div>
-      <Card className="w-full max-w-6xl mx-4 shadow-xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4">
+    <div className="min-h-screen bg-background">
+      {/* Minimal top bar */}
+      <header className="page-header">
+        <div className="page-header-inner">
+          <div className="page-header-brand">
             <Logo />
           </div>
-          <CardTitle className="text-3xl">Hola, {user?.displayName || 'Administrador'}</CardTitle>
-          <CardDescription>Por favor, seleccione a dónde le gustaría ir.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
-            <button
-                onClick={() => router.push('/main')}
-                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
-            >
-                <ClipboardList className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Registros</h3>
-                <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Registrar accesos y gestionar empleados.</p>
-            </button>
-             <button
-                onClick={() => router.push('/pos-inditex')}
-                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
-            >
-                <ShoppingCart className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">POS Inditex</h3>
-                <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Punto de venta para Inditex.</p>
-            </button>
-             <button
-                onClick={() => router.push('/kiosk')}
-                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
-            >
-                <Tablet className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Kiosk Televisa</h3>
-                <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Punto de venta para Noticieros.</p>
-            </button>
-            <button
-                onClick={() => router.push('/command')}
-                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
-            >
-                <ChefHat className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Comanda</h3>
-                <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Centro de comando de cocina.</p>
-            </button>
-            <button
-                onClick={() => router.push('/admin')}
-                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
-            >
-                <AreaChart className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Admin</h3>
-                <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Ver estadísticas y reportes generales.</p>
-            </button>
-             <button
-                onClick={() => router.push('/configuracion')}
-                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
-            >
-                <Settings className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
+          <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-muted-foreground hover:text-foreground gap-1.5">
+            <LogOut className="h-3.5 w-3.5" />
+            Salir
+          </Button>
+        </div>
+      </header>
 
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Configuración</h3>
-                <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Gestionar empresas y la aplicación.</p>
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-5xl">
+        {/* Greeting */}
+        <div className="mb-10">
+          <p className="text-xs font-medium text-primary uppercase tracking-widest mb-1">Panel de control</p>
+          <h1 className="text-2xl font-semibold text-foreground tracking-tight">
+            Bienvenido, <span className="text-primary">{firstName}</span>
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">¿A dónde te gustaría ir?</p>
+        </div>
+
+        {/* ── Operaciones ─────────────────────────────────────────── */}
+        <section className="mb-8">
+          <p className="section-label">Operaciones</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <button onClick={() => router.push('/main')} className="nav-tile">
+              <span className="nav-tile-icon"><ClipboardList className="h-5 w-5" /></span>
+              <span className="text-sm font-semibold text-foreground">Registros</span>
+              <span className="text-xs text-muted-foreground mt-0.5 text-center">Accesos y empleados</span>
             </button>
-            <button
-                onClick={() => router.push('/inventario')}
-                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
-            >
-                <Package className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Inventario</h3>
-                <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Gestionar ingredientes y stock.</p>
+            <button onClick={() => router.push('/pos-inditex')} className="nav-tile">
+              <span className="nav-tile-icon"><ShoppingCart className="h-5 w-5" /></span>
+              <span className="text-sm font-semibold text-foreground">POS Inditex</span>
+              <span className="text-xs text-muted-foreground mt-0.5 text-center">Punto de venta</span>
             </button>
-            <button
-                onClick={() => router.push('/recetas')}
-                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
-            >
-                <BookOpen className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Recetas</h3>
-                <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Recetas y menú semanal.</p>
+            <button onClick={() => router.push('/kiosk')} className="nav-tile">
+              <span className="nav-tile-icon"><Tablet className="h-5 w-5" /></span>
+              <span className="text-sm font-semibold text-foreground">Kiosk Televisa</span>
+              <span className="text-xs text-muted-foreground mt-0.5 text-center">PV Noticieros</span>
             </button>
-            <button
-                onClick={() => router.push('/costos')}
-                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
-            >
-                <TrendingDown className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Costos</h3>
-                <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Dashboard financiero de cocinas.</p>
+            <button onClick={() => router.push('/command')} className="nav-tile">
+              <span className="nav-tile-icon"><ChefHat className="h-5 w-5" /></span>
+              <span className="text-sm font-semibold text-foreground">Comanda</span>
+              <span className="text-xs text-muted-foreground mt-0.5 text-center">Centro de cocina</span>
             </button>
-        </CardContent>
-      </Card>
+          </div>
+        </section>
+
+        {/* ── Gestión ──────────────────────────────────────────────── */}
+        <section className="mb-8">
+          <p className="section-label">Gestión</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <button onClick={() => router.push('/inventario')} className="nav-tile">
+              <span className="nav-tile-icon"><Package className="h-5 w-5" /></span>
+              <span className="text-sm font-semibold text-foreground">Inventario</span>
+              <span className="text-xs text-muted-foreground mt-0.5 text-center">Ingredientes y stock</span>
+            </button>
+            <button onClick={() => router.push('/recetas')} className="nav-tile">
+              <span className="nav-tile-icon"><BookOpen className="h-5 w-5" /></span>
+              <span className="text-sm font-semibold text-foreground">Recetas</span>
+              <span className="text-xs text-muted-foreground mt-0.5 text-center">Recetas y menú IA</span>
+            </button>
+            <button onClick={() => router.push('/configuracion')} className="nav-tile">
+              <span className="nav-tile-icon"><Settings className="h-5 w-5" /></span>
+              <span className="text-sm font-semibold text-foreground">Configuración</span>
+              <span className="text-xs text-muted-foreground mt-0.5 text-center">Empresas y ajustes</span>
+            </button>
+          </div>
+        </section>
+
+        {/* ── Finanzas ─────────────────────────────────────────────── */}
+        <section>
+          <p className="section-label">Finanzas</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <button onClick={() => router.push('/admin')} className="nav-tile">
+              <span className="nav-tile-icon"><AreaChart className="h-5 w-5" /></span>
+              <span className="text-sm font-semibold text-foreground">Admin</span>
+              <span className="text-xs text-muted-foreground mt-0.5 text-center">Estadísticas generales</span>
+            </button>
+            <button onClick={() => router.push('/costos')} className="nav-tile">
+              <span className="nav-tile-icon"><TrendingDown className="h-5 w-5" /></span>
+              <span className="text-sm font-semibold text-foreground">Costos</span>
+              <span className="text-xs text-muted-foreground mt-0.5 text-center">Dashboard financiero</span>
+            </button>
+            <button onClick={() => router.push('/facturacion')} className="nav-tile">
+              <span className="nav-tile-icon"><Receipt className="h-5 w-5" /></span>
+              <span className="text-sm font-semibold text-foreground">Facturación</span>
+              <span className="text-xs text-muted-foreground mt-0.5 text-center">Estados de cuenta</span>
+            </button>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

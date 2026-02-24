@@ -67,6 +67,7 @@ import {
   ArrowDownUp,
   PackagePlus,
   Truck,
+  Zap,
 } from 'lucide-react';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -121,6 +122,123 @@ const purchaseOrderSchema = z.object({
 });
 
 type PurchaseOrderFormValues = z.infer<typeof purchaseOrderSchema>;
+
+// ─── Predictive Restocking Helpers ────────────────────────────────────────────
+
+function StockoutBadge({ days }: { days: number | null | undefined }) {
+  if (days === null || days === undefined) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  if (days < 3) {
+    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">{Math.floor(days)}d ⚠️</span>;
+  }
+  if (days <= 7) {
+    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">{Math.floor(days)}d</span>;
+  }
+  return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">{Math.floor(days)}d</span>;
+}
+
+interface AutoOrderContentProps {
+  ingredients: (Ingredient & { id: string })[];
+  suppliers: (Supplier & { id: string })[];
+  daysUntilStockout: Record<string, number | null>;
+  leadDays: number;
+  companyId: string;
+  onClose: () => void;
+}
+
+function AutoOrderContent({ ingredients, suppliers, daysUntilStockout, leadDays, companyId, onClose }: AutoOrderContentProps) {
+  const { firestore } = useFirebase();
+  const { user } = useUser();
+  const { toast } = useToast();
+
+  const [selected, setSelected] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = {};
+    for (const ing of ingredients) {
+      if (!ing.id) continue;
+      const days = daysUntilStockout[ing.id];
+      init[ing.id] = days !== null && days <= leadDays;
+    }
+    return init;
+  });
+  const [supplierId, setSupplierId] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const candidateIngredients = ingredients.filter(ing => ing.id && daysUntilStockout[ing.id] !== null && daysUntilStockout[ing.id]! <= leadDays * 2);
+
+  const handleSubmit = async () => {
+    if (!firestore || !user || !supplierId) return;
+    const selectedIng = candidateIngredients.filter(ing => ing.id && selected[ing.id]);
+    if (selectedIng.length === 0) { toast({ title: 'Selecciona al menos un ingrediente.' }); return; }
+    const supplier = suppliers.find(s => s.id === supplierId);
+    if (!supplier) return;
+    setSaving(true);
+    try {
+      const items: PurchaseOrderItem[] = selectedIng.map(ing => ({
+        ingredientId: ing.id!,
+        ingredientName: ing.name,
+        // Clamp to 1 to avoid zero/negative quantities when currentStock >= minStock*2
+        quantity: Math.max(1, Math.ceil((ing.minStock * 2) - ing.currentStock)),
+        unitCost: ing.costPerUnit,
+        received: false,
+      }));
+      const order: Omit<PurchaseOrder, 'id'> = {
+        supplierId,
+        supplierName: supplier.name,
+        items,
+        status: 'borrador',
+        totalCost: items.reduce((s, i) => s + i.quantity * i.unitCost, 0),
+        createdAt: new Date().toISOString(),
+        createdBy: user.uid,
+      };
+      await addDocumentNonBlocking(collection(firestore, `companies/${companyId}/purchaseOrders`), order);
+      toast({ title: 'Orden de compra creada en estado Borrador.' });
+      onClose();
+    } catch {
+      toast({ title: 'Error al crear la orden. Intenta de nuevo.', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {candidateIngredients.length === 0 ? (
+        <p className="text-center text-muted-foreground py-8">No hay ingredientes que requieran reabasto en los próximos {leadDays * 2} días.</p>
+      ) : (
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {candidateIngredients.map(ing => (
+            <label key={ing.id} className="flex items-center gap-3 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selected[ing.id!] ?? false}
+                onChange={e => setSelected(prev => ({ ...prev, [ing.id!]: e.target.checked }))}
+                className="h-4 w-4"
+              />
+              <span className="flex-1 text-sm font-medium">{ing.name}</span>
+              <StockoutBadge days={daysUntilStockout[ing.id!]} />
+              <span className="text-xs text-muted-foreground">Stock: {ing.currentStock} {ing.unit}</span>
+            </label>
+          ))}
+        </div>
+      )}
+      <div>
+        <Label>Proveedor</Label>
+        <Select value={supplierId} onValueChange={setSupplierId}>
+          <SelectTrigger><SelectValue placeholder="Seleccionar proveedor" /></SelectTrigger>
+          <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={handleSubmit} disabled={saving || !supplierId || candidateIngredients.length === 0}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+          Crear Orden (Borrador)
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+}
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -239,6 +357,44 @@ export default function InventarioPage() {
     return ingredients.filter((i) => i.currentStock <= i.minStock).length;
   }, [ingredients]);
 
+  // ── Predictive restocking — selected company config ──────────────────────
+  const selectedCompany = useMemo(() =>
+    companies?.find(c => c.id === selectedCompanyId) ?? null
+  , [companies, selectedCompanyId]);
+
+  const lookbackDays = selectedCompany?.stockLookbackDays ?? 30;
+  const leadDays = selectedCompany?.restockLeadDays ?? 7;
+
+  // Days until each ingredient runs out
+  const daysUntilStockout = useMemo(() => {
+    const result: Record<string, number | null> = {};
+    if (!ingredients || !movements) return result;
+
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - lookbackDays);
+
+    const consumed: Record<string, number> = {};
+    for (const m of movements) {
+      if (m.type !== 'salida' && m.type !== 'merma') continue;
+      if (new Date(m.timestamp) < cutoff) continue;
+      consumed[m.ingredientId] = (consumed[m.ingredientId] ?? 0) + m.quantity;
+    }
+
+    for (const ing of ingredients) {
+      if (!ing.id) continue;
+      const totalConsumed = consumed[ing.id] ?? 0;
+      if (totalConsumed === 0) {
+        result[ing.id] = null;
+      } else {
+        const avgPerDay = totalConsumed / lookbackDays;
+        result[ing.id] = ing.currentStock / avgPerDay;
+      }
+    }
+    return result;
+  }, [ingredients, movements, lookbackDays]);
+
+  const [showAutoOrder, setShowAutoOrder] = useState(false);
+
   // ── Page loading state ───────────────────────────────────────────────────
   const pageIsLoading =
     userLoading || profileLoading || companiesLoading;
@@ -304,49 +460,53 @@ export default function InventarioPage() {
   }
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div className="min-h-screen bg-background">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4 gap-4 flex-wrap">
-            <div className="flex items-center gap-4">
-              <Logo />
-              <div className="flex items-center gap-2">
-                {lowStockCount > 0 && (
-                  <Badge variant="destructive" className="flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    {lowStockCount} bajo stock
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {/* Company selector */}
-              <Select value={selectedCompanyId} onValueChange={handleCompanyChange}>
-                <SelectTrigger className="w-52">
-                  <SelectValue placeholder="Seleccionar empresa" />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies?.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" onClick={() => router.push('/selection')}>
-                <Home className="mr-2 h-4 w-4" />
-                Volver al menú
-              </Button>
-            </div>
+      <header className="page-header">
+        <div className="page-header-inner">
+          <div className="page-header-brand">
+            <Logo />
+            <span className="page-header-title">Inventario</span>
+            {lowStockCount > 0 && (
+              <Badge variant="destructive" className="flex items-center gap-1 text-xs">
+                <AlertTriangle className="h-3 w-3" />
+                {lowStockCount} bajo stock
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-sm border-border/60"
+              onClick={() => setShowAutoOrder(true)}
+              disabled={!selectedCompanyId}
+            >
+              <Zap className="h-3.5 w-3.5 mr-1" />
+              Auto-Orden
+            </Button>
+            <Select value={selectedCompanyId} onValueChange={handleCompanyChange}>
+              <SelectTrigger className="w-44 h-8 text-sm">
+                <SelectValue placeholder="Seleccionar empresa" />
+              </SelectTrigger>
+              <SelectContent>
+                {companies?.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="sm" onClick={() => router.push('/selection')} className="text-muted-foreground hover:text-foreground gap-1.5">
+              <Home className="h-3.5 w-3.5" />
+              Menú
+            </Button>
           </div>
         </div>
       </header>
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
-      <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-        <h1 className="text-2xl font-bold mb-6">Gestión de Inventario</h1>
-
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!selectedCompanyId ? (
           <Card>
             <CardContent className="flex items-center justify-center h-40">
@@ -372,6 +532,7 @@ export default function InventarioPage() {
                 userId={user.uid}
                 firestore={firestore}
                 toast={toast}
+                daysUntilStockout={daysUntilStockout}
               />
             </TabsContent>
 
@@ -407,6 +568,28 @@ export default function InventarioPage() {
           </Tabs>
         )}
       </main>
+
+      {/* Auto-Order Dialog */}
+      <Dialog open={showAutoOrder} onOpenChange={setShowAutoOrder}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Orden Automática de Reabasto</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Ingredientes que se agotarán en menos de {leadDays} días basado en los últimos {lookbackDays} días de consumo.
+            </p>
+          </DialogHeader>
+          {showAutoOrder && (
+            <AutoOrderContent
+              ingredients={(ingredients ?? []).filter((i): i is Ingredient & { id: string } => !!i.id)}
+              suppliers={(suppliers ?? []).filter((s): s is Supplier & { id: string } => !!s.id)}
+              daysUntilStockout={daysUntilStockout}
+              leadDays={leadDays}
+              companyId={selectedCompanyId}
+              onClose={() => setShowAutoOrder(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -421,9 +604,10 @@ interface StockTabProps {
   userId: string;
   firestore: ReturnType<typeof useFirebase>['firestore'];
   toast: ReturnType<typeof useToast>['toast'];
+  daysUntilStockout: Record<string, number | null>;
 }
 
-function StockTab({ ingredients, isLoading, suppliers, companyId, userId, firestore, toast }: StockTabProps) {
+function StockTab({ ingredients, isLoading, suppliers, companyId, userId, firestore, toast, daysUntilStockout }: StockTabProps) {
   const [addOpen, setAddOpen] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<(Ingredient & { id: string }) | null>(null);
@@ -708,6 +892,7 @@ function StockTab({ ingredients, isLoading, suppliers, companyId, userId, firest
                 <TableHead>Stock Actual</TableHead>
                 <TableHead>Stock Mínimo</TableHead>
                 <TableHead>Costo / Unidad</TableHead>
+                <TableHead>Días rest.</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Acción</TableHead>
               </TableRow>
@@ -726,6 +911,7 @@ function StockTab({ ingredients, isLoading, suppliers, companyId, userId, firest
                       {ingredient.minStock} {ingredient.unit}
                     </TableCell>
                     <TableCell>${ingredient.costPerUnit.toFixed(2)}</TableCell>
+                    <TableCell><StockoutBadge days={daysUntilStockout[ingredient.id!]} /></TableCell>
                     <TableCell>
                       {isLow ? (
                         <Badge variant="destructive" className="flex items-center gap-1 w-fit">

@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { Loader2, LogOut, Settings, ClipboardList, AreaChart, Tablet, ChefHat, ShoppingCart, Package, BookOpen, TrendingDown } from 'lucide-react';
+import { Loader2, LogOut, Settings, ClipboardList, AreaChart, Tablet, ChefHat, ShoppingCart, Package, BookOpen, TrendingDown, Receipt } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
@@ -127,6 +127,14 @@ export default function SelectionPage() {
                 <TrendingDown className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Costos</h3>
                 <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Dashboard financiero de cocinas.</p>
+            </button>
+            <button
+                onClick={() => router.push('/facturacion')}
+                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300"
+            >
+                <Receipt className="h-7 w-7 mb-4 text-gray-600 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110" />
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Facturación</h3>
+                <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-1">Estados de cuenta y facturas.</p>
             </button>
         </CardContent>
       </Card>

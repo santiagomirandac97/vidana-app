@@ -10,6 +10,7 @@ import {
   doc,
   setDoc,
 } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import {
   type Ingredient,
   type MenuItem,
@@ -835,9 +836,14 @@ function MenuSemanalTab({
         mealPrice: selectedCompany?.mealPrice ?? 0,
       };
 
+      // Get the Firebase ID token to authenticate the server-side API call.
+      const idToken = await getAuth().currentUser?.getIdToken();
       const response = await fetch('/api/ai/plan-menu', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
         body: JSON.stringify(body),
       });
 

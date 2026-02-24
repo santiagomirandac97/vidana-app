@@ -72,14 +72,16 @@ export default function FacturacionPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(monthOptions[0].value);
   const [sendingCompanyId, setSendingCompanyId] = useState<string | null>(null);
 
+  // Use Mexico City timezone so boundaries match how consumption timestamps are
+  // recorded (toZonedTime ensures midnight MX = correct UTC offset).
   const monthStart = useMemo(() => {
     const [y, m] = selectedMonth.split('-');
-    return new Date(parseInt(y), parseInt(m) - 1, 1).toISOString();
+    return toZonedTime(new Date(parseInt(y), parseInt(m) - 1, 1), TIME_ZONE).toISOString();
   }, [selectedMonth]);
 
   const monthEnd = useMemo(() => {
     const [y, m] = selectedMonth.split('-');
-    return new Date(parseInt(y), parseInt(m), 1).toISOString(); // first day of NEXT month
+    return toZonedTime(new Date(parseInt(y), parseInt(m), 1), TIME_ZONE).toISOString();
   }, [selectedMonth]);
 
   const consumptionsRef = useMemoFirebase(
@@ -159,9 +161,13 @@ export default function FacturacionPage() {
     status: 'pendiente' | 'enviado' | 'pagado'
   ) => {
     if (!firestore) return;
-    await updateDoc(doc(firestore, `companies/${company.id}`), {
-      [`billingStatus.${selectedMonth}`]: status,
-    });
+    try {
+      await updateDoc(doc(firestore, `companies/${company.id}`), {
+        [`billingStatus.${selectedMonth}`]: status,
+      });
+    } catch {
+      toast({ title: 'Error al actualizar el estado. Intenta de nuevo.', variant: 'destructive' });
+    }
   };
 
   // Auth flash guard

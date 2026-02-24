@@ -97,15 +97,21 @@ Usa solo IDs del catálogo. No incluyas platillos marcados como "Usado recientem
     for (const day of DAYS) {
       output[day].menuItemIds = output[day].menuItemIds.filter(id => validIds.has(id));
       if (output[day].menuItemIds.length === 0) {
-        // Fallback: pick the cheapest item not used recently
-        const fallback = input.menuItems
+        const byCost = (a: { id: string }, b: { id: string }) => {
+          const ca = input.recipes.find(r => r.menuItemId === a.id)?.costPerPortion ?? 9999;
+          const cb = input.recipes.find(r => r.menuItemId === b.id)?.costPerPortion ?? 9999;
+          return ca - cb;
+        };
+        // First try: pick the cheapest item not used recently
+        let fallback = input.menuItems
           .filter(m => !input.recentMenuItemIds.includes(m.id))
-          .sort((a, b) => {
-            const ca = input.recipes.find(r => r.menuItemId === a.id)?.costPerPortion ?? 9999;
-            const cb = input.recipes.find(r => r.menuItemId === b.id)?.costPerPortion ?? 9999;
-            return ca - cb;
-          })[0];
+          .sort(byCost)[0];
+        // Ultimate fallback: ignore recency when the entire catalogue is "recent"
+        if (!fallback) {
+          fallback = [...input.menuItems].sort(byCost)[0];
+        }
         if (fallback) output[day].menuItemIds = [fallback.id];
+        else throw new Error(`No hay platillos disponibles para asignar al día: ${day}`);
       }
     }
 

@@ -68,6 +68,7 @@ export const sendInvoiceEmail = onCall(
         {
           filename: `estado-cuenta-${companyName.toLowerCase().replace(/\s+/g, '-')}-${month}.pdf`,
           content: pdfBase64,
+          content_type: 'application/pdf',
         },
       ],
     });

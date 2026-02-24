@@ -173,26 +173,32 @@ function AutoOrderContent({ ingredients, suppliers, daysUntilStockout, leadDays,
     const supplier = suppliers.find(s => s.id === supplierId);
     if (!supplier) return;
     setSaving(true);
-    const items: PurchaseOrderItem[] = selectedIng.map(ing => ({
-      ingredientId: ing.id!,
-      ingredientName: ing.name,
-      quantity: Math.ceil((ing.minStock * 2) - ing.currentStock),
-      unitCost: ing.costPerUnit,
-      received: false,
-    }));
-    const order: Omit<PurchaseOrder, 'id'> = {
-      supplierId,
-      supplierName: supplier.name,
-      items,
-      status: 'borrador',
-      totalCost: items.reduce((s, i) => s + i.quantity * i.unitCost, 0),
-      createdAt: new Date().toISOString(),
-      createdBy: user.uid,
-    };
-    await addDocumentNonBlocking(collection(firestore, `companies/${companyId}/purchaseOrders`), order);
-    toast({ title: 'Orden de compra creada en estado Borrador.' });
-    setSaving(false);
-    onClose();
+    try {
+      const items: PurchaseOrderItem[] = selectedIng.map(ing => ({
+        ingredientId: ing.id!,
+        ingredientName: ing.name,
+        // Clamp to 1 to avoid zero/negative quantities when currentStock >= minStock*2
+        quantity: Math.max(1, Math.ceil((ing.minStock * 2) - ing.currentStock)),
+        unitCost: ing.costPerUnit,
+        received: false,
+      }));
+      const order: Omit<PurchaseOrder, 'id'> = {
+        supplierId,
+        supplierName: supplier.name,
+        items,
+        status: 'borrador',
+        totalCost: items.reduce((s, i) => s + i.quantity * i.unitCost, 0),
+        createdAt: new Date().toISOString(),
+        createdBy: user.uid,
+      };
+      await addDocumentNonBlocking(collection(firestore, `companies/${companyId}/purchaseOrders`), order);
+      toast({ title: 'Orden de compra creada en estado Borrador.' });
+      onClose();
+    } catch {
+      toast({ title: 'Error al crear la orden. Intenta de nuevo.', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

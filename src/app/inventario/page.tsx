@@ -190,6 +190,7 @@ function AutoOrderContent({ ingredients, suppliers, daysUntilStockout, leadDays,
         totalCost: items.reduce((s, i) => s + i.quantity * i.unitCost, 0),
         createdAt: new Date().toISOString(),
         createdBy: user.uid,
+        companyId,
       };
       await addDocumentNonBlocking(collection(firestore, `companies/${companyId}/purchaseOrders`), order);
       toast({ title: 'Orden de compra creada en estado Borrador.' });
@@ -672,6 +673,7 @@ function StockTab({ ingredients, isLoading, suppliers, companyId, userId, firest
       createdBy: userId,
       timestamp: new Date().toISOString(),
       unitCost: selectedIngredient.costPerUnit,
+      companyId,
     };
     await addDocumentNonBlocking(movementsColRef, movement);
 
@@ -1202,6 +1204,7 @@ function OrdenesTab({
       totalCost,
       createdAt: new Date().toISOString(),
       createdBy: userId,
+      companyId,
     };
     await addDocumentNonBlocking(colRef, order);
     toast({ title: 'Orden creada', description: `Orden para ${values.supplierName} registrada.` });
@@ -1245,6 +1248,7 @@ function OrdenesTab({
             createdBy: userId,
             timestamp: new Date().toISOString(),
             unitCost: item.unitCost,
+            companyId,
           };
           await addDocumentNonBlocking(movementsColRef, movement);
         }

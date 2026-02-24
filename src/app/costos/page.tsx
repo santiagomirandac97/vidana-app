@@ -113,15 +113,15 @@ export default function CostosPage() {
     const mealsServed = filteredConsumptions.length;
 
     const foodCost = (allPurchaseOrders || [])
-      .filter(po => filterCompanyId === 'all' || (po as PurchaseOrder & { companyId?: string }).companyId === filterCompanyId)
+      .filter(po => filterCompanyId === 'all' || po.companyId === filterCompanyId)
       .reduce((sum, po) => sum + po.totalCost, 0);
 
     const wasteCost = (allMerma || [])
-      .filter(m => filterCompanyId === 'all' || (m as StockMovement & { companyId?: string }).companyId === filterCompanyId)
+      .filter(m => filterCompanyId === 'all' || m.companyId === filterCompanyId)
       .reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
 
     const laborCost = (allLaborCosts || [])
-      .filter(lc => filterCompanyId === 'all' || (lc as LaborCost & { companyId?: string }).companyId === filterCompanyId)
+      .filter(lc => filterCompanyId === 'all' || lc.companyId === filterCompanyId)
       .reduce((sum, lc) => sum + lc.amount, 0);
 
     const totalCost = foodCost + laborCost + wasteCost;
@@ -143,9 +143,9 @@ export default function CostosPage() {
     return companies.map(company => {
       const cons = (allConsumptions || []).filter(c => c.companyId === company.id && !c.voided && c.employeeId !== 'anonymous');
       const rev = cons.length * (company.mealPrice || 0);
-      const food = (allPurchaseOrders || []).filter(po => (po as PurchaseOrder & { companyId?: string }).companyId === company.id).reduce((s, po) => s + po.totalCost, 0);
-      const waste = (allMerma || []).filter(m => (m as StockMovement & { companyId?: string }).companyId === company.id).reduce((s, m) => s + m.quantity * m.unitCost, 0);
-      const labor = (allLaborCosts || []).filter(lc => (lc as LaborCost & { companyId?: string }).companyId === company.id).reduce((s, lc) => s + lc.amount, 0);
+      const food = (allPurchaseOrders || []).filter(po => po.companyId === company.id).reduce((s, po) => s + po.totalCost, 0);
+      const waste = (allMerma || []).filter(m => m.companyId === company.id).reduce((s, m) => s + m.quantity * m.unitCost, 0);
+      const labor = (allLaborCosts || []).filter(lc => lc.companyId === company.id).reduce((s, lc) => s + lc.amount, 0);
       const meals = cons.length;
       return { company, rev, food, waste, labor, meals, margin: rev - food - waste - labor, costPerMeal: meals > 0 ? (food + labor + waste) / meals : 0 };
     });
@@ -291,7 +291,7 @@ export default function CostosPage() {
                   </thead>
                   <tbody>
                     {(allMerma || []).filter(m =>
-                      filterCompanyId === 'all' || (m as StockMovement & { companyId?: string }).companyId === filterCompanyId
+                      filterCompanyId === 'all' || m.companyId === filterCompanyId
                     ).map(m => (
                       <tr key={m.id} className="border-b last:border-0">
                         <td className="py-2 text-muted-foreground">{formatInTimeZone(new Date(m.timestamp), timeZone, 'dd/MM/yyyy')}</td>
@@ -303,7 +303,7 @@ export default function CostosPage() {
                       </tr>
                     ))}
                     {(allMerma || []).filter(m =>
-                      filterCompanyId === 'all' || (m as StockMovement & { companyId?: string }).companyId === filterCompanyId
+                      filterCompanyId === 'all' || m.companyId === filterCompanyId
                     ).length === 0 && (
                       <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No hay movimientos de merma este mes.</td></tr>
                     )}

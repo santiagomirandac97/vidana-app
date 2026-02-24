@@ -59,14 +59,16 @@ export default function AdminDashboardPage() {
     const pageIsLoading = userLoading || profileLoading || companiesLoading || consumptionsLoading;
 
     const statsByCompany = useMemo(() => {
-        if (pageIsLoading || !companies || companies.length === 0 || !allConsumptions) return [];
-        
+        // Only block on companies loading — consumptions may still be in flight; treat null as []
+        if (companiesLoading || !companies || companies.length === 0) return [];
+        const consumptions = allConsumptions ?? [];
+
         const nowInMexicoCity = toZonedTime(new Date(), timeZone);
         const todayMexico = formatInTimeZone(nowInMexicoCity, timeZone, 'yyyy-MM-dd');
-        
+
         return companies.map(company => {
             const companyName = company.name || 'Empresa sin nombre';
-            const companyConsumptions = allConsumptions.filter(c => c.companyId === company.id && !c.voided && c.employeeId !== 'anonymous');
+            const companyConsumptions = consumptions.filter(c => c.companyId === company.id && !c.voided && c.employeeId !== 'anonymous');
             
             const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd') === todayMexico);
             
@@ -125,10 +127,10 @@ export default function AdminDashboardPage() {
                 dailyTarget,
             };
         });
-    }, [companies, allConsumptions, pageIsLoading, timeZone]);
+    }, [companies, allConsumptions, companiesLoading, timeZone]);
 
     const totalStats = useMemo(() => {
-        if (pageIsLoading || !statsByCompany || statsByCompany.length === 0) return { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 };
+        if (!statsByCompany || statsByCompany.length === 0) return { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 };
         return statsByCompany.reduce((acc, company) => {
             acc.monthlyRevenue += company.monthlyRevenue;
             acc.monthlyCount += company.monthlyCount;
@@ -136,7 +138,7 @@ export default function AdminDashboardPage() {
             acc.dailyRevenue += company.dailyRevenue;
             return acc;
         }, { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 });
-    }, [statsByCompany, pageIsLoading]);
+    }, [statsByCompany]);
 
     // We filter all consumptions to only include employee-specific ones for the total chart
     const employeeOnlyConsumptions = useMemo(() => allConsumptions?.filter(c => c.employeeId !== 'anonymous' && !c.voided) || [], [allConsumptions]);

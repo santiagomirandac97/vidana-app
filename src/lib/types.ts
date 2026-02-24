@@ -100,6 +100,7 @@ export interface StockMovement {
   createdBy: string; // user uid
   timestamp: string; // ISO-8601
   unitCost: number; // cost at time of movement
+  companyId?: string; // denormalized for collectionGroup queries
 }
 
 export interface Supplier {
@@ -129,6 +130,7 @@ export interface PurchaseOrder {
   createdAt: string; // ISO-8601
   receivedAt?: string; // ISO-8601
   createdBy: string;
+  companyId?: string; // denormalized for collectionGroup queries
 }
 
 // ─── Recipes ──────────────────────────────────────────────────────────────────

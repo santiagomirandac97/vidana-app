@@ -59,8 +59,9 @@ export default function AdminDashboardPage() {
     const pageIsLoading = userLoading || profileLoading || companiesLoading || consumptionsLoading;
 
     const statsByCompany = useMemo(() => {
-        // Only block on companies loading — consumptions may still be in flight; treat null as []
-        if (companiesLoading || !companies || companies.length === 0) return [];
+        // Block on companies loading. Also block on consumptions loading to avoid
+        // computing revenue against an empty array (causes wrong $0-count / $target-revenue state).
+        if (companiesLoading || consumptionsLoading || !companies || companies.length === 0) return [];
         const consumptions = allConsumptions ?? [];
 
         const nowInMexicoCity = toZonedTime(new Date(), timeZone);
@@ -69,17 +70,17 @@ export default function AdminDashboardPage() {
         return companies.map(company => {
             const companyName = company.name || 'Empresa sin nombre';
             const companyConsumptions = consumptions.filter(c => c.companyId === company.id && !c.voided && c.employeeId !== 'anonymous');
-            
+
             const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd') === todayMexico);
-            
+
             const monthlyConsumptions = companyConsumptions;
-            
+
             const mealPrice = company.mealPrice || 0;
             const dailyTarget = company.dailyTarget || 0;
 
             let dailyRevenue = todayConsumptions.length * mealPrice;
             let monthlyRevenue = 0;
-            
+
             if (dailyTarget > 0) {
                 const todayDate = toZonedTime(new Date(), timeZone);
                 const dayOfWeek = getDay(todayDate);
@@ -88,10 +89,10 @@ export default function AdminDashboardPage() {
                 if (isChargeableDay) {
                     dailyRevenue = Math.max(todayConsumptions.length, dailyTarget) * mealPrice;
                 }
-                
+
                 const startOfMonthDate = startOfMonth(nowInMexicoCity);
                 const daysInMonthSoFar = eachDayOfInterval({ start: startOfMonthDate, end: nowInMexicoCity });
-                
+
                 const monthlyConsumptionsByDay: { [key: string]: number } = {};
                 monthlyConsumptions.forEach(c => {
                     const day = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
@@ -127,7 +128,7 @@ export default function AdminDashboardPage() {
                 dailyTarget,
             };
         });
-    }, [companies, allConsumptions, companiesLoading, timeZone]);
+    }, [companies, allConsumptions, companiesLoading, consumptionsLoading, timeZone]);
 
     const totalStats = useMemo(() => {
         if (!statsByCompany || statsByCompany.length === 0) return { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 };

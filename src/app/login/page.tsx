@@ -9,7 +9,6 @@ import { signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRed
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn, Mail, Lock } from 'lucide-react';
@@ -242,34 +241,53 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <Card className="w-full max-w-md mx-4 shadow-xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4">
+    <div className="flex min-h-screen">
+      {/* Left panel — brand (desktop only) */}
+      <div className="hidden lg:flex lg:w-1/2 bg-primary flex-col items-center justify-center p-12 relative overflow-hidden">
+        {/* Subtle grid pattern */}
+        <div
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage: 'linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)',
+            backgroundSize: '40px 40px',
+          }}
+        />
+        <div className="relative z-10 text-white text-center">
+          <Logo />
+          <p className="text-lg font-medium opacity-90 mt-8">Gestión de comedores empresariales</p>
+          <p className="text-sm opacity-60 mt-2">Vidana · México</p>
+        </div>
+      </div>
+
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-center justify-center p-8 bg-background">
+        <div className="w-full max-w-sm">
+          {/* Logo visible on mobile only */}
+          <div className="lg:hidden mb-8 flex justify-center">
             <Logo />
           </div>
-          <CardTitle className="text-2xl">Iniciar Sesión</CardTitle>
-          <CardDescription>Ingrese sus credenciales para acceder al sistema</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="relative">
-               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-               <Input
+          <h2 className="text-2xl font-semibold tracking-tight mb-1">Iniciar sesión</h2>
+          <p className="text-sm text-muted-foreground mb-8">Ingresa tus credenciales para continuar</p>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Input
                   type="email"
                   placeholder="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 h-12 text-lg"
                   disabled={isLoading || isGoogleLoading}
-              />
+                />
+              </div>
             </div>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="relative">
-               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <Input
+
+            <div className="space-y-2">
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Input
                   type="password"
                   placeholder="Contraseña"
                   value={password}
@@ -277,36 +295,34 @@ export default function LoginPage() {
                   className="pl-10 h-12 text-lg"
                   onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                   disabled={isLoading || isGoogleLoading}
-              />
+                />
+              </div>
+              <PasswordResetDialog />
             </div>
-            <PasswordResetDialog />
-          </div>
 
-          {error && <p className="text-sm text-red-500 px-1">{error}</p>}
-          <Button onClick={handleLogin} className="w-full h-12 text-lg" disabled={isLoading || isGoogleLoading}>
-            {isLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/> Verificando...</> : <><LogIn className="mr-2 h-5 w-5"/> Entrar</>}
-          </Button>
+            {error && <p className="text-sm text-red-500 px-1">{error}</p>}
+            <Button onClick={handleLogin} className="w-full h-12 text-lg" disabled={isLoading || isGoogleLoading}>
+              {isLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/> Verificando...</> : <><LogIn className="mr-2 h-5 w-5"/> Entrar</>}
+            </Button>
 
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">O continúa con</span>
-          </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">O continúa con</span>
+            </div>
 
-          <Button onClick={handleGoogleSignIn} variant="outline" className="w-full h-12 text-lg" disabled={isLoading || isGoogleLoading}>
-            {isGoogleLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/> Verificando...</> : <><GoogleIcon className="mr-2 h-5 w-5"/> Google</>}
-          </Button>
-          
-          <Separator className="my-4" />
-           <div className="text-center text-sm">
-            ¿No tienes cuenta?{' '}
-            <Link href="/signup" className="font-medium text-primary hover:underline">
-              Regístrate
-            </Link>
+            <Button onClick={handleGoogleSignIn} variant="outline" className="w-full h-12 text-lg" disabled={isLoading || isGoogleLoading}>
+              {isGoogleLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/> Verificando...</> : <><GoogleIcon className="mr-2 h-5 w-5"/> Google</>}
+            </Button>
+
+            <Separator className="my-4" />
+            <div className="text-center text-sm">
+              ¿No tienes cuenta?{' '}
+              <Link href="/signup" className="font-medium text-primary hover:underline">
+                Regístrate
+              </Link>
+            </div>
           </div>
-        </CardContent>
-      </Card>
-      <p className="absolute bottom-4 text-sm text-muted-foreground">
-        © 2026 Vidana. Todos los derechos reservados.
-      </p>
+        </div>
+      </div>
     </div>
   );
 }

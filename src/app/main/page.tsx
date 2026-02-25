@@ -22,8 +22,7 @@ import {
   DollarSign,
   Save,
   Loader2,
-  ChevronLeft,
-  Home
+  ChevronLeft
 } from 'lucide-react';
 import { format, subDays, startOfMonth, getDate, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -49,7 +48,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
-import { Logo } from '@/components/logo';
+import { AppShell, PageHeader } from '@/components/layout';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -339,47 +338,32 @@ export default function MainPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="page-header">
-        <div className="page-header-inner">
-          <div className="page-header-brand">
-            <Logo />
-          </div>
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-44 justify-start h-8 text-sm border-border/60">
-                  <Building className="mr-2 h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{company?.name}</span>
-                  <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-44">
-                {allCompanies.map(c => (
-                  <DropdownMenuItem key={c.id} onSelect={() => setSelectedCompanyId(c.id)}>
-                    {c.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {userProfile?.role === 'admin' && (
-              <Button variant="ghost" size="sm" onClick={() => router.push('/selection')} className="text-muted-foreground hover:text-foreground gap-1.5">
-                <Home className="h-3.5 w-3.5" />
-                Menú
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-muted-foreground hover:text-foreground gap-1.5">
-              <LogOut className="h-3.5 w-3.5" />
-              Salir
-            </Button>
-          </div>
-        </div>
-      </header>
+  const companySelector = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className="w-44 justify-start h-8 text-sm border-border/60">
+          <Building className="mr-2 h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{company?.name}</span>
+          <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-44">
+        {allCompanies.map(c => (
+          <DropdownMenuItem key={c.id} onSelect={() => setSelectedCompanyId(c.id)}>
+            {c.name}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
-      <main className="container mx-auto p-4 sm:p-6 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+  return (
+    <AppShell>
+      <main className="container mx-auto p-4 sm:p-6 md:p-8">
+        <PageHeader title="Registros" subtitle={company?.name ?? ''} action={companySelector} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <Card className="shadow-lg border-gray-200/80 dark:border-gray-800/80">
+          <Card className="shadow-card border-gray-200/80 dark:border-gray-800/80">
             <CardHeader>
               <CardTitle className="text-2xl font-bold tracking-tight">Registrar Acceso a Comida</CardTitle>
               <CardDescription>Usa las pestañas para registrar por número de empleado o buscar por nombre.</CardDescription>
@@ -399,7 +383,7 @@ export default function MainPage() {
                       onChange={(e) => setEmployeeNumber(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder={`Número de Empleado para ${company?.name}`}
-                      className="text-xl h-14 flex-grow rounded-lg"
+                      className="text-xl h-14 font-mono text-center tracking-widest flex-grow rounded-lg"
                       disabled={isProcessing}
                     />
                     <Button onClick={handleRegistrationByNumber} className="h-14 text-lg rounded-lg" disabled={isProcessing}>
@@ -475,9 +459,10 @@ export default function MainPage() {
             allCompanies={allCompanies || []}
           />
         </div>
+        </div>
       </main>
 
-      <QuickAddDialog 
+      <QuickAddDialog
         isOpen={isQuickAddOpen}
         setIsOpen={(open) => {
             setQuickAddOpen(open);
@@ -497,14 +482,14 @@ export default function MainPage() {
         consumption={confirmationData}
         company={company}
       />
-       <PaymentDialog 
+       <PaymentDialog
         isOpen={!!paymentDue}
         onClose={handlePaymentCancelled}
         onConfirm={handlePaymentCollected}
         amount={paymentDue?.amount ?? 0}
         employeeName={paymentDue?.employee.name ?? ''}
       />
-    </div>
+    </AppShell>
   );
 }
 
@@ -532,7 +517,7 @@ const RecentConsumptionsCard: FC<{recentConsumptions: Consumption[] | null, comp
 
 
     return (
-        <Card className="shadow-lg border-gray-200/80 dark:border-gray-800/80">
+        <Card className="shadow-card border-gray-200/80 dark:border-gray-800/80">
             <CardHeader>
                 <CardTitle>Últimos 10 Consumos</CardTitle>
             </CardHeader>
@@ -559,17 +544,17 @@ const RecentConsumptionsCard: FC<{recentConsumptions: Consumption[] | null, comp
                         </TableHeader>
                         <TableBody>
                             {recentConsumptions.map(c => (
-                                <TableRow 
+                                <TableRow
                                     key={c.id}
                                     className={cn(
-                                        "transition-colors duration-1000",
+                                        "transition-colors duration-1000 hover:bg-muted/30",
                                         c.id && highlighted.includes(c.id) ? 'bg-teal-50 dark:bg-teal-900/30' : ''
                                     )}
                                 >
                                     <TableCell>{c.name}</TableCell>
-                                    <TableCell>{c.employeeNumber}</TableCell>
+                                    <TableCell className="font-mono text-muted-foreground">{c.employeeNumber}</TableCell>
                                     <TableCell>{company?.name}</TableCell>
-                                    <TableCell>{formatTimestamp(c.timestamp)}</TableCell>
+                                    <TableCell className="font-mono text-xs">{formatTimestamp(c.timestamp)}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
@@ -733,7 +718,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, monthl
 
   return (
     <>
-      <Card className="shadow-lg border-gray-200/80 dark:border-gray-800/80">
+      <Card className="shadow-card border-gray-200/80 dark:border-gray-800/80">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium">Consumos {todayStr}</CardTitle>
           <Users className="h-4 w-4 text-muted-foreground" />
@@ -745,7 +730,7 @@ const AdminPanel: FC<AdminPanelProps> = ({ employees, todaysConsumptions, monthl
           </p>
         </CardContent>
       </Card>
-      <Card className="shadow-lg border-gray-200/80 dark:border-gray-800/80">
+      <Card className="shadow-card border-gray-200/80 dark:border-gray-800/80">
         <CardHeader>
           <CardTitle>Panel de Administración</CardTitle>
         </CardHeader>

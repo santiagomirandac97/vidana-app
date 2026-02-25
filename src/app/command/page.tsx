@@ -5,12 +5,12 @@ import { useState, useEffect, useMemo, type FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc, useAuth } from '@/firebase';
 import { collection, query, where, doc, updateDoc, orderBy, Timestamp } from 'firebase/firestore';
-import { type Company, type Consumption, type UserProfile } from '@/lib/types';
+import { type Consumption, type UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ShieldAlert, Home, ChefHat, Clock, AlertTriangle, Flame, CheckCircle, Calendar as CalendarIcon, RotateCcw } from 'lucide-react';
-import { Logo } from '@/components/logo';
+import { AppShell, PageHeader } from '@/components/layout';
 import { cn, formatTimestamp, getTodayInMexicoCity } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -77,34 +77,10 @@ export default function CommandPage() {
 
 
 const CommandDashboard: FC = () => {
-    const { firestore } = useFirebase();
-    const router = useRouter();
-
-    const companyDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'companies', KIOSK_COMPANY_ID) : null, [firestore]);
-    const { data: company, isLoading: companyLoading } = useDoc<Company>(companyDocRef);
-
     return (
-        <div className="bg-gray-100 dark:bg-gray-950 min-h-screen">
-             <header className="bg-white dark:bg-gray-900 shadow-sm sticky top-0 z-20">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center py-3">
-                        <Logo />
-                        <div className='text-center'>
-                             <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                                <ChefHat /> Comanda de Cocina
-                             </h1>
-                             <p className='text-sm text-muted-foreground'>{company?.name || 'Cargando...'}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                             <Button variant="outline" onClick={() => router.push('/selection')}>
-                                <Home className="mr-2 h-4 w-4" />
-                                Menú Principal
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            </header>
-             <main className="container mx-auto p-4 sm:p-6 lg:p-8">
+        <AppShell>
+            <div className="p-4 sm:p-6">
+                <PageHeader title="Comanda" />
                 <Tabs defaultValue="pending">
                     <TabsList className="grid w-full grid-cols-2 mb-6">
                         <TabsTrigger value="pending">Órdenes Pendientes</TabsTrigger>
@@ -117,8 +93,8 @@ const CommandDashboard: FC = () => {
                         <CompletedOrdersTab />
                     </TabsContent>
                 </Tabs>
-            </main>
-        </div>
+            </div>
+        </AppShell>
     );
 };
 
@@ -293,7 +269,7 @@ const CompletedOrdersTab: FC = () => {
 
 const OrderCard: FC<{ order: Consumption, onMarkAsDone: (orderId: string) => void }> = ({ order, onMarkAsDone }) => {
     return (
-        <Card className="shadow-md hover:shadow-xl transition-shadow duration-300 border-2 border-gray-200 dark:border-gray-700">
+        <Card className="shadow-card hover:shadow-xl transition-shadow duration-300 border-2 border-gray-200 dark:border-gray-700">
             <CardHeader className="p-4 bg-gray-50 dark:bg-gray-800">
                 <CardTitle className="text-lg flex justify-between items-center">
                     <span>{order.name}</span>

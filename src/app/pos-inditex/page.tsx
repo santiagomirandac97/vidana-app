@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ShieldAlert, Home, Utensils, PlusCircle, ShoppingCart, Trash2, CheckCircle, Printer, Download, Calendar as CalendarIcon } from 'lucide-react';
-import { Logo } from '@/components/logo';
+import { AppShell, PageHeader } from '@/components/layout';
 import { cn, exportToCsv } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
@@ -237,30 +237,13 @@ const PosDashboard: FC = () => {
     }
 
     return (
-        <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
-             <header className="bg-white dark:bg-gray-900 shadow-sm sticky top-0 z-20">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center py-3">
-                        <Logo />
-                        <div className='text-center'>
-                             <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">POS Inditex</h1>
-                             <p className='text-sm text-muted-foreground'>{inditexCompany.name}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <DownloadReportDialog company={inditexCompany} consumptions={consumptions} />
-                             <Button variant="outline" onClick={() => router.push('/selection')}>
-                                <Home className="mr-2 h-4 w-4" />
-                                Volver al menú
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            </header>
-            <main className="container mx-auto p-4 sm:p-6 lg:p-8">
+        <AppShell>
+            <div className="p-4 sm:p-6">
+                <PageHeader title="POS Inditex" />
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-2">
-                        <MenuSelector 
-                            menuItems={menuItems} 
+                        <MenuSelector
+                            menuItems={menuItems}
                             onAddToOrder={addToOrder}
                             companyName={inditexCompany.name}
                         />
@@ -276,14 +259,14 @@ const PosDashboard: FC = () => {
                         />
                     </div>
                 </div>
-            </main>
+            </div>
             <ConfirmationDialog
                 isOpen={isConfirmationOpen}
                 setIsOpen={setConfirmationOpen}
                 consumption={confirmationData}
                 company={inditexCompany}
             />
-        </div>
+        </AppShell>
     );
 };
 
@@ -302,7 +285,7 @@ const MenuSelector: FC<{ menuItems: MenuItem[], onAddToOrder: (item: MenuItem) =
     const categories = Object.keys(groupedMenu);
 
     return (
-        <Card className="shadow-lg">
+        <Card className="shadow-card">
              <CardHeader>
                 <CardTitle className='flex items-center gap-2'><Utensils className='h-6 w-6' />Menú de {companyName}</CardTitle>
                 <CardDescription>Seleccione los productos para añadir a la venta.</CardDescription>
@@ -347,7 +330,7 @@ const MenuSelector: FC<{ menuItems: MenuItem[], onAddToOrder: (item: MenuItem) =
 
 const OrderSummary: FC<{ order: OrderItem[], total: number, onRemove: (itemId: string) => void, onClear: () => void, onConfirm: () => void, isSubmitting: boolean }> = ({ order, total, onRemove, onClear, onConfirm, isSubmitting }) => {
     return (
-        <Card className="shadow-lg sticky top-24">
+        <Card className="shadow-card sticky top-24">
              <CardHeader>
                 <CardTitle className='flex items-center gap-2'><ShoppingCart className='h-6 w-6'/>Resumen de Venta</CardTitle>
                 <CardDescription>

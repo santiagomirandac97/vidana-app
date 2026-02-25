@@ -1,20 +1,41 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, collectionGroup, query, where } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import {
-  Loader2, LogOut, Settings, ClipboardList, AreaChart, Tablet,
+  Loader2, Settings, ClipboardList, AreaChart, Tablet,
   ChefHat, ShoppingCart, Package, BookOpen, TrendingDown, Receipt,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Logo } from '@/components/logo';
+import { AppShell, PageHeader } from '@/components/layout';
+import { KpiCard } from '@/components/ui/kpi-card';
+import { SectionLabel } from '@/components/ui/section-label';
+import { type Company, type Consumption } from '@/lib/types';
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { startOfMonth } from 'date-fns';
+
+const TZ = 'America/Mexico_City';
+
+const NAV_ITEMS = [
+  { href: '/main',        label: 'Registros',      icon: ClipboardList },
+  { href: '/pos-inditex', label: 'POS Inditex',    icon: ShoppingCart  },
+  { href: '/kiosk',       label: 'Kiosk Televisa', icon: Tablet        },
+  { href: '/command',     label: 'Comanda',        icon: ChefHat       },
+  { href: '/inventario',  label: 'Inventario',     icon: Package       },
+  { href: '/recetas',     label: 'Recetas',        icon: BookOpen      },
+  { href: '/configuracion', label: 'Configuración', icon: Settings     },
+  { href: '/admin',       label: 'Admin',          icon: AreaChart     },
+  { href: '/costos',      label: 'Costos',         icon: TrendingDown  },
+  { href: '/facturacion', label: 'Facturación',    icon: Receipt       },
+];
 
 export default function SelectionPage() {
   const auth = useAuth();
   const router = useRouter();
   const { user, isLoading } = useUser();
+  const { firestore } = useFirebase();
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -22,6 +43,7 @@ export default function SelectionPage() {
     }
   }, [user, isLoading, router]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleSignOut = async () => {
     if (auth) {
       await signOut(auth);
@@ -29,6 +51,33 @@ export default function SelectionPage() {
       router.push('/login');
     }
   };
+
+  const now = useMemo(() => toZonedTime(new Date(), TZ), []);
+  const monthStart = useMemo(() => startOfMonth(now).toISOString(), [now]);
+
+  const companiesQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'companies')) : null,
+    [firestore]
+  );
+  const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesQuery);
+
+  const consumptionsQuery = useMemoFirebase(
+    () => firestore
+      ? query(collectionGroup(firestore, 'consumptions'), where('timestamp', '>=', monthStart))
+      : null,
+    [firestore, monthStart]
+  );
+  const { data: allConsumptions, isLoading: consumptionsLoading } = useCollection<Consumption>(consumptionsQuery);
+
+  const todayStr = formatInTimeZone(now, TZ, 'yyyy-MM-dd');
+  const todayCount = useMemo(
+    () =>
+      (allConsumptions ?? []).filter(
+        c => !c.voided && formatInTimeZone(new Date(c.timestamp), TZ, 'yyyy-MM-dd') === todayStr
+      ).length,
+    [allConsumptions, todayStr]
+  );
+  const monthlyMeals = (allConsumptions ?? []).filter(c => !c.voided).length;
 
   if (isLoading || !user) {
     return (
@@ -39,104 +88,38 @@ export default function SelectionPage() {
     );
   }
 
-  const firstName = user?.displayName?.split(' ')[0] ?? 'Administrador';
+  const firstName = user?.displayName?.split(' ')[0] ?? '';
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Minimal top bar */}
-      <header className="page-header">
-        <div className="page-header-inner">
-          <div className="page-header-brand">
-            <Logo />
-          </div>
-          <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-muted-foreground hover:text-foreground gap-1.5">
-            <LogOut className="h-3.5 w-3.5" />
-            Salir
-          </Button>
-        </div>
-      </header>
+    <AppShell>
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+        <PageHeader
+          title="Inicio"
+          subtitle={`Bienvenido${firstName ? `, ${firstName}` : ''}`}
+        />
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-5xl">
-        {/* Greeting */}
-        <div className="mb-10">
-          <p className="text-xs font-medium text-primary uppercase tracking-widest mb-1">Panel de control</p>
-          <h1 className="text-2xl font-semibold text-foreground tracking-tight">
-            Bienvenido, <span className="text-primary">{firstName}</span>
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">¿A dónde te gustaría ir?</p>
+        {/* Live KPI row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <KpiCard label="Comidas hoy"      value={todayCount.toLocaleString()}          loading={consumptionsLoading} variant="default" />
+          <KpiCard label="Comidas este mes" value={monthlyMeals.toLocaleString()}         loading={consumptionsLoading} variant="success" />
+          <KpiCard label="Empresas activas" value={(companies ?? []).length}              loading={companiesLoading}    variant="default" />
         </div>
 
-        {/* ── Operaciones ─────────────────────────────────────────── */}
-        <section className="mb-8">
-          <p className="section-label">Operaciones</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <button onClick={() => router.push('/main')} className="nav-tile">
-              <span className="nav-tile-icon"><ClipboardList className="h-5 w-5" /></span>
-              <span className="text-sm font-semibold text-foreground">Registros</span>
-              <span className="text-xs text-muted-foreground mt-0.5 text-center">Accesos y empleados</span>
+        {/* Quick access grid */}
+        <SectionLabel>Acceso rápido</SectionLabel>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {NAV_ITEMS.map(item => (
+            <button
+              key={item.href}
+              onClick={() => router.push(item.href)}
+              className="flex items-center gap-2.5 p-3 rounded-lg border border-border hover:bg-muted transition-colors text-sm font-medium text-left"
+            >
+              <item.icon size={16} className="text-muted-foreground shrink-0" />
+              {item.label}
             </button>
-            <button onClick={() => router.push('/pos-inditex')} className="nav-tile">
-              <span className="nav-tile-icon"><ShoppingCart className="h-5 w-5" /></span>
-              <span className="text-sm font-semibold text-foreground">POS Inditex</span>
-              <span className="text-xs text-muted-foreground mt-0.5 text-center">Punto de venta</span>
-            </button>
-            <button onClick={() => router.push('/kiosk')} className="nav-tile">
-              <span className="nav-tile-icon"><Tablet className="h-5 w-5" /></span>
-              <span className="text-sm font-semibold text-foreground">Kiosk Televisa</span>
-              <span className="text-xs text-muted-foreground mt-0.5 text-center">PV Noticieros</span>
-            </button>
-            <button onClick={() => router.push('/command')} className="nav-tile">
-              <span className="nav-tile-icon"><ChefHat className="h-5 w-5" /></span>
-              <span className="text-sm font-semibold text-foreground">Comanda</span>
-              <span className="text-xs text-muted-foreground mt-0.5 text-center">Centro de cocina</span>
-            </button>
-          </div>
-        </section>
-
-        {/* ── Gestión ──────────────────────────────────────────────── */}
-        <section className="mb-8">
-          <p className="section-label">Gestión</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <button onClick={() => router.push('/inventario')} className="nav-tile">
-              <span className="nav-tile-icon"><Package className="h-5 w-5" /></span>
-              <span className="text-sm font-semibold text-foreground">Inventario</span>
-              <span className="text-xs text-muted-foreground mt-0.5 text-center">Ingredientes y stock</span>
-            </button>
-            <button onClick={() => router.push('/recetas')} className="nav-tile">
-              <span className="nav-tile-icon"><BookOpen className="h-5 w-5" /></span>
-              <span className="text-sm font-semibold text-foreground">Recetas</span>
-              <span className="text-xs text-muted-foreground mt-0.5 text-center">Recetas y menú IA</span>
-            </button>
-            <button onClick={() => router.push('/configuracion')} className="nav-tile">
-              <span className="nav-tile-icon"><Settings className="h-5 w-5" /></span>
-              <span className="text-sm font-semibold text-foreground">Configuración</span>
-              <span className="text-xs text-muted-foreground mt-0.5 text-center">Empresas y ajustes</span>
-            </button>
-          </div>
-        </section>
-
-        {/* ── Finanzas ─────────────────────────────────────────────── */}
-        <section>
-          <p className="section-label">Finanzas</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <button onClick={() => router.push('/admin')} className="nav-tile">
-              <span className="nav-tile-icon"><AreaChart className="h-5 w-5" /></span>
-              <span className="text-sm font-semibold text-foreground">Admin</span>
-              <span className="text-xs text-muted-foreground mt-0.5 text-center">Estadísticas generales</span>
-            </button>
-            <button onClick={() => router.push('/costos')} className="nav-tile">
-              <span className="nav-tile-icon"><TrendingDown className="h-5 w-5" /></span>
-              <span className="text-sm font-semibold text-foreground">Costos</span>
-              <span className="text-xs text-muted-foreground mt-0.5 text-center">Dashboard financiero</span>
-            </button>
-            <button onClick={() => router.push('/facturacion')} className="nav-tile">
-              <span className="nav-tile-icon"><Receipt className="h-5 w-5" /></span>
-              <span className="text-sm font-semibold text-foreground">Facturación</span>
-              <span className="text-xs text-muted-foreground mt-0.5 text-center">Estados de cuenta</span>
-            </button>
-          </div>
-        </section>
-      </main>
-    </div>
+          ))}
+        </div>
+      </div>
+    </AppShell>
   );
 }

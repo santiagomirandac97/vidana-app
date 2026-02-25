@@ -53,10 +53,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Logo } from '@/components/logo';
+import { AppShell, PageHeader } from '@/components/layout';
 import {
   ShieldAlert,
-  Home,
   Loader2,
   Plus,
   X,
@@ -229,33 +228,37 @@ export default function RecetasPage() {
   // ─── Loading screen ──────────────────────────────────────────────────────
   if (pageIsLoading && !loadTimeout) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin" />
-        <p className="ml-4 text-lg">Cargando...</p>
-      </div>
+      <AppShell>
+        <div className="flex h-full w-full items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin" />
+          <p className="ml-4 text-lg">Cargando...</p>
+        </div>
+      </AppShell>
     );
   }
 
   if (loadTimeout && pageIsLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
-          <CardHeader>
-            <CardTitle className="flex flex-col items-center gap-2">
-              <ShieldAlert className="h-12 w-12 text-destructive" />
-              Error al cargar
-            </CardTitle>
-            <CardDescription>
-              No se pudieron cargar los datos. Verifique su conexión y permisos.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => window.location.reload()} className="w-full">
-              Reintentar
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AppShell>
+        <div className="flex h-full w-full items-center justify-center">
+          <Card className="w-full max-w-sm mx-4 shadow-card text-center">
+            <CardHeader>
+              <CardTitle className="flex flex-col items-center gap-2">
+                <ShieldAlert className="h-12 w-12 text-destructive" />
+                Error al cargar
+              </CardTitle>
+              <CardDescription>
+                No se pudieron cargar los datos. Verifique su conexión y permisos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => window.location.reload()} className="w-full">
+                Reintentar
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AppShell>
     );
   }
 
@@ -266,36 +269,34 @@ export default function RecetasPage() {
 
   if (!user || userProfile?.role !== 'admin') {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
-          <CardHeader>
-            <CardTitle className="flex flex-col items-center gap-2">
-              <ShieldAlert className="h-12 w-12 text-destructive" />
-              Acceso Denegado
-            </CardTitle>
-            <CardDescription>No tiene los permisos necesarios para ver esta página.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => router.push('/selection')} className="w-full">
-              <Home className="mr-2 h-4 w-4" />
-              Volver al Inicio
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AppShell>
+        <div className="flex h-full w-full items-center justify-center">
+          <Card className="w-full max-w-sm mx-4 shadow-card text-center">
+            <CardHeader>
+              <CardTitle className="flex flex-col items-center gap-2">
+                <ShieldAlert className="h-12 w-12 text-destructive" />
+                Acceso Denegado
+              </CardTitle>
+              <CardDescription>No tiene los permisos necesarios para ver esta página.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => router.push('/selection')} className="w-full">
+                Volver al Inicio
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="page-header">
-        <div className="page-header-inner">
-          <div className="page-header-brand">
-            <Logo />
-            <span className="page-header-title">Recetas</span>
-          </div>
-          <div className="flex items-center gap-2">
+    <AppShell>
+      <div className="p-6 lg:p-8">
+        <PageHeader
+          title="Recetas"
+          subtitle={selectedCompany?.name}
+          action={
             <Select value={selectedCompanyId} onValueChange={handleCompanyChange}>
               <SelectTrigger className="w-44 h-8 text-sm">
                 <SelectValue placeholder="Seleccionar empresa" />
@@ -308,16 +309,9 @@ export default function RecetasPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="ghost" size="sm" onClick={() => router.push('/selection')} className="text-muted-foreground hover:text-foreground gap-1.5">
-              <Home className="h-3.5 w-3.5" />
-              Menú
-            </Button>
-          </div>
-        </div>
-      </header>
+          }
+        />
 
-      {/* ── Main content ─────────────────────────────────────────────────── */}
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!selectedCompanyId ? (
           <Card>
             <CardContent className="flex items-center justify-center h-40">
@@ -379,8 +373,8 @@ export default function RecetasPage() {
             </TabsContent>
           </Tabs>
         )}
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }
 
@@ -425,7 +419,7 @@ function RecetasTab({ menuItems, ingredients, recipesMap, companyId, firestore, 
                 : null;
 
             return (
-              <Card key={item.id} className="flex flex-col">
+              <Card key={item.id} className="flex flex-col shadow-card hover:shadow-card-hover transition-shadow">
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between gap-2">
                     <CardTitle className="text-base leading-tight">{item.name}</CardTitle>
@@ -903,31 +897,32 @@ function MenuSemanalTab({
         {DAYS_OF_WEEK.map(({ key, label }) => {
           const dayItems = getDayItems(key);
           return (
-            <Card key={key} className="flex flex-col">
+            <Card key={key} className="flex flex-col shadow-card hover:shadow-card-hover transition-shadow">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold">{label}</CardTitle>
                 <p className="text-xs text-muted-foreground">{dayDates[key]}</p>
               </CardHeader>
               <CardContent className="flex flex-col gap-2 flex-1">
                 {/* Chips */}
-                <div className="flex flex-wrap gap-1 min-h-[2rem]">
+                <div className="flex flex-col gap-1 min-h-[2rem]">
                   {dayItems.map((itemId) => {
                     const item = menuItemsMap[itemId];
                     return (
-                      <Badge
+                      <div
                         key={itemId}
-                        variant="secondary"
-                        className="flex items-center gap-1 text-xs"
+                        className="flex items-center justify-between rounded-md bg-primary/5 border border-primary/20 px-2 py-1"
                       >
-                        {item?.name ?? itemId}
+                        <span className="text-xs font-medium text-primary truncate">
+                          {item?.name ?? itemId}
+                        </span>
                         <button
                           onClick={() => removeItemFromDay(key, itemId)}
-                          className="ml-1 hover:text-destructive transition-colors"
+                          className="ml-1 shrink-0 hover:text-destructive transition-colors"
                           aria-label="Eliminar"
                         >
                           <X className="h-3 w-3" />
                         </button>
-                      </Badge>
+                      </div>
                     );
                   })}
                 </div>
@@ -1038,7 +1033,7 @@ function ListaComprasTab({
 
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className="shadow-card">
         <CardContent className="pt-4">
           <Table>
             <TableHeader>

@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Home,
   FileText,
   Mail,
   Loader2,
@@ -20,7 +19,9 @@ import {
   Clock,
   Send,
 } from 'lucide-react';
-import { Logo } from '@/components/logo';
+import { AppShell, PageHeader } from '@/components/layout';
+import { KpiCard } from '@/components/ui/kpi-card';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { useToast } from '@/hooks/use-toast';
 import { format, subMonths } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
@@ -176,30 +177,33 @@ export default function FacturacionPage() {
   const pageIsLoading = userLoading || profileLoading || companiesLoading;
   if (pageIsLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin" />
-      </div>
+      <AppShell>
+        <div className="flex h-screen w-full items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin" />
+        </div>
+      </AppShell>
     );
   }
 
   if (!user || userProfile?.role !== 'admin') {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <Card className="w-full max-w-sm mx-4 text-center">
-          <CardHeader>
-            <CardTitle className="flex flex-col items-center gap-2">
-              <ShieldAlert className="h-12 w-12 text-destructive" />
-              Acceso Denegado
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => router.push('/selection')} className="w-full">
-              <Home className="mr-2 h-4 w-4" />
-              Volver
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AppShell>
+        <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
+          <Card className="w-full max-w-sm mx-4 text-center">
+            <CardHeader>
+              <CardTitle className="flex flex-col items-center gap-2">
+                <ShieldAlert className="h-12 w-12 text-destructive" />
+                Acceso Denegado
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => router.push('/selection')} className="w-full">
+                Volver
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AppShell>
     );
   }
 
@@ -216,59 +220,27 @@ export default function FacturacionPage() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Shared page header */}
-      <header className="page-header">
-        <div className="page-header-inner">
-          <div className="page-header-brand">
-            <Logo />
-            <span className="page-header-title">Facturación</span>
-          </div>
-          <div className="flex items-center gap-2">
+    <AppShell>
+      <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+        <PageHeader
+          title="Facturación"
+          subtitle={selectedMonthLabel}
+          action={
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-44 h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="w-44 h-8 text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {monthOptions.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
+                {monthOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button variant="ghost" size="sm" onClick={() => router.push('/selection')} className="text-muted-foreground hover:text-foreground gap-1.5">
-              <Home className="h-3.5 w-3.5" />
-              Menú
-            </Button>
-          </div>
-        </div>
-      </header>
+          }
+        />
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-6xl">
-        {/* Page context row */}
-        <div className="flex items-center gap-2 mb-8">
-          <p className="text-xs font-medium text-primary uppercase tracking-widest">Estados de cuenta</p>
-          <span className="text-xs text-muted-foreground/50">·</span>
-          <p className="text-xs text-muted-foreground capitalize">{selectedMonthLabel}</p>
-          {consumptionsLoading && (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-1" />
-          )}
-        </div>
-
-        {/* Summary KPIs — accent bar cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
-          {[
-            { label: 'Total Comidas', value: totalMeals.toLocaleString(), color: 'kpi-card-blue' },
-            { label: 'Total Facturado', value: fmt(totalBilled), color: 'kpi-card-green' },
-            { label: 'Cocinas', value: (companies ?? []).length, color: 'kpi-card-amber' },
-            { label: 'Pagadas', value: paidCount, color: 'kpi-card-red' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className={`kpi-card ${color} px-5 py-4`}>
-              <p className="text-xs text-muted-foreground mb-1.5">{label}</p>
-              <p className="text-2xl font-bold tracking-tight text-foreground">{value}</p>
-            </div>
-          ))}
+        {/* Summary KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <KpiCard label="Total Comidas"   value={totalMeals.toLocaleString()} variant="default" loading={consumptionsLoading} />
+          <KpiCard label="Total Facturado" value={fmt(totalBilled)}            variant="success" loading={consumptionsLoading} />
+          <KpiCard label="Cocinas"         value={(companies ?? []).length}    variant="default" />
+          <KpiCard label="Pagadas"         value={paidCount}                   variant={paidCount === (companies ?? []).length && paidCount > 0 ? 'success' : 'warning'} />
         </div>
 
         {/* Per-company billing cards */}
@@ -281,12 +253,6 @@ export default function FacturacionPage() {
             const status = (company.billingStatus?.[selectedMonth] ??
               'pendiente') as 'pendiente' | 'enviado' | 'pagado';
             const isSending = sendingCompanyId === company.id;
-            const { label: statusLabel, Icon } = STATUS_CONFIG[status];
-            const statusPillClass = {
-              pendiente: 'status-pill status-pill-pendiente',
-              enviado: 'status-pill status-pill-enviado',
-              pagado: 'status-pill status-pill-pagado',
-            }[status];
 
             return (
               <Card
@@ -311,10 +277,7 @@ export default function FacturacionPage() {
                       }
                     >
                       <SelectTrigger className="border-0 shadow-none p-0 h-auto w-auto focus:ring-0 shrink-0 bg-transparent [&>svg]:hidden">
-                        <span className={statusPillClass}>
-                          <Icon className="h-3 w-3" />
-                          {statusLabel}
-                        </span>
+                        <StatusBadge variant={status} />
                       </SelectTrigger>
                       <SelectContent align="end">
                         <SelectItem value="pendiente">
@@ -394,7 +357,7 @@ export default function FacturacionPage() {
             <p className="text-sm">No hay empresas configuradas.</p>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

@@ -20,6 +20,7 @@ import {
   Send,
 } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
+import { SectionLabel } from '@/components/ui/section-label';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useToast } from '@/hooks/use-toast';
@@ -244,7 +245,7 @@ export default function FacturacionPage() {
         </div>
 
         {/* Per-company billing cards */}
-        <p className="section-label mb-4">Empresas</p>
+        <SectionLabel className="mb-4">Empresas</SectionLabel>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {(companies ?? []).map((company) => {
             const consumptions = byCompany[company.id] ?? [];

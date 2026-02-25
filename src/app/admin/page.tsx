@@ -1,436 +1,193 @@
-
 'use client';
 
-import { useState, useEffect, useMemo, type FC } from 'react';
+import { useMemo, useEffect, type FC, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, getDocs, doc, where, Timestamp, collectionGroup } from 'firebase/firestore';
+import { collection, query, doc, where, collectionGroup } from 'firebase/firestore';
 import { type Company, type Consumption, type UserProfile } from '@/lib/types';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
+import { format, startOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { toZonedTime, toDate, formatInTimeZone } from 'date-fns-tz';
-import { getTodayInMexicoCity } from '@/lib/utils';
-import { DollarSign, Users, BarChart, LogOut, Loader2, CalendarDays, ShieldAlert, Home, TrendingUp, Utensils } from 'lucide-react';
-import { Logo } from '@/components/logo';
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { DollarSign, Utensils, Loader2, ShieldAlert } from 'lucide-react';
+import { AppShell, PageHeader } from '@/components/layout';
+import { KpiCard } from '@/components/ui/kpi-card';
+
+const TZ = 'America/Mexico_City';
 
 export default function AdminDashboardPage() {
-    const { user, isLoading: userLoading } = useUser();
-    const router = useRouter();
-    const { firestore } = useFirebase();
-    const timeZone = 'America/Mexico_City';
+  const { user, isLoading: userLoading } = useUser();
+  const router = useRouter();
+  const { firestore } = useFirebase();
 
-    const userProfileRef = useMemoFirebase(() => 
-        firestore && user ? doc(firestore, `users/${user.uid}`) : null
-    , [firestore, user]);
-    const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
+  const userProfileRef = useMemoFirebase(
+    () => firestore && user ? doc(firestore, `users/${user.uid}`) : null,
+    [firestore, user]
+  );
+  const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
-    const companiesQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'companies')) : null
-    , [firestore]);
-    const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesQuery);
+  const companiesQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'companies')) : null,
+    [firestore]
+  );
+  const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesQuery);
 
-    const monthlyConsumptionsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        const nowInMexicoCity = toZonedTime(new Date(), timeZone);
-        const startOfCurrentMonth = startOfMonth(nowInMexicoCity);
-        return query(
-            collectionGroup(firestore, 'consumptions'),
-            where('timestamp', '>=', startOfCurrentMonth.toISOString())
-        );
-    }, [firestore, timeZone]);
+  const now = useMemo(() => toZonedTime(new Date(), TZ), []);
+  const monthStart = useMemo(() => startOfMonth(now).toISOString(), [now]);
 
-    const { data: allConsumptions, isLoading: consumptionsLoading } = useCollection<Consumption>(monthlyConsumptionsQuery);
+  const consumptionsQuery = useMemoFirebase(
+    () => firestore
+      ? query(collectionGroup(firestore, 'consumptions'), where('timestamp', '>=', monthStart))
+      : null,
+    [firestore, monthStart]
+  );
+  const { data: allConsumptions, isLoading: consumptionsLoading } = useCollection<Consumption>(consumptionsQuery);
 
-    const [loadTimeout, setLoadTimeout] = useState(false);
-    useEffect(() => {
-        const timer = setTimeout(() => setLoadTimeout(true), 8000);
-        return () => clearTimeout(timer);
-    }, []);
+  useEffect(() => {
+    if (!userLoading && !user) router.push('/login');
+  }, [user, userLoading, router]);
 
-    useEffect(() => {
-        if (!userLoading && !user) {
-            router.push('/login');
-        }
-    }, [user, userLoading, router]);
-
-    const pageIsLoading = userLoading || profileLoading || companiesLoading || consumptionsLoading;
-
-    const statsByCompany = useMemo(() => {
-        // Block on companies loading. Also block on consumptions loading to avoid
-        // computing revenue against an empty array (causes wrong $0-count / $target-revenue state).
-        if (companiesLoading || consumptionsLoading || !companies || companies.length === 0) return [];
-        const consumptions = allConsumptions ?? [];
-
-        const nowInMexicoCity = toZonedTime(new Date(), timeZone);
-        const todayMexico = formatInTimeZone(nowInMexicoCity, timeZone, 'yyyy-MM-dd');
-
-        return companies.map(company => {
-            const companyName = company.name || 'Empresa sin nombre';
-            const companyConsumptions = consumptions.filter(c => c.companyId === company.id && !c.voided && c.employeeId !== 'anonymous');
-
-            const todayConsumptions = companyConsumptions.filter(c => formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd') === todayMexico);
-
-            const monthlyConsumptions = companyConsumptions;
-
-            const mealPrice = company.mealPrice || 0;
-            const dailyTarget = company.dailyTarget || 0;
-
-            let dailyRevenue = todayConsumptions.length * mealPrice;
-            let monthlyRevenue = 0;
-
-            if (dailyTarget > 0) {
-                const todayDate = toZonedTime(new Date(), timeZone);
-                const dayOfWeek = getDay(todayDate);
-                const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4; // Monday to Thursday
-
-                if (isChargeableDay) {
-                    dailyRevenue = Math.max(todayConsumptions.length, dailyTarget) * mealPrice;
-                }
-
-                const startOfMonthDate = startOfMonth(nowInMexicoCity);
-                const daysInMonthSoFar = eachDayOfInterval({ start: startOfMonthDate, end: nowInMexicoCity });
-
-                const monthlyConsumptionsByDay: { [key: string]: number } = {};
-                monthlyConsumptions.forEach(c => {
-                    const day = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
-                    monthlyConsumptionsByDay[day] = (monthlyConsumptionsByDay[day] || 0) + 1;
-                });
-
-                monthlyRevenue = daysInMonthSoFar.reduce((total, date) => {
-                    const dayStr = format(date, 'yyyy-MM-dd');
-                    const dayOfWeek = getDay(date);
-                    const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4;
-                    const countForDay = monthlyConsumptionsByDay[dayStr] || 0;
-
-                    if (isChargeableDay) {
-                        return total + (Math.max(countForDay, dailyTarget) * mealPrice);
-                    } else {
-                        return total + (countForDay * mealPrice);
-                    }
-                }, 0);
-
-            } else {
-                 monthlyRevenue = monthlyConsumptions.length * mealPrice;
-            }
-
-            return {
-                ...company,
-                name: companyName,
-                consumptions: companyConsumptions,
-                todayCount: todayConsumptions.length,
-                dailyRevenue,
-                monthlyCount: monthlyConsumptions.length,
-                monthlyRevenue,
-                mealPrice,
-                dailyTarget,
-            };
+  const statsByCompany = useMemo(() => {
+    if (companiesLoading || !companies) return [];
+    const consumptions = allConsumptions ?? [];
+    return companies.map(company => {
+      const cc = consumptions.filter(
+        c => c.companyId === company.id && !c.voided && c.employeeId !== 'anonymous'
+      );
+      const mealPrice = company.mealPrice ?? 0;
+      const dailyTarget = company.dailyTarget ?? 0;
+      let revenue = 0;
+      if (dailyTarget > 0) {
+        const days = eachDayOfInterval({ start: startOfMonth(now), end: now });
+        const countByDay: Record<string, number> = {};
+        cc.forEach(c => {
+          const d = formatInTimeZone(new Date(c.timestamp), TZ, 'yyyy-MM-dd');
+          countByDay[d] = (countByDay[d] || 0) + 1;
         });
-    }, [companies, allConsumptions, companiesLoading, consumptionsLoading, timeZone]);
+        revenue = days.reduce((total, date) => {
+          const dayStr = format(date, 'yyyy-MM-dd');
+          const dow = getDay(date);
+          const isChargeable = dow >= 1 && dow <= 4;
+          const count = countByDay[dayStr] || 0;
+          return total + (isChargeable ? Math.max(count, dailyTarget) : count) * mealPrice;
+        }, 0);
+      } else {
+        revenue = cc.length * mealPrice;
+      }
+      return { id: company.id, name: company.name, mealPrice, dailyTarget, mealsServed: cc.length, revenue };
+    });
+  }, [companies, allConsumptions, companiesLoading, now]);
 
-    const totalStats = useMemo(() => {
-        if (!statsByCompany || statsByCompany.length === 0) return { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 };
-        return statsByCompany.reduce((acc, company) => {
-            acc.monthlyRevenue += company.monthlyRevenue;
-            acc.monthlyCount += company.monthlyCount;
-            acc.todayCount += company.todayCount;
-            acc.dailyRevenue += company.dailyRevenue;
-            return acc;
-        }, { monthlyRevenue: 0, monthlyCount: 0, todayCount: 0, dailyRevenue: 0 });
-    }, [statsByCompany]);
+  const totals = useMemo(() =>
+    statsByCompany.reduce(
+      (acc, c) => ({ mealsServed: acc.mealsServed + c.mealsServed, revenue: acc.revenue + c.revenue }),
+      { mealsServed: 0, revenue: 0 }
+    ),
+    [statsByCompany]
+  );
 
-    // We filter all consumptions to only include employee-specific ones for the total chart
-    const employeeOnlyConsumptions = useMemo(() => allConsumptions?.filter(c => c.employeeId !== 'anonymous' && !c.voided) || [], [allConsumptions]);
-
-
-    if (pageIsLoading && !loadTimeout) {
-        return (
-            <div className="flex h-screen w-full items-center justify-center">
-                <Loader2 className="h-10 w-10 animate-spin" />
-                <p className="ml-4 text-lg">Cargando datos del administrador...</p>
-            </div>
-        );
-    }
-
-    if (loadTimeout && pageIsLoading) {
-        return (
-            <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-                <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
-                    <CardHeader>
-                        <CardTitle className="flex flex-col items-center gap-2">
-                            <ShieldAlert className="h-12 w-12 text-destructive" />
-                            Error al cargar
-                        </CardTitle>
-                        <CardDescription>
-                            No se pudieron cargar los datos. Verifique su conexión y que tenga permisos de administrador.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button onClick={() => window.location.reload()} className="w-full">
-                            Reintentar
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-    
-    if (!user || userProfile?.role !== 'admin') {
-         return (
-            <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-                <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
-                    <CardHeader>
-                        <CardTitle className="flex flex-col items-center gap-2">
-                            <ShieldAlert className="h-12 w-12 text-destructive" />
-                            Acceso Denegado
-                        </CardTitle>
-                        <CardDescription>No tiene los permisos necesarios para ver esta página.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button onClick={() => router.push('/selection')} className="w-full">
-                            <Home className="mr-2 h-4 w-4" />
-                            Volver al Inicio
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-
+  if (userLoading || profileLoading || companiesLoading) {
     return (
-        <div className="min-h-screen bg-background">
-            <header className="page-header">
-                <div className="page-header-inner">
-                    <div className="page-header-brand">
-                        <Logo />
-                        <span className="page-header-title">Admin</span>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => router.push('/selection')} className="text-muted-foreground hover:text-foreground gap-1.5">
-                        <Home className="h-3.5 w-3.5" />
-                        Menú
-                    </Button>
-                </div>
-            </header>
-            <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-                <TotalStatsCard totalStats={totalStats} allConsumptions={employeeOnlyConsumptions} isLoading={pageIsLoading} />
-                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-                    {statsByCompany.map(companyStats => (
-                        <CompanyStatCard key={companyStats.id} companyStats={companyStats} />
-                    ))}
-                 </div>
-            </main>
+      <AppShell>
+        <div className="flex h-full items-center justify-center p-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
+      </AppShell>
     );
-};
+  }
 
-
-const TotalStatsCard: FC<{ totalStats: any, allConsumptions: Consumption[], isLoading: boolean }> = ({ totalStats, allConsumptions, isLoading }) => {
-    if (isLoading) {
-        return (
-            <Card className="shadow-lg col-span-1 sm:col-span-2 lg:col-span-3">
-                <CardHeader>
-                    <CardTitle className="flex justify-between items-start text-2xl">
-                        <span>Ventas Totales de Comedor del Periodo</span>
-                        <TrendingUp className="h-7 w-7 text-gray-400" />
-                    </CardTitle>
-                    <CardDescription>Resumen consolidado de todas las empresas (excluye ventas de POS).</CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center justify-center h-64">
-                    <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                </CardContent>
-            </Card>
-        )
-    }
-    
+  if (!user || userProfile?.role !== 'admin') {
     return (
-        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 col-span-1 sm:col-span-2 lg:col-span-3">
-            <CardHeader>
-                <CardTitle className="flex justify-between items-start text-2xl">
-                    <span>Ventas Totales de Comedor del Periodo</span>
-                    <TrendingUp className="h-7 w-7 text-gray-400" />
-                </CardTitle>
-                <CardDescription>Resumen consolidado de todas las empresas (excluye ventas de POS).</CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-1 space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                         <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                            <p className="text-sm text-muted-foreground flex items-center gap-1"><Users className="h-4 w-4"/> Consumos Hoy</p>
-                            <p className="text-2xl font-bold">{totalStats.todayCount}</p>
-                        </div>
-                        <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                            <p className="text-sm text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4"/> Ingresos Hoy</p>
-                            <p className="text-2xl font-bold">${totalStats.dailyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        </div>
-                        <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                            <p className="text-sm text-muted-foreground flex items-center gap-1"><CalendarDays className="h-4 w-4"/> Comidas Mes</p>
-                            <p className="text-2xl font-bold">{totalStats.monthlyCount}</p>
-                        </div>
-                        <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                            <p className="text-sm text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4"/> Ingresos Mes</p>
-                            <p className="text-2xl font-bold">${totalStats.monthlyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        </div>
-                    </div>
+      <AppShell>
+        <div className="flex h-full items-center justify-center p-8">
+          <div className="text-center">
+            <ShieldAlert className="h-10 w-10 text-destructive mx-auto mb-3" />
+            <p className="font-medium">Acceso Denegado</p>
+            <p className="text-sm text-muted-foreground mt-1">No tiene permisos de administrador.</p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const monthLabel = format(now, 'MMMM yyyy', { locale: es });
+  const fmtMoney = (n: number) =>
+    `$${n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+  return (
+    <AppShell>
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+        <PageHeader
+          title="Admin"
+          subtitle={`Resumen mensual — ${monthLabel}`}
+        />
+
+        {/* Summary KPIs */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <KpiCard
+            label="Comidas servidas"
+            value={totals.mealsServed.toLocaleString()}
+            icon={<Utensils size={14} />}
+            loading={consumptionsLoading}
+            variant="default"
+          />
+          <KpiCard
+            label="Ingresos del mes"
+            value={fmtMoney(totals.revenue)}
+            icon={<DollarSign size={14} />}
+            loading={consumptionsLoading}
+            variant="success"
+          />
+        </div>
+
+        {/* Per-company grid */}
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-4">
+          Por empresa
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {statsByCompany.map(company => (
+            <Card key={company.id} className="shadow-card hover:shadow-card-hover transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-sm font-semibold">{company.name}</CardTitle>
+                  <span className="shrink-0 text-xs font-mono font-medium px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                    ${company.mealPrice}/comida
+                  </span>
                 </div>
-                 <div className="md:col-span-2 space-y-2">
-                     <h4 className="font-semibold text-sm">Tendencia de Consumo Total de Comedor</h4>
-                     <div className="h-56">
-                        <MiniConsumptionChart 
-                            consumptions={allConsumptions}
-                            dailyTarget={0}
-                        />
-                     </div>
-                </div>
-            </CardContent>
-        </Card>
-    )
-}
-
-
-interface CompanyStatCardProps {
-    companyStats: Company & {
-        consumptions: Consumption[];
-        todayCount: number;
-        dailyRevenue: number;
-        monthlyCount: number;
-        monthlyRevenue: number;
-        mealPrice: number;
-        dailyTarget: number;
-    };
-}
-
-const CompanyStatCard: FC<CompanyStatCardProps> = ({ companyStats }) => {
-    return (
-        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <CardHeader>
-                <CardTitle className="flex justify-between items-start">
-                    <span>{companyStats.name}</span>
-                     <span className="text-sm font-normal px-2 py-1 bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-200">
-                        ${companyStats.mealPrice}/comida
-                    </span>
-                </CardTitle>
-                <CardDescription>Resumen del día y tendencias (solo comedor)</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                        <p className="text-sm text-muted-foreground flex items-center gap-1"><Users className="h-4 w-4"/> Consumos Hoy</p>
-                        <p className="text-2xl font-bold">{companyStats.todayCount}</p>
-                    </div>
-                    <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                        <p className="text-sm text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4"/> Ingresos Hoy</p>
-                        <p className="text-2xl font-bold">${companyStats.dailyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    </div>
-                    <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                        <p className="text-sm text-muted-foreground flex items-center gap-1"><CalendarDays className="h-4 w-4"/> Comidas Mes</p>
-                        <p className="text-2xl font-bold">{companyStats.monthlyCount}</p>
-                    </div>
-                    <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                        <p className="text-sm text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4"/> Ingresos Mes</p>
-                        <p className="text-2xl font-bold">${companyStats.monthlyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    </div>
-                </div>
-
-                {companyStats.billingNote && (
-                    <p className="text-xs text-center text-muted-foreground italic">
-                        {companyStats.billingNote}
-                    </p>
+                {company.dailyTarget > 0 && (
+                  <CardDescription className="text-xs">
+                    Objetivo: {company.dailyTarget} comidas/día
+                  </CardDescription>
                 )}
-                
-                <div className="space-y-2">
-                     <h4 className="font-semibold text-sm">Tendencia de Consumo de Comedor</h4>
-                     <MiniConsumptionChart 
-                        consumptions={companyStats.consumptions}
-                        dailyTarget={companyStats.dailyTarget}
-                      />
-                </div>
-            </CardContent>
-        </Card>
-    )
-}
-
-const MiniConsumptionChart: FC<{ consumptions: Consumption[], dailyTarget: number }> = ({ consumptions, dailyTarget }) => {
-    const timeZone = 'America/Mexico_City';
-    const chartData = useMemo(() => {
-        const dailyConsumptions: { [key: string]: { total: number; missing: number } } = {};
-        
-        consumptions.forEach(c => {
-            if (!c.voided) {
-                const day = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
-                if (!dailyConsumptions[day]) {
-                    dailyConsumptions[day] = { total: 0, missing: 0 };
-                }
-                dailyConsumptions[day].total++;
-            }
-        });
-        
-        const hasTarget = dailyTarget > 0;
-        if (hasTarget) {
-            Object.keys(dailyConsumptions).forEach(day => {
-                const date = toDate(day, { timeZone });
-                const dayOfWeek = getDay(date); // 0=Sun, 1=Mon...
-                const isChargeableDay = dayOfWeek >= 1 && dayOfWeek <= 4;
-                
-                if (isChargeableDay) {
-                    const count = dailyConsumptions[day].total;
-                    dailyConsumptions[day].missing = Math.max(0, dailyTarget - count);
-                } else {
-                    dailyConsumptions[day].missing = 0;
-                }
-            });
-        }
-
-        const sortedDays = Object.keys(dailyConsumptions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-        const last7Days = sortedDays.slice(0, 7).reverse();
-
-        return last7Days.map(day => ({
-            name: format(toDate(day, { timeZone }), 'MMM dd', { locale: es }),
-            total: dailyConsumptions[day].total,
-            missing: dailyConsumptions[day].missing,
-        }));
-    }, [consumptions, dailyTarget, timeZone]);
-
-    if (chartData.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center h-48 border rounded-md bg-gray-50 dark:bg-gray-800">
-                <BarChart className="h-8 w-8 text-muted-foreground" />
-                <p className="text-muted-foreground text-sm mt-2">No hay suficientes datos.</p>
-            </div>
-        );
-    }
-    
-    const showMissing = dailyTarget > 0;
-
-    return (
-        <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-                <RechartsBarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: -10 }}>
-                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
-                    <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} axisLine={false} tickLine={false} width={20}/>
-                    <Tooltip
-                        cursor={{ fill: 'hsl(var(--muted))' }}
-                        contentStyle={{
-                            backgroundColor: 'hsl(var(--background))',
-                            borderColor: 'hsl(var(--border))',
-                            fontSize: '12px',
-                            padding: '6px'
-                        }}
-                        labelStyle={{ fontWeight: 'bold' }}
-                        formatter={(value, name) => {
-                            if (name === 'total') return [value, 'Registrados'];
-                            if (name === 'missing') return [value, 'Faltantes para Objetivo'];
-                            return [value, name];
-                        }}
-                    />
-                    <Bar dataKey="total" stackId="a" fill="hsl(var(--primary))" name="Consumos" radius={showMissing ? [0,0,0,0] : [4, 4, 0, 0]} />
-                    {showMissing && (
-                        <Bar dataKey="missing" stackId="a" fill="hsl(var(--primary) / 0.3)" name="Faltantes para Objetivo" radius={[4, 4, 0, 0]} />
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-md bg-muted/60 p-3">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1.5">
+                      <Utensils size={11} /> Comidas
+                    </p>
+                    {consumptionsLoading ? (
+                      <div className="h-6 w-12 bg-muted animate-pulse rounded" />
+                    ) : (
+                      <p className="text-lg font-bold font-mono">{company.mealsServed.toLocaleString()}</p>
                     )}
-                </RechartsBarChart>
-            </ResponsiveContainer>
+                  </div>
+                  <div className="rounded-md bg-muted/60 p-3">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1.5">
+                      <DollarSign size={11} /> Ingresos
+                    </p>
+                    {consumptionsLoading ? (
+                      <div className="h-6 w-16 bg-muted animate-pulse rounded" />
+                    ) : (
+                      <p className="text-lg font-bold font-mono">{fmtMoney(company.revenue)}</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-    );
-};
+      </div>
+    </AppShell>
+  );
+}

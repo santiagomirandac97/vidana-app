@@ -57,7 +57,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Logo } from '@/components/logo';
+import { AppShell, PageHeader } from '@/components/layout';
 import {
   ShieldAlert,
   Home,
@@ -403,33 +403,37 @@ export default function InventarioPage() {
   // ─── Loading screen ──────────────────────────────────────────────────────
   if (pageIsLoading && !loadTimeout) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin" />
-        <p className="ml-4 text-lg">Cargando inventario...</p>
-      </div>
+      <AppShell>
+        <div className="flex h-full w-full items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin" />
+          <p className="ml-4 text-lg">Cargando inventario...</p>
+        </div>
+      </AppShell>
     );
   }
 
   if (loadTimeout && pageIsLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
-          <CardHeader>
-            <CardTitle className="flex flex-col items-center gap-2">
-              <ShieldAlert className="h-12 w-12 text-destructive" />
-              Error al cargar
-            </CardTitle>
-            <CardDescription>
-              No se pudieron cargar los datos. Verifique su conexión y permisos.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => window.location.reload()} className="w-full">
-              Reintentar
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AppShell>
+        <div className="flex h-full w-full items-center justify-center">
+          <Card className="w-full max-w-sm mx-4 shadow-card text-center">
+            <CardHeader>
+              <CardTitle className="flex flex-col items-center gap-2">
+                <ShieldAlert className="h-12 w-12 text-destructive" />
+                Error al cargar
+              </CardTitle>
+              <CardDescription>
+                No se pudieron cargar los datos. Verifique su conexión y permisos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => window.location.reload()} className="w-full">
+                Reintentar
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AppShell>
     );
   }
 
@@ -440,76 +444,73 @@ export default function InventarioPage() {
 
   if (!user || userProfile?.role !== 'admin') {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
-          <CardHeader>
-            <CardTitle className="flex flex-col items-center gap-2">
-              <ShieldAlert className="h-12 w-12 text-destructive" />
-              Acceso Denegado
-            </CardTitle>
-            <CardDescription>No tiene los permisos necesarios para ver esta página.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => router.push('/selection')} className="w-full">
-              <Home className="mr-2 h-4 w-4" />
-              Volver al Inicio
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AppShell>
+        <div className="flex h-full w-full items-center justify-center">
+          <Card className="w-full max-w-sm mx-4 shadow-card text-center">
+            <CardHeader>
+              <CardTitle className="flex flex-col items-center gap-2">
+                <ShieldAlert className="h-12 w-12 text-destructive" />
+                Acceso Denegado
+              </CardTitle>
+              <CardDescription>No tiene los permisos necesarios para ver esta página.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => router.push('/selection')} className="w-full">
+                <Home className="mr-2 h-4 w-4" />
+                Volver al Inicio
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="page-header">
-        <div className="page-header-inner">
-          <div className="page-header-brand">
-            <Logo />
-            <span className="page-header-title">Inventario</span>
-            {lowStockCount > 0 && (
-              <Badge variant="destructive" className="flex items-center gap-1 text-xs">
-                <AlertTriangle className="h-3 w-3" />
-                {lowStockCount} bajo stock
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-sm border-border/60"
-              onClick={() => setShowAutoOrder(true)}
-              disabled={!selectedCompanyId}
-            >
-              <Zap className="h-3.5 w-3.5 mr-1" />
-              Auto-Orden
-            </Button>
-            <Select value={selectedCompanyId} onValueChange={handleCompanyChange}>
-              <SelectTrigger className="w-44 h-8 text-sm">
-                <SelectValue placeholder="Seleccionar empresa" />
-              </SelectTrigger>
-              <SelectContent>
-                {companies?.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="ghost" size="sm" onClick={() => router.push('/selection')} className="text-muted-foreground hover:text-foreground gap-1.5">
-              <Home className="h-3.5 w-3.5" />
-              Menú
-            </Button>
-          </div>
-        </div>
-      </header>
+    <AppShell>
+      <div className="p-6 lg:p-8">
+        <PageHeader
+          title="Inventario"
+          subtitle={selectedCompany?.name}
+          action={
+            <div className="flex items-center gap-2">
+              <Select value={selectedCompanyId} onValueChange={handleCompanyChange}>
+                <SelectTrigger className="w-44 h-8 text-sm">
+                  <SelectValue placeholder="Seleccionar empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies?.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-sm"
+                onClick={() => setShowAutoOrder(true)}
+                disabled={!selectedCompanyId}
+              >
+                <Zap className="h-3.5 w-3.5 mr-1" />
+                Auto-Orden
+              </Button>
+            </div>
+          }
+        />
 
-      {/* ── Main content ─────────────────────────────────────────────────── */}
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {lowStockCount > 0 && (
+          <div className="mb-4">
+            <Badge variant="destructive" className="flex items-center gap-1 text-xs w-fit">
+              <AlertTriangle className="h-3 w-3" />
+              {lowStockCount} bajo stock
+            </Badge>
+          </div>
+        )}
+
         {!selectedCompanyId ? (
-          <Card>
+          <Card className="shadow-card">
             <CardContent className="flex items-center justify-center h-40">
               <p className="text-muted-foreground">Seleccione una empresa para ver el inventario.</p>
             </CardContent>
@@ -517,10 +518,10 @@ export default function InventarioPage() {
         ) : (
           <Tabs defaultValue="stock">
             <TabsList className="mb-6">
-              <TabsTrigger value="stock">Stock</TabsTrigger>
+              <TabsTrigger value="stock">Stock {ingredients?.length ? `(${ingredients.length})` : ''}</TabsTrigger>
               <TabsTrigger value="movimientos">Movimientos</TabsTrigger>
-              <TabsTrigger value="proveedores">Proveedores</TabsTrigger>
-              <TabsTrigger value="ordenes">Órdenes de Compra</TabsTrigger>
+              <TabsTrigger value="proveedores">Proveedores {suppliers?.length ? `(${suppliers.length})` : ''}</TabsTrigger>
+              <TabsTrigger value="ordenes">Órdenes {purchaseOrders?.length ? `(${purchaseOrders.length})` : ''}</TabsTrigger>
             </TabsList>
 
             {/* ── Tab: Stock ─────────────────────────────────────────────── */}
@@ -568,7 +569,7 @@ export default function InventarioPage() {
             </TabsContent>
           </Tabs>
         )}
-      </main>
+      </div>
 
       {/* Auto-Order Dialog */}
       <Dialog open={showAutoOrder} onOpenChange={setShowAutoOrder}>
@@ -591,7 +592,7 @@ export default function InventarioPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </AppShell>
   );
 }
 

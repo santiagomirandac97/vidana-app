@@ -18,11 +18,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ShieldAlert, Home, PlusCircle, Edit, Utensils, Trash2, Users, ChevronDown } from 'lucide-react';
-import { Logo } from '@/components/logo';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AppShell, PageHeader } from '@/components/layout';
+import { cn } from '@/lib/utils';
 
 
 // Zod schema for company form validation
@@ -46,12 +46,18 @@ const menuItemSchema = z.object({
 });
 type MenuItemFormData = z.infer<typeof menuItemSchema>;
 
+const TABS = [
+    { value: 'companies', label: 'Gestionar Empresas' },
+    { value: 'menus', label: 'Gestionar Menús' },
+    { value: 'users', label: 'Gestionar Usuarios' },
+];
+
 export default function ConfiguracionPage() {
     const { user, isLoading: userLoading } = useUser();
     const router = useRouter();
     const { firestore } = useFirebase();
 
-    const userProfileRef = useMemoFirebase(() => 
+    const userProfileRef = useMemoFirebase(() =>
         firestore && user ? doc(firestore, `users/${user.uid}`) : null
     , [firestore, user]);
     const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
@@ -66,41 +72,49 @@ export default function ConfiguracionPage() {
 
     if (isLoading) {
         return (
-            <div className="flex h-screen w-full items-center justify-center">
-                <Loader2 className="h-10 w-10 animate-spin" />
-                <p className="ml-4 text-lg">Verificando acceso de administrador...</p>
-            </div>
-        );
-    }
-    
-    if (userProfile?.role !== 'admin') {
-         return (
-            <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-                <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
-                    <CardHeader>
-                        <CardTitle className="flex flex-col items-center gap-2">
-                            <ShieldAlert className="h-12 w-12 text-destructive" />
-                            Acceso Denegado
-                        </CardTitle>
-                        <CardDescription>No tiene los permisos necesarios para ver esta página.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button onClick={() => router.push('/selection')} className="w-full">
-                            <Home className="mr-2 h-4 w-4" />
-                            Volver al Inicio
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
+            <AppShell>
+                <div className="flex h-screen w-full items-center justify-center">
+                    <Loader2 className="h-10 w-10 animate-spin" />
+                    <p className="ml-4 text-lg">Verificando acceso de administrador...</p>
+                </div>
+            </AppShell>
         );
     }
 
-    return <ConfiguracionDashboard />;
+    if (userProfile?.role !== 'admin') {
+         return (
+            <AppShell>
+                <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
+                    <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
+                        <CardHeader>
+                            <CardTitle className="flex flex-col items-center gap-2">
+                                <ShieldAlert className="h-12 w-12 text-destructive" />
+                                Acceso Denegado
+                            </CardTitle>
+                            <CardDescription>No tiene los permisos necesarios para ver esta página.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Button onClick={() => router.push('/selection')} className="w-full">
+                                <Home className="mr-2 h-4 w-4" />
+                                Volver al Inicio
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+            </AppShell>
+        );
+    }
+
+    return (
+        <AppShell>
+            <ConfiguracionDashboard />
+        </AppShell>
+    );
 }
 
 const ConfiguracionDashboard: FC = () => {
-    const router = useRouter();
     const { firestore } = useFirebase();
+    const [activeTab, setActiveTab] = useState('companies');
 
     const companiesQuery = useMemoFirebase(() =>
         firestore ? query(collection(firestore, 'companies'), orderBy('name')) : null
@@ -108,36 +122,41 @@ const ConfiguracionDashboard: FC = () => {
     const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesQuery);
 
     return (
-        <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-            <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center py-4">
-                        <Logo />
-                         <Button variant="outline" onClick={() => router.push('/selection')}>
-                            <Home className="mr-2 h-4 w-4" />
-                            Volver al menú
-                        </Button>
+        <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+            <PageHeader title="Configuración" subtitle="Empresas, menús y usuarios" />
+            <div className="flex gap-8">
+                {/* Vertical nav list */}
+                <div className="w-44 shrink-0">
+                    <nav className="space-y-1">
+                        {TABS.map(tab => (
+                            <button
+                                key={tab.value}
+                                onClick={() => setActiveTab(tab.value)}
+                                className={cn(
+                                    'w-full text-left px-3 py-2 text-sm rounded-md transition-colors border-l-2',
+                                    activeTab === tab.value
+                                        ? 'bg-primary/5 text-primary font-medium border-primary pl-[10px]'
+                                        : 'text-muted-foreground hover:bg-muted hover:text-foreground border-transparent pl-[10px]'
+                                )}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+                {/* Content area */}
+                <div className="flex-1 min-w-0">
+                    <div className={activeTab === 'companies' ? 'block' : 'hidden'}>
+                        <CompanyManagementTab companies={companies} companiesLoading={companiesLoading} />
+                    </div>
+                    <div className={activeTab === 'menus' ? 'block' : 'hidden'}>
+                        <MenuManagementTab companies={companies} companiesLoading={companiesLoading} />
+                    </div>
+                    <div className={activeTab === 'users' ? 'block' : 'hidden'}>
+                        <UserManagementTab />
                     </div>
                 </div>
-            </header>
-            <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-                 <Tabs defaultValue="companies">
-                    <TabsList className="grid w-full grid-cols-3 mb-8">
-                        <TabsTrigger value="companies">Gestionar Empresas</TabsTrigger>
-                        <TabsTrigger value="menus">Gestionar Menús</TabsTrigger>
-                        <TabsTrigger value="users">Gestionar Usuarios</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="companies">
-                        <CompanyManagementTab companies={companies} companiesLoading={companiesLoading} />
-                    </TabsContent>
-                    <TabsContent value="menus">
-                        <MenuManagementTab companies={companies} companiesLoading={companiesLoading} />
-                    </TabsContent>
-                    <TabsContent value="users">
-                        <UserManagementTab />
-                    </TabsContent>
-                </Tabs>
-            </main>
+            </div>
         </div>
     );
 };
@@ -158,7 +177,7 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
 
     const onSubmit: SubmitHandler<CompanyFormData> = async (data) => {
         if (!firestore) return;
-        
+
         const dataToSave = {
             name: data.name,
             mealPrice: data.mealPrice,
@@ -176,7 +195,7 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
                 toast({ variant: 'destructive', title: 'Error al crear la empresa', description: error.message || 'Ocurrió un error inesperado.' });
             });
     };
-    
+
     const handleUpdateCompany = async (companyId: string, data: CompanyFormData) => {
         if (!firestore) return;
         const companyDocRef = doc(firestore, 'companies', companyId);
@@ -195,7 +214,7 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
         <>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1">
-                <Card className="shadow-lg">
+                <Card className="shadow-card hover:shadow-card-hover transition-shadow">
                     <CardHeader>
                         <CardTitle>Añadir Nueva Empresa</CardTitle>
                         <CardDescription>Complete el formulario para registrar una nueva empresa.</CardDescription>
@@ -219,7 +238,7 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
                 </Card>
             </div>
             <div className="lg:col-span-2">
-                <Card className="shadow-lg">
+                <Card className="shadow-card hover:shadow-card-hover transition-shadow">
                         <CardHeader>
                         <CardTitle>Empresas Existentes</CardTitle>
                         <CardDescription>Lista de todas las empresas actualmente en el sistema.</CardDescription>
@@ -263,7 +282,7 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
     const { toast } = useToast();
     const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
 
-    const menuItemsQuery = useMemoFirebase(() => 
+    const menuItemsQuery = useMemoFirebase(() =>
         firestore && selectedCompanyId ? query(collection(firestore, `companies/${selectedCompanyId}/menuItems`), orderBy('name')) : null
     , [firestore, selectedCompanyId]);
     const { data: menuItems, isLoading: menuItemsLoading } = useCollection<MenuItem>(menuItemsQuery);
@@ -291,7 +310,7 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
                 toast({ variant: 'destructive', title: 'Error al añadir producto', description: error.message || 'Ocurrió un error inesperado. Verifique los permisos de Firestore.' });
             });
     };
-    
+
     const handleDeleteMenuItem = async (itemId: string) => {
          if (!firestore || !selectedCompanyId) return;
          const itemDocRef = doc(firestore, `companies/${selectedCompanyId}/menuItems`, itemId);
@@ -309,7 +328,7 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1">
-                <Card className="shadow-lg">
+                <Card className="shadow-card hover:shadow-card-hover transition-shadow">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Utensils className="h-5 w-5" />Añadir Producto al Menú</CardTitle>
                         <CardDescription>Seleccione una empresa y añada un nuevo producto a su menú.</CardDescription>
@@ -360,7 +379,7 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
                 </Card>
             </div>
             <div className="lg:col-span-2">
-                <Card className="shadow-lg">
+                <Card className="shadow-card hover:shadow-card-hover transition-shadow">
                     <CardHeader>
                         <CardTitle>Menú de {companies?.find(c=>c.id === selectedCompanyId)?.name || '...'}</CardTitle>
                         <CardDescription>Lista de productos disponibles para la empresa seleccionada.</CardDescription>
@@ -402,7 +421,7 @@ const UserManagementTab: FC = () => {
     const { toast } = useToast();
     const { user: currentUser } = useUser();
 
-    const usersQuery = useMemoFirebase(() => 
+    const usersQuery = useMemoFirebase(() =>
         firestore ? query(collection(firestore, 'users'), orderBy('name')) : null,
     [firestore]);
     const { data: users, isLoading: usersLoading } = useCollection<UserProfile>(usersQuery);
@@ -425,7 +444,7 @@ const UserManagementTab: FC = () => {
     };
 
     return (
-        <Card className="shadow-lg">
+        <Card className="shadow-card hover:shadow-card-hover transition-shadow">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Gestionar Usuarios</CardTitle>
                 <CardDescription>Vea y gestione los roles de los usuarios registrados en el sistema.</CardDescription>

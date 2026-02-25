@@ -1,96 +1,129 @@
-# Session Notes — feature/sophistication + Finanzas bug fixes
+# Session Notes — Vidana App
 
-**Last Updated:** 2026-02-23
+**Last Updated:** 2026-02-24
+
+---
+
+## Session: 2026-02-24 — Full UI/UX Redesign (Editorial Premium)
+
+**Branch:** `main`
+**Status:** ✅ All 18 tasks complete, pushed to GitHub. Firebase App Hosting auto-deploys.
+
+### What Was Built
+
+Complete visual redesign of the Vidana app — from a functional prototype to a professional enterprise tool with persistent sidebar navigation, Geist typography, and a refined design system. Zero changes to Firebase/data logic.
+
+#### Design System
+- **Font:** Geist Sans (body) + Geist Mono (numbers/timestamps) — replaced Inter
+- **Primary color:** `224 76% 48%` (deeper indigo-blue, was bright blue)
+- **Border radius:** `0.5rem` (8px, was 12px)
+- **Shadows:** `shadow-card` (`0 1px 3px`) + `shadow-card-hover` (`0 4px 12px`)
+- **New CSS tokens:** `--sidebar`, `--sidebar-foreground`, `--sidebar-border`, `--success`, `--warning`
+- **Removed:** all old `@layer components` utility classes (`.page-header`, `.nav-tile`, `.kpi-card-*`, `.status-pill-*`, `.section-label`)
+
+#### New Shared Components
+- `src/components/layout/app-shell.tsx` — main layout wrapper with hydration-safe `mounted` guard
+- `src/components/layout/sidebar.tsx` — persistent 240px sidebar, collapses to 64px icon-only
+- `src/components/layout/sidebar-nav.tsx` — role-based nav with 3 groups (Operaciones, Gestión, Finanzas), tooltips when collapsed
+- `src/components/layout/page-header.tsx` — title/subtitle/action slot, used on every page
+- `src/components/layout/mobile-top-bar.tsx` — hamburger bar for mobile
+- `src/components/layout/index.ts` — barrel export
+- `src/components/ui/kpi-card.tsx` — metric cards with left-border color variants + skeleton loading
+- `src/components/ui/status-badge.tsx` — status chips (pendiente/enviado/pagado etc), full dark mode support
+- `src/components/ui/section-label.tsx` — small-caps section headings
+
+#### Pages Migrated (All 13 routes)
+- `/admin` — AppShell + PageHeader + KpiCard summary + per-company grid
+- `/costos` — AppShell + PageHeader + KpiCard (6 KPIs)
+- `/facturacion` — AppShell + PageHeader + KpiCard + StatusBadge on company cards
+- `/main` (Registros) — AppShell + PageHeader; zero logic changes; visual upgrades only (larger input, table hover states, font-mono numbers)
+- `/inventario` — AppShell + PageHeader + tab counts (Stock N, Proveedores N, Órdenes N)
+- `/recetas` — AppShell + PageHeader; weekly menu chips restyled with `bg-primary/5`
+- `/configuracion` — AppShell + PageHeader + vertical settings panel (macOS-style, replaces horizontal tabs)
+- `/kiosk`, `/pos-inditex`, `/command` — AppShell + PageHeader; pure visual upgrade
+- `/selection` → **Home Dashboard** — Live KPI cards (meals today/month, active companies) + compact quick-access grid
+- `/login`, `/signup` → **Split-panel layout** — deep blue brand panel (desktop left) + form (right)
+
+### Key Technical Decisions
+
+**AppShell hydration guard:** Uses `mounted` state + `useEffect` to read `localStorage` after client mount — avoids SSR/client mismatch on sidebar collapse state.
+
+**Sidebar localStorage key:** `vidana_sidebar_collapsed`
+
+**Role-based nav:** `isAdmin` from `userProfile.role === 'admin'` via Firestore `useDoc` hook. Finanzas group (`/admin`, `/costos`, `/facturacion`) and Configuración item are hidden for non-admins.
+
+**StatusBadge dark mode:** Added `dark:bg-*/dark:text-*/dark:border-*` counterparts to all 8 variants after code review caught light-mode-only classes.
+
+### Commits (18 tasks → 20 commits)
+```
+f726bfe fix: replace section-label class with component, add dark mode to StatusBadge
+3f6ff49 chore: remove obsolete page-header, nav-tile, kpi-card, status-pill CSS classes
+5ef40a5 feat: redesign auth pages with split-panel brand layout
+aec972c feat: transform /selection into live Home Dashboard with KPIs and quick access
+8a21555 feat: migrate kiosk, POS, and command pages to AppShell
+272bdad feat: migrate /configuracion to AppShell with vertical settings panel
+729e5f4 feat: migrate /recetas to AppShell
+57f8bc0 feat: migrate /inventario to AppShell with tab counts
+12afb1f feat: migrate /main (Registros) to AppShell — visual upgrade, zero logic changes
+c19df60 feat: migrate /facturacion to AppShell with StatusBadge and KpiCard
+0c7d7ed feat: migrate /costos to AppShell with KpiCard components
+41ebf01 feat: migrate /admin to AppShell with sidebar and KpiCard components
+087f207 feat: add KpiCard, StatusBadge, and SectionLabel shared components
+7f4ca58 feat: add PageHeader layout component
+0006dd8 feat: add AppShell with collapsible sidebar and mobile sheet
+22db110 feat: add Sidebar and SidebarNav components
+96dcee7 feat: update design system — refined color palette, sidebar tokens, 8px radius
+c11bd43 feat: replace Inter with Geist Sans + Geist Mono fonts
+6085208 docs: add full UI/UX redesign implementation plan (18 tasks)
+2a0f9f1 docs: add full UI/UX redesign design document
+```
+
+---
+
+## Session: 2026-02-24 (earlier) — Admin Dashboard Fix
+
+### Admin page rewrite (`src/app/admin/page.tsx`)
+Simplified the admin dashboard to focus on what the business actually needs: **meals served + revenue**, per company and as a consolidated total.
+
+**Key changes:**
+- Removed `consumptionsLoading` from `statsByCompany` gate — page no longer blocks for 8 seconds if consumptions query is slow
+- Added inline skeleton (`animate-pulse`) placeholders that show while consumptions stream in
+- Layout: summary KPI cards (total all companies) + grid of per-company cards
+- Both metrics: comidas servidas + ingresos del mes
+- Revenue calculation preserved: `dailyTarget > 0` → charges `max(actual, target) * mealPrice` on Mon–Thu; otherwise `actual * mealPrice`
+
+---
+
+## Session: 2026-02-23 — Features + Finanzas Fixes
+
 **Branch:** `main`
 **Status:** ✅ All changes merged to main, pushed to GitHub
 
----
+### What Was Built
 
-## What Was Built
-
-### 1. Company Type Extensions (`src/lib/types.ts`)
-Added new fields to the `Company` type:
-- `minStock`, `restockThresholdDays` — predictive restocking config
-- `enableAiMenuPlanning` — feature flag for AI menu planning
-- `mealPrice`, `billingEmail` — billing/invoicing support
-- `billingStatus` — per-month payment tracking (`pendiente` | `enviado` | `pagado`)
-
-### 2. Predictive Restocking (`src/app/inventario/page.tsx`)
-- **Days-until-stockout badges** on each ingredient card (green/amber/red based on urgency)
-- **Auto-Orden dialog** — generates a draft Purchase Order for all below-threshold ingredients
-- Quantity clamped to `Math.max(1, ...)` to prevent zero/negative POs
-- Error handling with try/finally so the saving spinner always resets
-
-### 3. AI Weekly Menu Planning (Genkit + Gemini 2.5 Flash)
-- **Flow:** `src/ai/flows/plan-weekly-menu.ts` — structured output schema, avoids repeating recent items, sorts by cost, fallback for all-recent catalogues
-- **API route:** `src/app/api/ai/plan-menu/route.ts` — Firebase Admin auth via Bearer token, all imports dynamic to avoid Next.js static build errors
-- **UI button:** "Planificar con IA" in the weekly menu tab of `/recetas`
-
-### 4. Billing & Invoicing System
-- **PDF generator:** `src/lib/billing-generators.ts` using jsPDF v4 + jspdf-autotable
-- **Excel generator:** same file, using SheetJS (xlsx)
-- **Firebase Cloud Function:** `functions/src/index.ts` — `sendInvoiceEmail` via Resend SDK, admin-only, updates `billingStatus` in Firestore
-- **`/facturacion` page:** month selector, KPI cards, per-company cards with PDF/Excel/Email actions, status dropdown
-
-### 5. UX Sophistication Pass
-- **`globals.css`** — `@layer components` with shared utility classes:
-  - `.page-header` — `bg-white/90 backdrop-blur-md` sticky header (consistent across all pages)
-  - `.kpi-card` + `.kpi-card-blue/green/amber/red` — accent bar left-border cards
-  - `.status-pill` + `.status-pill-pendiente/enviado/pagado` — color-coded ring badges
-  - `.nav-tile` + `.nav-tile-icon` — selection page tiles with hover animations
-  - `.section-label` — small-caps section headings
-- **`/selection` page** — Redesigned with greeting, 3 grouped sections (Operaciones, Gestión, Finanzas), ghost nav buttons
-- **All pages** migrated to `.page-header` class: `/facturacion`, `/admin`, `/costos`, `/recetas`, `/inventario`, `/main`
-
-### 6. Finanzas Dashboard Fixes
-Fixed broken sales data display across all three Finanzas dashboards (`/admin`, `/costos`):
-
-**Admin page — company cards not rendering:**
-- `statsByCompany` was gated on `pageIsLoading` which includes `consumptionsLoading`
-- While the collectionGroup query was in-flight, the card grid returned `[]` and rendered empty
-- Fix: guard only on `companiesLoading`; treat `allConsumptions ?? []` so cards appear immediately and populate as data arrives
-
-**Costos page — food cost / waste / labor showed $0 per company:**
-- `StockMovement` and `PurchaseOrder` documents were written without a `companyId` field
-- The collectionGroup filter `po.companyId === filterCompanyId` always evaluated `undefined === id` → all filtered out
-- Fix: added `companyId?: string` to both interfaces in `types.ts` and persisted it in all 4 write locations in `inventario/page.tsx`
-- Removed unsafe `(po as PurchaseOrder & { companyId?: string })` type casts — field is now properly typed
-
-> **Note on existing data:** Documents already in Firestore won't have `companyId`. New operations going forward will. Old data still appears under "Todas las cocinas" but not per-company filter — resolves naturally over time.
+1. **Predictive Restocking** (`src/app/inventario/page.tsx`) — days-until-stockout badges, Auto-Orden dialog
+2. **AI Weekly Menu Planning** (Genkit + Gemini 2.5 Flash) — `src/ai/flows/plan-weekly-menu.ts`, API route, UI button in /recetas
+3. **Billing & Invoicing** — PDF (jsPDF v4), Excel (SheetJS), Firebase Cloud Function (Resend email), `/facturacion` page
+4. **UX Sophistication Pass** — unified `.page-header`, `.kpi-card-*`, `.status-pill-*` CSS utility classes (now replaced by components in 2026-02-24 redesign)
+5. **Finanzas Dashboard Fixes:**
+   - Admin: removed `consumptionsLoading` gate from `statsByCompany`
+   - Costos: added `companyId` field to `StockMovement` and `PurchaseOrder` types + all 4 write locations
 
 ---
 
-## Bug Fixes Applied
-
-| # | File | Issue | Fix |
-|---|------|-------|-----|
-| 1 | `inventario/page.tsx` | `saving` state stuck `true` on error | Wrapped in `try/finally` |
-| 2 | `inventario/page.tsx` | PO quantity could be 0 or negative | `Math.max(1, ...)` clamp |
-| 3 | `api/ai/plan-menu/route.ts` | Unauthenticated endpoint | Firebase Admin token verification |
-| 4 | `recetas/page.tsx` | No auth token sent to AI route | `getIdToken()` → `Authorization: Bearer` |
-| 5 | `facturacion/page.tsx` | Month boundaries used local time | `toZonedTime(America/Mexico_City)` |
-| 6 | `facturacion/page.tsx` | `handleStatusChange` no error handling | `try/catch` + toast |
-| 7 | `ai/flows/plan-weekly-menu.ts` | All-recent scenario throws | Fallback ignores recency |
-| 8 | `functions/src/index.ts` | Resend missing `content_type` | Added `content_type: 'application/pdf'` |
-| 9 | `admin/page.tsx` | Company cards blank while consumptions load | Removed `consumptionsLoading` from `statsByCompany` guard |
-| 10 | `types.ts` + `inventario/page.tsx` | `companyId` missing from PO/StockMovement docs | Added field to types and all 4 write locations |
-| 11 | `costos/page.tsx` | Unsafe type casts for `companyId` filtering | Removed casts — field is now properly typed |
+## Pre-existing Issues (not our scope)
+- `functions/src/index.ts` — TypeScript errors (node_modules not installed locally)
+- `src/lib/billing-generators.ts` — jspdf/xlsx types missing
 
 ---
 
 ## Key Technical Notes
 
 ### Next.js + Genkit/Firebase-Admin Build Pattern
-All imports of `firebase-admin/*` and `@/ai/flows/*` inside API routes **must** be dynamic `await import()` — never top-level. Add `export const dynamic = 'force-dynamic'` to the route. Top-level native module imports cause `TypeError: Cannot read properties of undefined (reading 'prototype')` during Next.js static page collection.
-
-### `@apply` Limitations in Tailwind CSS
-- `@apply group` is invalid — `group` is a variant modifier, not a utility
-- `@apply group-hover:*` is invalid — use plain CSS `&:hover .child { }` selectors instead
-- Complex `shadow-[...]` with spaces can fail in `@apply` — use raw `box-shadow:` CSS instead
-- `bg-primary/8` may not resolve in `@apply` — use `background-color: hsl(... / 0.08)` directly
+All imports of `firebase-admin/*` and `@/ai/flows/*` inside API routes **must** be dynamic `await import()` — never top-level. Add `export const dynamic = 'force-dynamic'` to the route.
 
 ### collectionGroup Queries + companyId
-For any subcollection document (under `companies/{id}/...`) queried via `collectionGroup`, the document **must include a `companyId` field** at the document level to support cross-collection filtering. The Firestore path alone is not filterable via `where()`.
+For any subcollection document queried via `collectionGroup`, the document **must include a `companyId` field** at the document level to support cross-collection filtering. The Firestore path alone is not filterable via `where()`.
 
 ### jsPDF v4
 Uses named export: `import { jsPDF } from 'jspdf'` (NOT default export)
@@ -98,38 +131,13 @@ Uses named export: `import { jsPDF } from 'jspdf'` (NOT default export)
 ### Firebase Functions
 - Deploy: `firebase deploy --only functions` from project root
 - Secrets: `firebase functions:secrets:set RESEND_API_KEY`
-- Emulator: `firebase emulators:start --only functions`
 
 ---
 
-## Commits
+## Pending / Next Steps
 
-```
-6e8ffe0 fix: repair Finanzas dashboards — company cards and sales data now load correctly
-cd5017b feat: merge feature/sophistication — AI planning, billing, UX polish
-286a78a docs: add session notes for feature/sophistication
-02d253b feat: UX sophistication pass — unified header system and refined visual hierarchy
-d5aabb0 fix: address code review bugs — auth, error handling, timezone, and quantity clamp
-bf7e08d fix: use dynamic import in AI plan-menu route to avoid Next.js static build error
-fad012e feat: add Facturación tile to selection menu
-5cd8cce feat: add billing and invoicing page (/facturacion)
-d32e6fa chore: exclude functions/node_modules and functions/lib from git
-e242df1 feat: add Firebase Cloud Function for invoice email sending via Resend
-2ca7311 feat: add PDF and Excel billing generator utilities (jspdf, xlsx)
-d9bd9b2 deps: add jspdf, jspdf-autotable, and xlsx for client-side document generation
-0712baa feat: add AI meal planning button to weekly menu tab
-5e84521 feat: add Next.js API route for AI menu planning
-25804ad feat: add Genkit flow for AI weekly menu planning (Gemini 2.5 Flash)
-a263e1d feat: add predictive restocking — days-until-stockout badges and auto-order dialog
-2caf7a8 feat: extend Company type and config form for restocking, AI, and billing fields
-```
-
----
-
-## Next Steps / Deployment
-
-1. **Set Resend secret:** `firebase functions:secrets:set RESEND_API_KEY`
-2. **Deploy functions:** `firebase deploy --only functions`
-3. **Deploy app:** `firebase deploy` (App Hosting picks up from GitHub push)
-4. **Firestore index:** may need composite index for `collectionGroup('consumptions')` query with `timestamp` range — check Firebase Console for index prompts
-5. **Backfill companyId:** existing `stockMovements` and `purchaseOrders` documents in Firestore lack `companyId` — new writes will include it automatically; old data will not filter by company until backfilled
+1. **Set Resend secret** (if not done): `firebase functions:secrets:set RESEND_API_KEY`
+2. **Deploy functions**: `firebase deploy --only functions`
+3. **Backfill companyId**: existing `stockMovements` and `purchaseOrders` documents in Firestore lack `companyId` — new writes include it; old data won't filter by company until backfilled
+4. **Firestore indexes**: may need composite index for `collectionGroup('consumptions')` with `timestamp` range — check Firebase Console
+5. **Dead code cleanup** (optional): `main/page.tsx` has orphaned `LogOut` icon import, `type User` import, and `handleSignOut` function from old header — can be removed in a cleanup commit

@@ -7,7 +7,7 @@ import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, doc, orderBy, updateDoc } from 'firebase/firestore';
+import { collection, query, doc, orderBy, updateDoc, deleteField } from 'firebase/firestore';
 import { type Company, type UserProfile, type MenuItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -426,6 +426,11 @@ const UserManagementTab: FC = () => {
     [firestore]);
     const { data: users, isLoading: usersLoading } = useCollection<UserProfile>(usersQuery);
 
+    const companiesQuery = useMemoFirebase(() =>
+        firestore ? query(collection(firestore, 'companies'), orderBy('name')) : null,
+    [firestore]);
+    const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesQuery);
+
     const handleRoleChange = (user: UserProfile, newRole: 'admin' | 'user') => {
         if (!firestore) return;
         if (user.uid === currentUser?.uid) {
@@ -443,14 +448,45 @@ const UserManagementTab: FC = () => {
             });
     };
 
+    const handleCompanyChange = (user: UserProfile, newCompanyId: string | null) => {
+        if (!firestore) return;
+        if (user.uid === currentUser?.uid) {
+            toast({ variant: 'destructive', title: 'Error', description: 'No puede cambiar su propia empresa asignada.' });
+            return;
+        }
+
+        const userDocRef = doc(firestore, 'users', user.uid);
+        const updatePayload = newCompanyId
+            ? { companyId: newCompanyId }
+            : { companyId: deleteField() };
+
+        updateDoc(userDocRef, updatePayload)
+            .then(() => {
+                const companyName = newCompanyId
+                    ? companies?.find(c => c.id === newCompanyId)?.name ?? newCompanyId
+                    : null;
+                toast({
+                    title: 'Empresa Actualizada',
+                    description: companyName
+                        ? `${user.name} fue asignado a ${companyName}.`
+                        : `${user.name} ya no tiene empresa asignada.`,
+                });
+            })
+            .catch((error: unknown) => {
+                toast({ variant: 'destructive', title: 'Error al actualizar empresa', description: error instanceof Error ? error.message : 'Error desconocido' });
+            });
+    };
+
+    const isLoading = usersLoading || companiesLoading;
+
     return (
         <Card className="shadow-card hover:shadow-card-hover transition-shadow">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Gestionar Usuarios</CardTitle>
-                <CardDescription>Vea y gestione los roles de los usuarios registrados en el sistema.</CardDescription>
+                <CardDescription>Vea y gestione los roles y empresas de los usuarios registrados en el sistema.</CardDescription>
             </CardHeader>
             <CardContent>
-                {usersLoading ? (
+                {isLoading ? (
                     <div className="flex h-64 w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
                 ) : (
                     <Table>
@@ -458,39 +494,81 @@ const UserManagementTab: FC = () => {
                             <TableRow>
                                 <TableHead>Nombre</TableHead>
                                 <TableHead>Email</TableHead>
+                                <TableHead>Empresa Asignada</TableHead>
                                 <TableHead className="text-center">Rol Actual</TableHead>
-                                <TableHead className="text-right">Cambiar Rol</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {users?.map(user => (
-                                <TableRow key={user.uid}>
-                                    <TableCell className="font-medium">{user.name}</TableCell>
-                                    <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                                    <TableCell className="text-center">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                                            {user.role}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" disabled={user.uid === currentUser?.uid}>
-                                                    Cambiar <ChevronDown className="ml-2 h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onSelect={() => handleRoleChange(user, 'admin')} disabled={user.role === 'admin'}>
-                                                    Hacer Administrador
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onSelect={() => handleRoleChange(user, 'user')} disabled={user.role === 'user'}>
-                                                    Hacer Usuario
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
+                            {users?.map(user => {
+                                const assignedCompany = companies?.find(c => c.id === user.companyId);
+                                const isSelf = user.uid === currentUser?.uid;
+                                return (
+                                    <TableRow key={user.uid}>
+                                        <TableCell className="font-medium">{user.name}</TableCell>
+                                        <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                                        <TableCell>
+                                            {assignedCompany ? (
+                                                <span className="text-sm">{assignedCompany.name}</span>
+                                            ) : (
+                                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
+                                                    Sin empresa
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                {user.role}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {/* Company assignment dropdown */}
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="outline" size="sm" disabled={isSelf}>
+                                                            Empresa <ChevronDown className="ml-1 h-3 w-3" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem
+                                                            onSelect={() => handleCompanyChange(user, null)}
+                                                            disabled={!user.companyId}
+                                                        >
+                                                            Sin empresa
+                                                        </DropdownMenuItem>
+                                                        {companies?.map(company => (
+                                                            <DropdownMenuItem
+                                                                key={company.id}
+                                                                onSelect={() => handleCompanyChange(user, company.id)}
+                                                                disabled={user.companyId === company.id}
+                                                            >
+                                                                {company.name}
+                                                            </DropdownMenuItem>
+                                                        ))}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                                {/* Role change dropdown */}
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="outline" size="sm" disabled={isSelf}>
+                                                            Rol <ChevronDown className="ml-1 h-3 w-3" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onSelect={() => handleRoleChange(user, 'admin')} disabled={user.role === 'admin'}>
+                                                            Hacer Administrador
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onSelect={() => handleRoleChange(user, 'user')} disabled={user.role === 'user'}>
+                                                            Hacer Usuario
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
                         </TableBody>
                     </Table>
                 )}

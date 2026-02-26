@@ -101,13 +101,14 @@ export default function CostosPage() {
   // ── KPI Calculations ──────────────────────────────────────────────────────
 
   const kpis = useMemo(() => {
+    const companyMap = new Map((companies ?? []).map(co => [co.id!, co]));
     const filteredConsumptions = (allConsumptions || []).filter(c =>
       !c.voided && c.employeeId !== 'anonymous' &&
       (filterCompanyId === 'all' || c.companyId === filterCompanyId)
     );
 
     const revenue = filteredConsumptions.reduce((sum, c) => {
-      const company = companies?.find(co => co.id === c.companyId);
+      const company = companyMap.get(c.companyId);
       return sum + (company?.mealPrice || 0);
     }, 0);
 
@@ -270,7 +271,7 @@ export default function CostosPage() {
                   <p className="text-sm text-muted-foreground mt-1">Costo total / comida</p>
                 </div>
                 <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <p className="text-3xl font-bold">{kpis.mealsServed.toLocaleString()}</p>
+                  <p className="text-3xl font-bold font-mono">{kpis.mealsServed.toLocaleString()}</p>
                   <p className="text-sm text-muted-foreground mt-1">Comidas servidas</p>
                 </div>
               </div>
@@ -285,14 +286,14 @@ export default function CostosPage() {
             <Card key={company.id} className={`shadow-card hover:shadow-card-hover transition-shadow${margin < 0 ? ' border-red-200 dark:border-red-800' : ''}`}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">{company.name}</CardTitle>
-                <CardDescription>{meals} comidas · {fmt(costPerMeal)}/comida</CardDescription>
+                <CardDescription>{meals} comidas · <span className="font-mono">{fmt(costPerMeal)}</span>/comida</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Ingresos</span><span className="font-semibold text-green-600">{fmt(rev)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Alimentos</span><span>{fmt(food)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Labor</span><span>{fmt(labor)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Merma</span><span className="text-red-600">{fmt(waste)}</span></div>
-                <div className="flex justify-between border-t pt-2"><span className="font-semibold">Margen</span><span className={`font-bold ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(margin)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Ingresos</span><span className="font-semibold font-mono text-green-600">{fmt(rev)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Alimentos</span><span className="font-mono">{fmt(food)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Labor</span><span className="font-mono">{fmt(labor)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Merma</span><span className="font-mono text-red-600">{fmt(waste)}</span></div>
+                <div className="flex justify-between border-t pt-2"><span className="font-semibold">Margen</span><span className={`font-bold font-mono ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(margin)}</span></div>
               </CardContent>
             </Card>
           ))}
@@ -323,9 +324,9 @@ export default function CostosPage() {
                       <tr key={m.id} className="border-b last:border-0">
                         <td className="py-2 text-muted-foreground">{formatInTimeZone(new Date(m.timestamp), timeZone, 'dd/MM/yyyy')}</td>
                         <td className="py-2 font-medium">{m.ingredientName}</td>
-                        <td className="py-2 text-right">{m.quantity}</td>
-                        <td className="py-2 text-right">${m.unitCost.toFixed(2)}</td>
-                        <td className="py-2 text-right text-red-600">${(m.quantity * m.unitCost).toFixed(2)}</td>
+                        <td className="py-2 text-right font-mono">{m.quantity}</td>
+                        <td className="py-2 text-right font-mono">${m.unitCost.toFixed(2)}</td>
+                        <td className="py-2 text-right font-mono text-red-600">${(m.quantity * m.unitCost).toFixed(2)}</td>
                         <td className="py-2 text-muted-foreground">{m.reason || '—'}</td>
                       </tr>
                     ))}

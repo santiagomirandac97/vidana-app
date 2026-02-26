@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AppShell, PageHeader } from '@/components/layout';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { cn } from '@/lib/utils';
 
 
@@ -511,9 +512,7 @@ const UserManagementTab: FC = () => {
                                             {assignedCompany ? (
                                                 <span className="text-sm">{assignedCompany.name}</span>
                                             ) : (
-                                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
-                                                    Sin empresa
-                                                </span>
+                                                <StatusBadge variant="warning" label="Sin empresa" />
                                             )}
                                         </TableCell>
                                         <TableCell className="text-center">

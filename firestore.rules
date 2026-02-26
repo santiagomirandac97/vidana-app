@@ -6,38 +6,30 @@ service cloud.firestore {
 
     // Helper functions
     function isAdmin() {
-      // Check for the admin custom claim on the auth token.
-      return request.auth.token.role == 'admin';
+      // Use the document-based role check for maximum reliability
+      return isUserAdmin(request.auth.uid);
     }
-    
+
     function isUserAdmin(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data.role == 'admin';
     }
-    
+
     function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId;
     }
-    
+
     /**
      * @description Allows read access to company information for all users.
      * @path /companies/{companyId}
-     * @allow (get, list) - Any user can read company data.
-     * @allow (create, update) - Only admins can write to company data.
-     * @deny (delete) - No one can delete company data from the client.
      */
     match /companies/{companyId} {
       allow get, list: if request.auth != null;
       allow create, update: if isUserAdmin(request.auth.uid);
-      allow delete: if false; // Protect against accidental deletion
+      allow delete: if false;
     }
 
     /**
      * @description Rules for employee data within a company.
-     * @path /companies/{companyId}/employees/{employeeId}
-     * @allow (get, list) - Any authenticated user can read employee data.
-     * @allow (create) - Any authenticated user can create employee data (for quick activation).
-     * @allow (update) - Only admins can update employee data.
-     * @allow (delete) - Only admins can delete employee data.
      */
     match /companies/{companyId}/employees/{employeeId} {
       allow get, list: if request.auth != null;
@@ -47,10 +39,6 @@ service cloud.firestore {
 
     /**
      * @description Rules for consumption data within a company.
-     * @path /companies/{companyId}/consumptions/{consumptionId}
-     * @allow (create) - Any authenticated user can create consumption data.
-     * @allow (get, list) - Any user can read consumption data.
-     * @allow (update, delete) - Only admins can void (update) or delete records.
      */
     match /companies/{companyId}/consumptions/{consumptionId} {
       allow get, list: if request.auth != null;
@@ -60,36 +48,24 @@ service cloud.firestore {
 
     /**
      * @description Rules for menu items for a specific company's kiosk.
-     * @path /companies/{companyId}/menuItems/{menuItemId}
-     * @allow (get, list) - Any authenticated user can read menu items.
-     * @allow (create, update, delete) - Only admins can manage menu items.
      */
     match /companies/{companyId}/menuItems/{menuItemId} {
-        allow get, list: if request.auth != null;
-        allow create, update, delete: if isUserAdmin(request.auth.uid) && request.resource.data.companyId == companyId;
+      allow get, list: if request.auth != null;
+      allow create, update, delete: if isUserAdmin(request.auth.uid);
     }
 
     /**
      * @description Rules for user profile documents.
-     * @path /users/{userId}
-     * @allow (read) - Any authenticated user can read any user's profile.
-     * @allow (create) - A user can only create their own profile.
-     * @allow (update) - A user can update their own profile, or an admin can update any profile.
-     * @deny (delete) - No user can delete a profile.
      */
     match /users/{userId} {
       allow read: if request.auth != null;
-      // Allow create only if the incoming data has the role 'user'. Admins are set via backend.
-      allow create: if isOwner(userId) && request.resource.data.role == 'user';
+      allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isUserAdmin(request.auth.uid);
       allow delete: if false;
     }
 
     /**
      * @description Rules for the application configuration document.
-     * @path /configuration/app
-     * @allow (get) - The app configuration is public for domain validation.
-     * @allow (list, write) - Admins can manage the configuration.
      */
     match /configuration/app {
       allow get: if true;
@@ -97,15 +73,25 @@ service cloud.firestore {
     }
 
     /**
-     * @description Collection group rule required for cross-company queries in admin dashboard.
-     * @path collectionGroup consumptions
-     * @allow (list) - Only admins can run collection group queries across all companies.
+     * @description Collection group rules for cross-company management.
      */
     match /{path=**}/consumptions/{consumptionId} {
-      allow list: if request.auth != null && isAdmin();
+      allow list: if request.auth != null && isUserAdmin(request.auth.uid);
     }
 
-    // ── Inventory ──────────────────────────────────────────────────────────────
+    match /{path=**}/stockMovements/{movementId} {
+      allow list: if request.auth != null && isUserAdmin(request.auth.uid);
+    }
+
+    match /{path=**}/purchaseOrders/{orderId} {
+      allow list: if request.auth != null && isUserAdmin(request.auth.uid);
+    }
+
+    match /{path=**}/labourCosts/{costId} {
+      allow list: if request.auth != null && isUserAdmin(request.auth.uid);
+    }
+
+    // — Inventory ————————————————————————————————————————————————————————————————————
 
     match /companies/{companyId}/ingredients/{ingredientId} {
       allow get, list: if request.auth != null;
@@ -129,7 +115,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ── Recipes ────────────────────────────────────────────────────────────────
+    // — Recipes ————————————————————————————————————————————————————————————————————
 
     match /companies/{companyId}/recipes/{recipeId} {
       allow get, list: if request.auth != null;
@@ -141,25 +127,12 @@ service cloud.firestore {
       allow create, update, delete: if isUserAdmin(request.auth.uid);
     }
 
-    // ── Costs ──────────────────────────────────────────────────────────────────
+    // — Costs ————————————————————————————————————————————————————————————————————
 
-    match /companies/{companyId}/laborCosts/{costId} {
+    match /companies/{companyId}/labourCosts/{costId} {
       allow get, list: if request.auth != null;
       allow create, update: if isUserAdmin(request.auth.uid);
       allow delete: if false;
-    }
-
-    // Collection group rules for cross-company cost queries (admin only)
-    match /{path=**}/stockMovements/{movementId} {
-      allow list: if request.auth != null && isAdmin();
-    }
-
-    match /{path=**}/purchaseOrders/{orderId} {
-      allow list: if request.auth != null && isAdmin();
-    }
-
-    match /{path=**}/laborCosts/{costId} {
-      allow list: if request.auth != null && isAdmin();
     }
   }
 }

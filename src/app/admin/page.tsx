@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect, type FC, type ReactNode } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, doc, where, collectionGroup } from 'firebase/firestore';
@@ -51,8 +51,9 @@ export default function AdminDashboardPage() {
     if (companiesLoading || !companies) return [];
     const consumptions = allConsumptions ?? [];
     return companies.map(company => {
+      // Include all non-voided consumptions (including anonymous/POS sales)
       const cc = consumptions.filter(
-        c => c.companyId === company.id && !c.voided && c.employeeId !== 'anonymous'
+        c => c.companyId === company.id && !c.voided
       );
       const mealPrice = company.mealPrice ?? 0;
       const dailyTarget = company.dailyTarget ?? 0;
@@ -67,14 +68,21 @@ export default function AdminDashboardPage() {
         revenue = days.reduce((total, date) => {
           const dayStr = format(date, 'yyyy-MM-dd');
           const dow = getDay(date);
-          const isChargeable = dow >= 1 && dow <= 4;
+          const isChargeable = dow >= 1 && dow <= 4; // Mon - Thu
           const count = countByDay[dayStr] || 0;
           return total + (isChargeable ? Math.max(count, dailyTarget) : count) * mealPrice;
         }, 0);
       } else {
         revenue = cc.length * mealPrice;
       }
-      return { id: company.id, name: company.name, mealPrice, dailyTarget, mealsServed: cc.length, revenue };
+      return {
+        id: company.id,
+        name: company.name,
+        mealPrice,
+        dailyTarget,
+        mealsServed: cc.length,
+        revenue,
+      };
     });
   }, [companies, allConsumptions, companiesLoading, now]);
 
@@ -125,14 +133,14 @@ export default function AdminDashboardPage() {
         {/* Summary KPIs */}
         <div className="grid grid-cols-2 gap-4 mb-8">
           <KpiCard
-            label="Comidas servidas"
+            label="Comidas servidas (Total)"
             value={totals.mealsServed.toLocaleString()}
             icon={<Utensils size={14} />}
             loading={consumptionsLoading}
             variant="default"
           />
           <KpiCard
-            label="Ingresos del mes"
+            label="Ingresos del mes (Total)"
             value={fmtMoney(totals.revenue)}
             icon={<DollarSign size={14} />}
             loading={consumptionsLoading}
@@ -142,7 +150,7 @@ export default function AdminDashboardPage() {
 
         {/* Per-company grid */}
         <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-          Por empresa
+          Por cocina
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {statsByCompany.map(company => (

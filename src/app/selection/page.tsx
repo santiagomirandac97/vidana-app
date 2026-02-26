@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, collectionGroup, query, where } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
 import {
   Loader2, Settings, ClipboardList, AreaChart, Tablet,
   ChefHat, ShoppingCart, Package, BookOpen, TrendingDown, Receipt,
@@ -32,7 +31,6 @@ const NAV_ITEMS = [
 ];
 
 export default function SelectionPage() {
-  const auth = useAuth();
   const router = useRouter();
   const { user, isLoading } = useUser();
   const { firestore } = useFirebase();
@@ -42,15 +40,6 @@ export default function SelectionPage() {
       router.replace('/login');
     }
   }, [user, isLoading, router]);
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleSignOut = async () => {
-    if (auth) {
-      await signOut(auth);
-      localStorage.removeItem('selectedCompanyId');
-      router.push('/login');
-    }
-  };
 
   const now = useMemo(() => toZonedTime(new Date(), TZ), []);
   const monthStart = useMemo(() => startOfMonth(now).toISOString(), [now]);
@@ -94,8 +83,8 @@ export default function SelectionPage() {
     <AppShell>
       <div className="p-6 lg:p-8 max-w-5xl mx-auto">
         <PageHeader
-          title="Inicio"
-          subtitle={`Bienvenido${firstName ? `, ${firstName}` : ''}`}
+          title={`Hola, ${firstName}`}
+          subtitle="Bienvenido al panel de control de Vidana"
         />
 
         {/* Live KPI row */}

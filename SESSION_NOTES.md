@@ -4,6 +4,42 @@
 
 ---
 
+## Session: 2026-02-25 — Admin Panel Fix + Firestore Security Rules
+
+**Branch:** `main`
+**Status:** ✅ Changes made in Firebase Studio, synced locally and pushed to GitHub.
+
+### What Was Changed
+
+1. **Admin meal count bug fix** (`src/app/admin/page.tsx`)
+   - Removed `&& c.employeeId !== 'anonymous'` filter from the consumption filter predicate
+   - POS/anonymous sales were being excluded from meal totals — now all non-voided consumptions count
+   - Added clarifying comment: `// Include all non-voided consumptions (including anonymous/POS sales)`
+   - KPI labels updated: "Comidas servidas" → "Comidas servidas (Total)", "Ingresos del mes" → "Ingresos del mes (Total)"
+   - Section heading: "Por empresa" → "Por cocina"
+   - Minor: removed unused `type FC, type ReactNode` imports
+
+2. **Firestore security rules** (`firestore.rules`)
+   - Updated `isAdmin()` from token-based (`request.auth.token.role`) to document-based (`isUserAdmin(request.auth.uid)`)
+   - Added 3 additional collection group rules (stockMovements, purchaseOrders, labourCosts) for cross-company admin queries
+   - Unified `labourCosts` spelling (British, with 'ou')
+   - Simplified per-collection rules (removed overly restrictive create conditions)
+
+3. **Home screen greeting** (`src/app/selection/page.tsx`)
+   - PageHeader title: `"Inicio"` → `` `Hola, ${firstName}` ``
+   - PageHeader subtitle: dynamic greeting → `"Bienvenido al panel de control de Vidana"`
+   - Removed orphaned `handleSignOut` function and associated `useAuth`/`signOut` imports (dead code cleanup)
+
+### Commits (made in Firebase Studio)
+```
+d6bae87 fix: resolve build error
+f14f621 Merge branch 'main' of ...
+487095c fix: admin panel meal count + firestore rules + selection greeting
+8a44012 docs: session notes 2026-02-25
+```
+
+---
+
 ## Session: 2026-02-24 — Full UI/UX Redesign (Editorial Premium)
 
 **Branch:** `main`

@@ -434,7 +434,7 @@ function RecetasTab({ menuItems, ingredients, recipesMap, companyId, firestore, 
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground">{item.category}</p>
-                  <p className="text-sm font-medium">
+                  <p className="text-sm font-medium font-mono">
                     ${item.price.toFixed(2)} MXN
                   </p>
                 </CardHeader>
@@ -443,7 +443,7 @@ function RecetasTab({ menuItems, ingredients, recipesMap, companyId, firestore, 
                     <div className="text-sm space-y-1 bg-gray-50 dark:bg-gray-800 rounded-md p-2">
                       <p>
                         <span className="text-muted-foreground">Costo/porción: </span>
-                        <span className="font-medium">${recipe.costPerPortion.toFixed(2)}</span>
+                        <span className="font-medium font-mono">${recipe.costPerPortion.toFixed(2)}</span>
                       </p>
                       <p>
                         <span className="text-muted-foreground">Ingredientes: </span>
@@ -507,10 +507,6 @@ interface RecipeBuilderDialogProps {
   toast: any;
 }
 
-let rowCounter = 0;
-function newRowId() {
-  return `row-${++rowCounter}`;
-}
 
 function RecipeBuilderDialog({
   open,
@@ -526,12 +522,12 @@ function RecipeBuilderDialog({
   const [rows, setRows] = useState<RecipeRow[]>(() => {
     if (existingRecipe) {
       return existingRecipe.ingredients.map((ri) => ({
-        id: newRowId(),
+        id: crypto.randomUUID(),
         ingredientId: ri.ingredientId,
         quantity: ri.quantity,
       }));
     }
-    return [{ id: newRowId(), ingredientId: '', quantity: 1 }];
+    return [{ id: crypto.randomUUID(), ingredientId: '', quantity: 1 }];
   });
   const [saving, setSaving] = useState(false);
 
@@ -542,11 +538,11 @@ function RecipeBuilderDialog({
       setRows(
         existingRecipe
           ? existingRecipe.ingredients.map((ri) => ({
-              id: newRowId(),
+              id: crypto.randomUUID(),
               ingredientId: ri.ingredientId,
               quantity: ri.quantity,
             }))
-          : [{ id: newRowId(), ingredientId: '', quantity: 1 }]
+          : [{ id: crypto.randomUUID(), ingredientId: '', quantity: 1 }]
       );
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -569,7 +565,7 @@ function RecipeBuilderDialog({
   }, [rows, servings, ingredientsMap]);
 
   const addRow = () => {
-    setRows((prev) => [...prev, { id: newRowId(), ingredientId: '', quantity: 1 }]);
+    setRows((prev) => [...prev, { id: crypto.randomUUID(), ingredientId: '', quantity: 1 }]);
   };
 
   const removeRow = (id: string) => {
@@ -653,7 +649,7 @@ function RecipeBuilderDialog({
             <span className="font-medium text-blue-800 dark:text-blue-300">
               Costo por porción calculado:
             </span>
-            <span className="text-xl font-bold text-blue-900 dark:text-blue-200">
+            <span className="text-xl font-bold text-blue-900 dark:text-blue-200 font-mono">
               ${costPerPortion.toFixed(2)} MXN
             </span>
           </div>
@@ -1067,7 +1063,7 @@ function ListaComprasTab({
                       <span className="text-green-600 dark:text-green-400">OK</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right font-mono">
                     {row.toOrder > 0 ? `$${row.estimatedCost.toFixed(2)}` : '—'}
                   </TableCell>
                 </TableRow>
@@ -1077,7 +1073,7 @@ function ListaComprasTab({
                 <TableCell colSpan={4} className="text-right">
                   Total estimado:
                 </TableCell>
-                <TableCell className="text-right">${totalCost.toFixed(2)} MXN</TableCell>
+                <TableCell className="text-right font-mono">${totalCost.toFixed(2)} MXN</TableCell>
               </TableRow>
             </TableBody>
           </Table>

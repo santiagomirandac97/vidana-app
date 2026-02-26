@@ -162,6 +162,19 @@ export interface WeeklyMenu {
   days: Record<DayOfWeek, string[]>; // menuItemId[]
 }
 
+// ─── Invites ──────────────────────────────────────────────────────────────────
+
+export interface UserInvite {
+  id?: string;
+  companyId: string;
+  role: 'admin' | 'user';
+  createdBy: string;       // admin uid
+  createdAt: string;       // ISO-8601
+  expiresAt: string;       // ISO-8601 (+7 days from createdAt)
+  email?: string;          // optional — pre-fill hint only
+  used: boolean;
+}
+
 // ─── Costs ────────────────────────────────────────────────────────────────────
 
 export interface LaborCost {

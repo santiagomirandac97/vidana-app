@@ -91,6 +91,17 @@ service cloud.firestore {
       allow list: if request.auth != null && isUserAdmin(request.auth.uid);
     }
 
+    // — Invites ———————————————————————————————————————————————————————————————————————
+
+    match /invites/{inviteId} {
+      allow read: if true;  // public read — invites don't contain sensitive data, signup reads before auth
+      allow create: if isUserAdmin(request.auth.uid);
+      allow update: if request.auth != null &&
+                       request.resource.data.used == true &&
+                       resource.data.used == false;
+      allow delete: if false;
+    }
+
     // — Inventory ————————————————————————————————————————————————————————————————————
 
     match /companies/{companyId}/ingredients/{ingredientId} {

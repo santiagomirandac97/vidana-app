@@ -85,6 +85,10 @@ export default function SelectionPage() {
   );
   const monthlyMeals = (allConsumptions ?? []).filter(c => !c.voided).length;
 
+  const activeCompaniesCount = isAdmin
+    ? (companies ?? []).length
+    : companyId ? 1 : 0;
+
   if (isLoading || profileLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center gap-3">
@@ -95,6 +99,19 @@ export default function SelectionPage() {
   }
 
   const firstName = user?.displayName?.split(' ')[0] ?? '';
+
+  if (!isAdmin && !profileLoading && userProfile && !companyId) {
+    return (
+      <AppShell>
+        <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+          <PageHeader title={`Hola, ${firstName}`} subtitle="Bienvenido al panel de control de Vidana" />
+          <div className="rounded-lg border border-border bg-muted/40 p-6 text-center text-sm text-muted-foreground">
+            Tu cuenta aún no está asignada a una empresa. Contacta al administrador.
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -108,7 +125,7 @@ export default function SelectionPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <KpiCard label="Comidas hoy"      value={todayCount.toLocaleString()}          loading={consumptionsLoading} variant="default" />
           <KpiCard label="Comidas este mes" value={monthlyMeals.toLocaleString()}         loading={consumptionsLoading} variant="success" />
-          <KpiCard label="Empresas activas" value={(companies ?? []).length}              loading={companiesLoading}    variant="default" />
+          <KpiCard label="Empresas activas" value={activeCompaniesCount}                  loading={companiesLoading}    variant="default" />
         </div>
 
         {/* Quick access grid */}

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, signInWithRedirect, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/logo';
@@ -107,6 +107,8 @@ function SignupForm() {
 
     validateInvite();
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Intentionally omit searchParams — invite param is read once on mount
+  // when Firestore initializes. searchParams is stable for this page.
   }, [firestore]);
 
   const markInviteUsed = async (usedInviteId: string) => {
@@ -311,7 +313,7 @@ function SignupForm() {
           {inviteStatus === 'invalid' && (
             <div className="mb-4 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               <XCircle className="h-4 w-4 shrink-0" />
-              <span>Esta invitación no es válida o ya fue usada.</span>
+              <span>Esta invitación no es válida o ya fue usada. Puedes crear una cuenta, pero necesitarás que un administrador te asigne a una empresa.</span>
             </div>
           )}
 

@@ -98,7 +98,11 @@ service cloud.firestore {
       allow create: if isUserAdmin(request.auth.uid);
       allow update: if request.auth != null &&
                        request.resource.data.used == true &&
-                       resource.data.used == false;
+                       resource.data.used == false &&
+                       request.resource.data.companyId == resource.data.companyId &&
+                       request.resource.data.role == resource.data.role &&
+                       request.resource.data.expiresAt == resource.data.expiresAt &&
+                       request.resource.data.createdBy == resource.data.createdBy;
       allow delete: if false;
     }
 

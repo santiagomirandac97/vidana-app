@@ -1,6 +1,78 @@
 # Session Notes — Vidana App
 
-**Last Updated:** 2026-02-24
+**Last Updated:** 2026-02-25
+
+---
+
+## Session: 2026-02-25 — Full App Quality Audit (Bulletproof Pass)
+
+**Branch:** `main`
+**Status:** ✅ 7 commits — build clean, pushed to GitHub. Firebase App Hosting auto-deploying.
+
+### What Was Audited & Fixed
+
+Full 3-agent audit identified ~15 real issues across TypeScript correctness, React patterns, Firebase queries, and UI consistency. No new features — fixes only.
+
+#### P0 — Functional Bugs
+1. **`selection/page.tsx` — collectionGroup query failing for non-admin users**
+   - `collectionGroup('consumptions')` requires admin Firestore rules; non-admin users got permission-denied silently → KPIs showed 0
+   - Fixed: fetch `userProfile` via `useDoc`, non-admins query their company's subcollection directly, admins keep the collectionGroup path
+   - Added: `activeCompaniesCount` scoped by role (non-admins see `1`, not all companies)
+   - Added: graceful "Tu cuenta aún no está asignada a una empresa" state for accounts without `companyId`
+   - Added: `companyId?: string` to `UserProfile` type
+
+#### P1 — Memory Leaks / React Correctness
+2. **`main/page.tsx` — setTimeout never cleaned up on unmount**
+   - `resetInputAndFeedback()` created a timer but returned the cleanup as a value (discarded); timers leaked, stacked on rapid calls
+   - Fixed: `feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)`, cleared at start of each call + in `useEffect` unmount cleanup
+
+3. **`costos/page.tsx` — O(n×m) N+1 companies lookup**
+   - `companies.find(co => co.id === c.companyId)` called for every consumption in a reduce loop
+   - Fixed: `const companyMap = new Map(...)` built once at top of memo, replaced `.find()` with `.get()`
+
+#### P2 — Code Quality / Type Safety
+4. **Extracted `src/lib/auth-helpers.ts`** (new file)
+   - Identical `checkAndCreateUserProfile` function was duplicated in login and signup pages
+   - Extracted to shared util with proper `Firestore` typing (was `any`)
+   - Both pages now import from `@/lib/auth-helpers`
+
+5. **`login/page.tsx` — Google redirect fallback was silent**
+   - `signInWithRedirect` was called when popup blocked, but `getRedirectResult(auth)` was never called on mount
+   - Fixed: `getRedirectResult(auth)` now called in the auth state useEffect; handles redirect credential + creates user profile
+
+6. **`recetas/page.tsx` — Module-scope `let rowCounter` (SSR/re-render issue)**
+   - Module-level mutable counter persisted across component mounts; caused ID drift and SSR mismatch
+   - Fixed: replaced all 5 `newRowId()` calls with `crypto.randomUUID()`
+
+7. **`configuracion/page.tsx` — `error: any` in 5 catch blocks**
+   - Fixed: all catch blocks now use `error: unknown` with `instanceof Error` guard
+
+8. **`kiosk/page.tsx` — hardcoded company ID**
+   - Fixed: `KIOSK_COMPANY_ID` now reads from `process.env.NEXT_PUBLIC_KIOSK_COMPANY_ID` with hardcoded fallback
+
+9. **`login/page.tsx` + `signup/page.tsx`** — removed unused `type FC` imports
+
+10. **`src/lib/types.ts`** — removed stale `// ADD THIS` comment
+
+#### P3 — Design Consistency
+11. **`reset-password/page.tsx`** — `shadow-xl` → `shadow-card` (design token)
+12. **`app-shell.tsx`** — mobile Sheet sidebar: `w-60` → `w-[80vw] max-w-60` (responsive)
+13. **`costos/page.tsx`** — `font-mono` added to 5 monetary value elements in cards/tables
+14. **`recetas/page.tsx`** — `font-mono` added to 5 monetary value elements in cards/tables
+
+#### Build Fix (Bonus)
+15. **`tsconfig.json`** — Added `"functions"` to `exclude` array so pre-existing Cloud Functions type errors no longer block the Next.js build
+
+### Commits
+```
+5bc817f fix(main): clear setTimeout on unmount + exclude functions from tsconfig
+8e16ed2 fix: 5 small targeted fixes — error types, env var, stale comment, shadow tokens, responsive sidebar
+27b804b fix(recetas): replace module-scope rowCounter with crypto.randomUUID and add font-mono
+cbb2c4b refactor(auth): extract checkAndCreateUserProfile to shared helper + fix redirect result handling
+5f3c1e0 fix(costos): replace O(n*m) company lookup with Map and add font-mono to monetary values
+d1a3ce3 fix(selection): scope companies KPI by role and handle missing companyId
+a022638 fix(selection): use per-company consumptions query for non-admin users
+```
 
 ---
 

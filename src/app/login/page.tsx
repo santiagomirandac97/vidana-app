@@ -1,12 +1,11 @@
 
 "use client";
 
-import { useState, useEffect, type FC } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, sendPasswordResetEmail, type ActionCodeSettings, type User } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, sendPasswordResetEmail, type ActionCodeSettings } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/logo';
@@ -14,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn, Mail, Lock } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { type UserProfile } from '@/lib/types';
+import { checkAndCreateUserProfile } from '@/lib/auth-helpers';
 
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -110,35 +109,6 @@ function PasswordResetDialog() {
     );
 }
 
-async function checkAndCreateUserProfile(firestore: any, user: User) {
-    if (!user.email) {
-        throw new Error("No se pudo obtener el email de la cuenta de Google.");
-    }
-
-    const configDocRef = doc(firestore, 'configuration', 'app');
-    const configDoc = await getDoc(configDocRef);
-    const allowedDomains = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
-    
-    const userDomain = user.email.split('@')[1];
-    
-    if (allowedDomains.length > 0 && !allowedDomains.includes(userDomain)) {
-        throw new Error("El dominio de su correo no está autorizado para registrarse.");
-    }
-
-    const userDocRef = doc(firestore, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (!userDoc.exists()) {
-        const newUserProfile: UserProfile = {
-            uid: user.uid,
-            name: user.displayName || 'Usuario',
-            email: user.email,
-            role: 'user', // Default role
-        };
-        await setDoc(userDocRef, newUserProfile);
-    }
-}
-
 export default function LoginPage() {
   const auth = useAuth();
   const firestore = useFirestore();
@@ -155,8 +125,25 @@ export default function LoginPage() {
   useEffect(() => {
     if (!isUserLoading && user) {
         router.replace('/selection');
+        return;
     }
-  }, [user, isUserLoading, router]);
+    // Handle redirect result (popup-blocked fallback)
+    if (!isUserLoading && !user && auth) {
+      getRedirectResult(auth)
+        .then(async (result) => {
+          if (result?.user) {
+            // User came back from redirect — create profile if needed
+            if (firestore) {
+              await checkAndCreateUserProfile(firestore, result.user);
+            }
+            router.replace('/selection');
+          }
+        })
+        .catch(() => {
+          // Silently ignore — no redirect pending
+        });
+    }
+  }, [user, isUserLoading, router, auth, firestore]);
 
   const handleLogin = async () => {
     if (!email || !password) {

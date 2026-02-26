@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect, type FC } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, type User } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, UserPlus, Mail, Lock, User as UserIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { type UserProfile } from '@/lib/types';
+import { checkAndCreateUserProfile } from '@/lib/auth-helpers';
 
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -25,35 +26,6 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
       <path d="M12.28 7.39995C13.76 7.39995 14.96 7.88995 15.87 8.75995L19.58 5.08995C17.75 3.33995 15.27 2.39995 12.28 2.39995C8.13 2.39995 4.54 4.45995 2.74 7.78995L6.55 10.3199C7.43 7.99995 9.68 7.39995 12.28 7.39995Z" fill="#EA4335"/>
     </svg>
   );
-}
-
-async function checkAndCreateUserProfile(firestore: any, user: User) {
-    if (!user.email) {
-        throw new Error("No se pudo obtener el email de la cuenta de Google.");
-    }
-    
-    const configDocRef = doc(firestore, 'configuration', 'app');
-    const configDoc = await getDoc(configDocRef);
-    const allowedDomains = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
-
-    const userDomain = user.email.split('@')[1];
-    
-    if (allowedDomains.length > 0 && !allowedDomains.includes(userDomain)) {
-        throw new Error("El dominio de su correo no está autorizado para registrarse.");
-    }
-
-    const userDocRef = doc(firestore, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (!userDoc.exists()) {
-        const newUserProfile: UserProfile = {
-            uid: user.uid,
-            name: user.displayName || 'Usuario',
-            email: user.email,
-            role: 'user', // Default role
-        };
-        await setDoc(userDocRef, newUserProfile);
-    }
 }
 
 export default function SignupPage() {

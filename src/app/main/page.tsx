@@ -135,6 +135,7 @@ export default function MainPage() {
   const [pendingEmployee, setPendingEmployee] = useState<{ number: string; name: string } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -166,16 +167,21 @@ export default function MainPage() {
     }
   }, [selectedCompanyId]);
 
+  useEffect(() => {
+    return () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    };
+  }, []);
 
   const resetInputAndFeedback = () => {
     setEmployeeNumber('');
     setNameSearch('');
     inputRef.current?.focus();
-    const timer = setTimeout(() => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = setTimeout(() => {
       setFeedback(null);
       setIsProcessing(false);
     }, 4000);
-    return () => clearTimeout(timer);
   };
 
   const proceedWithConsumption = (employee: Employee) => {

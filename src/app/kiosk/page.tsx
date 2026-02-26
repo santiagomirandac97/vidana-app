@@ -24,7 +24,7 @@ import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 
-const KIOSK_COMPANY_ID = "Yzf6ucrafGkOPqbqCJpl"; // Configure the target company ID here
+const KIOSK_COMPANY_ID = process.env.NEXT_PUBLIC_KIOSK_COMPANY_ID ?? "Yzf6ucrafGkOPqbqCJpl"; // Configure the target company ID here
 
 export default function KioskPage() {
     const { user, isLoading: userLoading } = useUser();

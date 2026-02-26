@@ -47,7 +47,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <MobileTopBar onMenuClick={() => setMobileOpen(true)} />
       </div>
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="p-0 w-60">
+        <SheetContent side="left" className="p-0 w-[80vw] max-w-60">
           <Sidebar collapsed={false} onToggleCollapse={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>

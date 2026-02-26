@@ -96,7 +96,7 @@ function ResetPasswordContent() {
     if (success) {
         return (
             <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-                 <Card className="w-full max-w-md mx-4 shadow-xl text-center">
+                 <Card className="w-full max-w-md mx-4 shadow-card text-center">
                     <CardHeader>
                         <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
                              <CheckCircle className="h-8 w-8 text-green-600" />
@@ -112,7 +112,7 @@ function ResetPasswordContent() {
     if (error && !isSubmitting) {
          return (
             <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-                 <Card className="w-full max-w-md mx-4 shadow-xl text-center">
+                 <Card className="w-full max-w-md mx-4 shadow-card text-center">
                     <CardHeader>
                         <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
                              <XCircle className="h-8 w-8 text-red-600" />
@@ -133,7 +133,7 @@ function ResetPasswordContent() {
 
     return (
         <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-            <Card className="w-full max-w-md mx-4 shadow-xl">
+            <Card className="w-full max-w-md mx-4 shadow-card hover:shadow-card-hover transition-shadow">
                 <CardHeader className="text-center">
                     <div className="mx-auto mb-4">
                         <Logo />

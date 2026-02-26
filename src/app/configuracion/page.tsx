@@ -191,8 +191,8 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
                 toast({ title: 'Empresa Creada', description: `La empresa "${data.name}" ha sido añadida exitosamente.` });
                 form.reset();
             })
-            .catch((error: any) => {
-                toast({ variant: 'destructive', title: 'Error al crear la empresa', description: error.message || 'Ocurrió un error inesperado.' });
+            .catch((error: unknown) => {
+                toast({ variant: 'destructive', title: 'Error al crear la empresa', description: error instanceof Error ? error.message : 'Ocurrió un error inesperado.' });
             });
     };
 
@@ -204,8 +204,8 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
                 toast({ title: 'Empresa Actualizada', description: 'Los datos de la empresa han sido guardados.' });
                 setEditingCompany(null);
             })
-            .catch((error: any) => {
-                toast({ variant: 'destructive', title: 'Error al actualizar', description: error.message || 'Ocurrió un error inesperado.' });
+            .catch((error: unknown) => {
+                toast({ variant: 'destructive', title: 'Error al actualizar', description: error instanceof Error ? error.message : 'Ocurrió un error inesperado.' });
             });
     };
 
@@ -306,8 +306,8 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
                 toast({ title: 'Producto Añadido', description: `"${data.name}" fue añadido al menú.` });
                 form.reset();
             })
-            .catch((error: any) => {
-                toast({ variant: 'destructive', title: 'Error al añadir producto', description: error.message || 'Ocurrió un error inesperado. Verifique los permisos de Firestore.' });
+            .catch((error: unknown) => {
+                toast({ variant: 'destructive', title: 'Error al añadir producto', description: error instanceof Error ? error.message : 'Ocurrió un error inesperado. Verifique los permisos de Firestore.' });
             });
     };
 
@@ -318,8 +318,8 @@ const MenuManagementTab: FC<{ companies: Company[] | null, companiesLoading: boo
             .then(() => {
                 toast({ title: 'Producto Eliminado', description: 'El producto fue eliminado del menú.' });
             })
-            .catch((error: any) => {
-                toast({ variant: 'destructive', title: 'Error al eliminar', description: error.message || 'Ocurrió un error inesperado.' });
+            .catch((error: unknown) => {
+                toast({ variant: 'destructive', title: 'Error al eliminar', description: error instanceof Error ? error.message : 'Ocurrió un error inesperado.' });
             });
     };
 
@@ -438,8 +438,8 @@ const UserManagementTab: FC = () => {
             .then(() => {
                 toast({ title: 'Rol Actualizado', description: `El rol de ${user.name} ha sido cambiado a ${newRole}.` });
             })
-            .catch((error) => {
-                toast({ variant: 'destructive', title: 'Error al actualizar rol', description: error.message });
+            .catch((error: unknown) => {
+                toast({ variant: 'destructive', title: 'Error al actualizar rol', description: error instanceof Error ? error.message : 'Error desconocido' });
             });
     };
 

@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, collectionGroup, query, where } from 'firebase/firestore';
+import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, collectionGroup, doc, query, where } from 'firebase/firestore';
 import {
   Loader2, Settings, ClipboardList, AreaChart, Tablet,
   ChefHat, ShoppingCart, Package, BookOpen, TrendingDown, Receipt,
@@ -11,7 +11,7 @@ import {
 import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { SectionLabel } from '@/components/ui/section-label';
-import { type Company, type Consumption } from '@/lib/types';
+import { type Company, type Consumption, type UserProfile } from '@/lib/types';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { startOfMonth } from 'date-fns';
 
@@ -35,6 +35,12 @@ export default function SelectionPage() {
   const { user, isLoading } = useUser();
   const { firestore } = useFirebase();
 
+  const userProfileRef = useMemoFirebase(
+    () => firestore && user ? doc(firestore, `users/${user.uid}`) : null,
+    [firestore, user]
+  );
+  const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
+
   useEffect(() => {
     if (!isLoading && !user) {
       router.replace('/login');
@@ -50,11 +56,22 @@ export default function SelectionPage() {
   );
   const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesQuery);
 
+  const isAdmin = userProfile?.role === 'admin';
+  const companyId = userProfile?.companyId;
+
   const consumptionsQuery = useMemoFirebase(
-    () => firestore
-      ? query(collectionGroup(firestore, 'consumptions'), where('timestamp', '>=', monthStart))
-      : null,
-    [firestore, monthStart]
+    () => {
+      if (!firestore || !userProfile) return null;
+      if (isAdmin) {
+        return query(collectionGroup(firestore, 'consumptions'), where('timestamp', '>=', monthStart));
+      }
+      if (!companyId) return null;
+      return query(
+        collection(firestore, 'companies', companyId, 'consumptions'),
+        where('timestamp', '>=', monthStart)
+      );
+    },
+    [firestore, userProfile, isAdmin, companyId, monthStart]
   );
   const { data: allConsumptions, isLoading: consumptionsLoading } = useCollection<Consumption>(consumptionsQuery);
 
@@ -68,7 +85,7 @@ export default function SelectionPage() {
   );
   const monthlyMeals = (allConsumptions ?? []).filter(c => !c.voided).length;
 
-  if (isLoading || !user) {
+  if (isLoading || profileLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center gap-3">
         <Loader2 className="h-5 w-5 animate-spin text-primary" />

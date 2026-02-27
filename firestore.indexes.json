@@ -5,6 +5,24 @@
       "collectionGroup": "consumptions",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "voided",    "order": "ASCENDING"  },
+        { "fieldPath": "status",    "order": "ASCENDING"  },
+        { "fieldPath": "timestamp", "order": "ASCENDING"  }
+      ]
+    },
+    {
+      "collectionGroup": "consumptions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "voided",    "order": "ASCENDING"  },
+        { "fieldPath": "status",    "order": "ASCENDING"  },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "consumptions",
+      "queryScope": "COLLECTION",
+      "fields": [
         {
           "fieldPath": "status",
           "order": "ASCENDING"

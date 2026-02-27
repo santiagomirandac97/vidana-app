@@ -17,7 +17,7 @@ import { DollarSign, TrendingDown, TrendingUp, Users, Loader2, ShieldAlert, Plus
 import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { useToast } from '@/hooks/use-toast';
-import { format, startOfMonth } from 'date-fns';
+import { format, startOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
@@ -103,13 +103,33 @@ export default function CostosPage() {
   const kpis = useMemo(() => {
     const companyMap = new Map((companies ?? []).map(co => [co.id!, co]));
     const filteredConsumptions = (allConsumptions || []).filter(c =>
-      !c.voided && c.employeeId !== 'anonymous' &&
+      !c.voided &&
       (filterCompanyId === 'all' || c.companyId === filterCompanyId)
     );
 
-    const revenue = filteredConsumptions.reduce((sum, c) => {
-      const company = companyMap.get(c.companyId);
-      return sum + (company?.mealPrice || 0);
+    const filteredCompanies = (companies ?? []).filter(co =>
+      filterCompanyId === 'all' || co.id === filterCompanyId
+    );
+    const revenue = filteredCompanies.reduce((total, company) => {
+      const mealPrice = company.mealPrice ?? 0;
+      const dailyTarget = company.dailyTarget ?? 0;
+      const companyCons = filteredConsumptions.filter(c => c.companyId === company.id);
+      if (dailyTarget > 0) {
+        const days = eachDayOfInterval({ start: startOfMonth(now), end: now });
+        const countByDay: Record<string, number> = {};
+        companyCons.forEach(c => {
+          const d = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
+          countByDay[d] = (countByDay[d] || 0) + 1;
+        });
+        return total + days.reduce((dayTotal, date) => {
+          const dayStr = format(date, 'yyyy-MM-dd');
+          const dow = getDay(date);
+          const isChargeable = dow >= 1 && dow <= 4; // Mon–Thu
+          const count = countByDay[dayStr] || 0;
+          return dayTotal + (isChargeable ? Math.max(count, dailyTarget) : count) * mealPrice;
+        }, 0);
+      }
+      return total + companyCons.length * mealPrice;
     }, 0);
 
     const mealsServed = filteredConsumptions.length;
@@ -143,8 +163,27 @@ export default function CostosPage() {
   const perKitchenStats = useMemo(() => {
     if (!companies) return [];
     return companies.map(company => {
-      const cons = (allConsumptions || []).filter(c => c.companyId === company.id && !c.voided && c.employeeId !== 'anonymous');
-      const rev = cons.length * (company.mealPrice || 0);
+      const cons = (allConsumptions || []).filter(c => c.companyId === company.id && !c.voided);
+      const mealPrice = company.mealPrice ?? 0;
+      const dailyTarget = company.dailyTarget ?? 0;
+      let rev = 0;
+      if (dailyTarget > 0) {
+        const days = eachDayOfInterval({ start: startOfMonth(now), end: now });
+        const countByDay: Record<string, number> = {};
+        cons.forEach(c => {
+          const d = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
+          countByDay[d] = (countByDay[d] || 0) + 1;
+        });
+        rev = days.reduce((total, date) => {
+          const dayStr = format(date, 'yyyy-MM-dd');
+          const dow = getDay(date);
+          const isChargeable = dow >= 1 && dow <= 4; // Mon–Thu
+          const count = countByDay[dayStr] || 0;
+          return total + (isChargeable ? Math.max(count, dailyTarget) : count) * mealPrice;
+        }, 0);
+      } else {
+        rev = cons.length * mealPrice;
+      }
       const food = (allPurchaseOrders || []).filter(po => po.companyId === company.id).reduce((s, po) => s + po.totalCost, 0);
       const waste = (allMerma || []).filter(m => m.companyId === company.id).reduce((s, m) => s + m.quantity * m.unitCost, 0);
       const labor = (allLaborCosts || []).filter(lc => lc.companyId === company.id).reduce((s, lc) => s + lc.amount, 0);

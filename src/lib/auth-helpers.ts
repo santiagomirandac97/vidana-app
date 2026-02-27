@@ -33,4 +33,8 @@ export async function checkAndCreateUserProfile(firestore: Firestore, user: User
         };
         await setDoc(userDocRef, newUserProfile);
     }
+
+    if (typeof window !== 'undefined') {
+        document.cookie = 'vidana_session=1; path=/; max-age=86400; SameSite=Strict';
+    }
 }

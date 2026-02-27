@@ -68,6 +68,9 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
     if (!app) return;
     const auth = getAuth(app);
     await signOut(auth);
+    if (typeof window !== 'undefined') {
+      document.cookie = 'vidana_session=; path=/; max-age=0; SameSite=Strict';
+    }
     router.push('/login');
   }, [app, router]);
 

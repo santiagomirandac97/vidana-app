@@ -321,6 +321,9 @@ export default function MainPage() {
   const handleSignOut = async () => {
     if (auth) {
         await signOut(auth);
+        if (typeof window !== 'undefined') {
+            document.cookie = 'vidana_session=; path=/; max-age=0; SameSite=Strict';
+        }
         localStorage.removeItem('selectedCompanyId');
         router.push('/login');
     }

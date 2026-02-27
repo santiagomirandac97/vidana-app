@@ -322,7 +322,7 @@ export default function MainPage() {
     if (auth) {
         await signOut(auth);
         if (typeof window !== 'undefined') {
-            document.cookie = 'vidana_session=; path=/; max-age=0; SameSite=Strict';
+            document.cookie = 'vidana_session=; path=/; max-age=0; SameSite=Strict; Secure';
         }
         localStorage.removeItem('selectedCompanyId');
         router.push('/login');

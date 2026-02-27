@@ -78,6 +78,7 @@ export default function ReportesPage() {
     [firestore, user]
   );
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
+  const isAdmin = userProfile?.role === 'admin';
 
   const companiesRef = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'companies')) : null),
@@ -117,48 +118,48 @@ export default function ReportesPage() {
   // Consumptions for last 6 months (non-voided)
   const consumptionsRef = useMemoFirebase(
     () =>
-      firestore
+      firestore && isAdmin
         ? query(collectionGroup(firestore, 'consumptions'), where('timestamp', '>=', sixMonthsAgo))
         : null,
-    [firestore, sixMonthsAgo]
+    [firestore, isAdmin, sixMonthsAgo]
   );
   const { data: allConsumptions, isLoading: consumptionsLoading } = useCollection<Consumption>(consumptionsRef);
 
   // Purchase orders last 6 months
   const purchaseOrdersRef = useMemoFirebase(
     () =>
-      firestore
+      firestore && isAdmin
         ? query(
             collectionGroup(firestore, 'purchaseOrders'),
             where('status', '==', 'recibido'),
             where('createdAt', '>=', sixMonthsAgo)
           )
         : null,
-    [firestore, sixMonthsAgo]
+    [firestore, isAdmin, sixMonthsAgo]
   );
   const { data: allPurchaseOrders, isLoading: poLoading } = useCollection<PurchaseOrder>(purchaseOrdersRef);
 
   // Labor costs last 6 months
   const laborRef = useMemoFirebase(
     () =>
-      firestore
+      firestore && isAdmin
         ? query(collectionGroup(firestore, 'laborCosts'), where('weekStartDate', '>=', sixMonthsAgoDate))
         : null,
-    [firestore, sixMonthsAgoDate]
+    [firestore, isAdmin, sixMonthsAgoDate]
   );
   const { data: allLaborCosts, isLoading: laborLoading } = useCollection<LaborCost>(laborRef);
 
   // Merma last 6 months
   const mermaRef = useMemoFirebase(
     () =>
-      firestore
+      firestore && isAdmin
         ? query(
             collectionGroup(firestore, 'stockMovements'),
             where('type', '==', 'merma'),
             where('timestamp', '>=', sixMonthsAgo)
           )
         : null,
-    [firestore, sixMonthsAgo]
+    [firestore, isAdmin, sixMonthsAgo]
   );
   const { data: allMerma, isLoading: mermaLoading } = useCollection<StockMovement>(mermaRef);
 
@@ -166,14 +167,14 @@ export default function ReportesPage() {
   // re-fetching 6-month data when month selector changes
   const menuConsumptionsRef = useMemoFirebase(
     () =>
-      firestore
+      firestore && isAdmin
         ? query(
             collectionGroup(firestore, 'consumptions'),
             where('timestamp', '>=', selectedMenuMonthStart),
             where('timestamp', '<', selectedMenuMonthEnd)
           )
         : null,
-    [firestore, selectedMenuMonthStart, selectedMenuMonthEnd]
+    [firestore, isAdmin, selectedMenuMonthStart, selectedMenuMonthEnd]
   );
   const { data: menuConsumptions, isLoading: menuLoading } = useCollection<Consumption>(menuConsumptionsRef);
 

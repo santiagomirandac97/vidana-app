@@ -76,6 +76,11 @@ function SignupForm() {
 
         const data = { id: inviteDoc.id, ...inviteDoc.data() } as UserInvite;
 
+        // Note: There is a TOCTOU window between this validation check and marking the invite
+        // used (after profile creation). A concurrent signup with the same link could pass
+        // validation and create a duplicate profile. The Firestore update rule (used: false→true
+        // only, with field immutability) acts as a backstop but does not prevent dual profile
+        // creation. This is an acceptable risk at current scale.
         if (data.used || new Date(data.expiresAt) <= new Date()) {
           setInviteStatus('invalid');
           return;

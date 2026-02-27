@@ -1,6 +1,81 @@
 # Session Notes — Vidana App
 
-**Last Updated:** 2026-02-25
+**Last Updated:** 2026-02-26
+
+---
+
+## Session: 2026-02-26 — Phase 2: Complete, Harden & Analyze
+
+**Branch:** `feature/phase2-complete-harden-analyze` → merged to `main`
+**Status:** ✅ 11 commits — build clean, pushed to GitHub. Firebase App Hosting auto-deploying.
+
+### What Was Built
+
+6-task implementation addressing the remaining production gaps in the app.
+
+#### Task 1 — billing-generators.ts Verification
+- Confirmed clean: jsPDF v4 + jspdf-autotable v5 functional API was already correct, no changes needed.
+
+#### Task 2 — Configuración: Company Assignment
+- Added `useCollection<Company>` to load companies in Tab 3 (User Management)
+- Added **"Empresa Asignada"** 5th column with company name lookup or `<StatusBadge variant="warning" label="Sin empresa" />`
+- Added company assignment `<Select>` dropdown per user row with `handleCompanyChange` using `deleteField()` for unassign and `updateDoc` for assign
+- Self-guard: admin cannot unassign their own company
+
+#### Task 3 — Invite-Based User Onboarding
+- New `UserInvite` interface in `src/lib/types.ts`
+- New `invites/{inviteId}` Firestore collection with field-immutability rules (prevents privilege escalation on update)
+- `GenerateInviteDialog` in Configuración Tab 3: company + role + optional email → writes invite → shows copyable `?invite=<id>` link + invite history table (last 10, Usado/Expirado/Pendiente)
+- `signup/page.tsx`: detects `?invite=<id>` on mount, validates invite, shows green/red banner; on signup applies `companyId` + `role` from invite, marks invite used
+
+#### Task 4 — Next.js Middleware (Session Protection)
+- `middleware.ts` at project root: checks `vidana_session` cookie, redirects unauthenticated users to `/login` before React renders
+- Cookie set in `auth-helpers.ts` after profile creation (Google flow) and email/password signup path in `signup/page.tsx`; `SameSite=Strict; Secure` flags
+- Cookie cleared on logout in `sidebar.tsx` and `main/page.tsx`
+
+#### Task 5 — Comanda: Real-Time Kitchen Ticket Display
+- `pos-inditex/page.tsx`: changed consumption write from `status: 'completed'` → `status: 'pending'`
+- `command/page.tsx` full rewrite: real-time pending queue + "Completar" button → `updateDoc({status:'completed'})`, collapsible Completados section, company selector for admin, `fromZonedTime` for `todayStart` (Mexico City timezone)
+- Removed 102-line dead code `DownloadReportDialog` from `pos-inditex`
+
+#### Task 6 — Reportes: Analytics Dashboard
+- New admin-only `/reportes` page (3 tabs)
+- **Tab 1 (Tendencias):** `ComposedChart` — `Bar` (meals, left Y) + `Line` (revenue MXN, right Y), 6-month summary table
+- **Tab 2 (Costos):** `LineChart` — food%, labor, waste, revenue; `ReferenceLine` at y=35% target; food cost cell highlighted red when >35%
+- **Tab 3 (Menú):** Month selector, horizontal `BarChart` top-10 items, totals table with % del total
+- `toMexicoMonth()` helper using `toZonedTime` for correct timezone bucketing
+- All `collectionGroup` queries gated on `isAdmin` to prevent denied-read logs for non-admins
+- Added `/reportes` to sidebar Finanzas group
+
+### Key Fixes Caught in Code Review
+
+| Fix | Detail |
+|-----|--------|
+| Raw Tailwind "Sin empresa" badge | Replaced with `<StatusBadge>` for dark mode support |
+| Firestore invite rule too permissive | Added field immutability on update (companyId/role/expiresAt/createdBy) |
+| Email signup missing session cookie | Added cookie set in email/password success block |
+| Missing `Secure` flag on cookie set | Added `; Secure` to all cookie strings |
+| `todayStart` browser local time bug | Fixed: `fromZonedTime(\`${todayMexico}T00:00:00\`, 'America/Mexico_City')` |
+| UTC month bucketing in Reportes | `toMexicoMonth()` helper prevents night-shift consumptions landing in wrong month |
+| Tab 3 table loading flash | Three-way render: spinner → empty state → table |
+| `labourCosts` vs `laborCosts` in rules | Fixed British spelling in Firestore rules (app uses American) |
+| `Secure` flag missing on cookie deletion | Added to logout in both `sidebar.tsx` and `main/page.tsx` |
+| collectionGroup queries before admin guard | Gated on `&& isAdmin` condition |
+
+### Commits
+```
+6f86b4a feat: add company assignment to configuración user management
+8e8018c fix: use StatusBadge component for Sin empresa badge in configuracion
+460cf95 feat: invite-based user onboarding
+fb9278a fix: harden invite firestore rules and cleanup signup page
+2c6d260 feat: add session cookie middleware for route protection
+8e1642c fix: set session cookie on email signup and add Secure flag
+5eb2ff0 feat: comanda real-time kitchen display + kiosk pending status
+a2b5042 fix: correct todayStart timezone in comanda and remove dead code from pos-inditex
+3da9517 feat: reportes analytics dashboard (tendencias, costos, menú)
+60531e2 fix: reportes tab1 revenue chart, timezone bucketing, loading state
+d9da1bb fix: firestore laborCosts rule, secure cookie deletion, reportes admin gate
+```
 
 ---
 
@@ -244,8 +319,8 @@ Uses named export: `import { jsPDF } from 'jspdf'` (NOT default export)
 
 ## Pending / Next Steps
 
-1. **Set Resend secret** (if not done): `firebase functions:secrets:set RESEND_API_KEY`
-2. **Deploy functions**: `firebase deploy --only functions`
-3. **Backfill companyId**: existing `stockMovements` and `purchaseOrders` documents in Firestore lack `companyId` — new writes include it; old data won't filter by company until backfilled
-4. **Firestore indexes**: may need composite index for `collectionGroup('consumptions')` with `timestamp` range — check Firebase Console
-5. **Dead code cleanup** (optional): `main/page.tsx` has orphaned `LogOut` icon import, `type User` import, and `handleSignOut` function from old header — can be removed in a cleanup commit
+1. **Deploy Firestore rules**: `firebase deploy --only firestore:rules` — Phase 2 updated `firestore.rules` (invites collection + `laborCosts` fix). Rules won't apply in production until deployed.
+2. **Firestore composite indexes for Comanda**: The Comanda page queries consumptions with `timestamp >= todayStart` + `voided == false` + `status == 'pending'` — Firestore may require a composite index. Check Firebase Console → Firestore → Indexes if the Comanda page shows no results in production.
+3. **Set Resend secret** (if not done): `firebase functions:secrets:set RESEND_API_KEY`
+4. **Deploy functions**: `firebase deploy --only functions`
+5. **Backfill companyId**: existing `stockMovements` and `purchaseOrders` documents in Firestore lack `companyId` — new writes include it; old data won't filter by company until backfilled

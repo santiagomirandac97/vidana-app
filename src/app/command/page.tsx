@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, ChefHat, Clock, CheckCircle2, ChevronDown } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { getTodayInMexicoCity } from '@/lib/utils';
+import { fromZonedTime } from 'date-fns-tz';
 
 // ─── Auth guard ───────────────────────────────────────────────────────────────
 
@@ -110,7 +111,7 @@ const CommandDashboard: FC<CommandDashboardProps> = ({ isAdmin, defaultCompanyId
   // Today start in Mexico City timezone (ISO string)
   const todayStart = useMemo(() => {
     const todayMexico = getTodayInMexicoCity(); // 'yyyy-MM-dd'
-    return new Date(todayMexico + 'T00:00:00').toISOString();
+    return fromZonedTime(`${todayMexico}T00:00:00`, 'America/Mexico_City').toISOString();
   }, []);
 
   // Pending orders query

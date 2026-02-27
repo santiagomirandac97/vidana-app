@@ -101,7 +101,6 @@ export default function CostosPage() {
   // ── KPI Calculations ──────────────────────────────────────────────────────
 
   const kpis = useMemo(() => {
-    const companyMap = new Map((companies ?? []).map(co => [co.id!, co]));
     const filteredConsumptions = (allConsumptions || []).filter(c =>
       !c.voided &&
       (filterCompanyId === 'all' || c.companyId === filterCompanyId)

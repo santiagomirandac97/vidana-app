@@ -14,7 +14,7 @@ import {
   ChevronLeft, ChevronRight, LogOut,
   ClipboardList, Monitor, ShoppingCart, ChefHat,
   Package, BookOpen, Settings,
-  BarChart2, TrendingDown, Receipt,
+  BarChart2, TrendingDown, Receipt, TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +43,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin',       label: 'Admin',       icon: BarChart2 },
       { href: '/costos',      label: 'Costos',      icon: TrendingDown },
       { href: '/facturacion', label: 'Facturación', icon: Receipt },
+      { href: '/reportes',    label: 'Reportes',    icon: TrendingUp },
     ],
   },
 ];

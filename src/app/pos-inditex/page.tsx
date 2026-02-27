@@ -179,7 +179,7 @@ const PosDashboard: FC = () => {
             voided: false,
             items: order,
             totalAmount: orderTotal,
-            status: 'completed',
+            status: 'pending',
         };
 
         try {

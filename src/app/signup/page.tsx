@@ -178,6 +178,10 @@ function SignupForm() {
             await markInviteUsed(inviteId);
         }
 
+        if (typeof window !== 'undefined') {
+          document.cookie = 'vidana_session=1; path=/; max-age=86400; SameSite=Strict; Secure';
+        }
+
         toast({
           title: '¡Cuenta Creada!',
           description: 'Hemos creado tu cuenta exitosamente. Serás redirigido.'

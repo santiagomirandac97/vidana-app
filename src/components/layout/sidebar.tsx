@@ -14,7 +14,7 @@ import {
   ChevronLeft, ChevronRight, LogOut,
   ClipboardList, Monitor, ShoppingCart, ChefHat,
   Package, BookOpen, Settings,
-  BarChart2, TrendingDown, Receipt,
+  BarChart2, TrendingDown, Receipt, TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +43,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin',       label: 'Admin',       icon: BarChart2 },
       { href: '/costos',      label: 'Costos',      icon: TrendingDown },
       { href: '/facturacion', label: 'Facturación', icon: Receipt },
+      { href: '/reportes',    label: 'Reportes',    icon: TrendingUp },
     ],
   },
 ];
@@ -68,6 +69,9 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
     if (!app) return;
     const auth = getAuth(app);
     await signOut(auth);
+    if (typeof window !== 'undefined') {
+      document.cookie = 'vidana_session=; path=/; max-age=0; SameSite=Strict; Secure';
+    }
     router.push('/login');
   }, [app, router]);
 

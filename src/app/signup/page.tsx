@@ -1,19 +1,19 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, signInWithRedirect, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, UserPlus, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { Loader2, UserPlus, Mail, Lock, User as UserIcon, CheckCircle2, XCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { type UserProfile } from '@/lib/types';
+import { type UserProfile, type UserInvite } from '@/lib/types';
 import { checkAndCreateUserProfile } from '@/lib/auth-helpers';
 
 
@@ -28,10 +28,12 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export default function SignupPage() {
+// Inner component that uses useSearchParams — must be wrapped in Suspense
+function SignupForm() {
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { user, isLoading: isUserLoading } = useUser();
 
@@ -42,11 +44,86 @@ export default function SignupPage() {
   const [isGoogleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-   useEffect(() => {
+  // Invite state
+  const [inviteId, setInviteId] = useState<string | null>(null);
+  const [inviteData, setInviteData] = useState<UserInvite | null>(null);
+  const [inviteCompanyName, setInviteCompanyName] = useState<string | null>(null);
+  const [inviteStatus, setInviteStatus] = useState<'loading' | 'valid' | 'invalid' | 'none'>('none');
+
+  useEffect(() => {
     if (!isUserLoading && user) {
        router.replace('/selection');
     }
   }, [user, isUserLoading, router]);
+
+  // Detect and validate invite on mount
+  useEffect(() => {
+    const inviteParam = searchParams.get('invite');
+    if (!inviteParam || !firestore) return;
+
+    setInviteId(inviteParam);
+    setInviteStatus('loading');
+
+    const validateInvite = async () => {
+      try {
+        const inviteDocRef = doc(firestore, 'invites', inviteParam);
+        const inviteDoc = await getDoc(inviteDocRef);
+
+        if (!inviteDoc.exists()) {
+          setInviteStatus('invalid');
+          return;
+        }
+
+        const data = { id: inviteDoc.id, ...inviteDoc.data() } as UserInvite;
+
+        // Note: There is a TOCTOU window between this validation check and marking the invite
+        // used (after profile creation). A concurrent signup with the same link could pass
+        // validation and create a duplicate profile. The Firestore update rule (used: false→true
+        // only, with field immutability) acts as a backstop but does not prevent dual profile
+        // creation. This is an acceptable risk at current scale.
+        if (data.used || new Date(data.expiresAt) <= new Date()) {
+          setInviteStatus('invalid');
+          return;
+        }
+
+        setInviteData(data);
+        setInviteStatus('valid');
+
+        // Pre-fill email if provided in invite
+        if (data.email) {
+          setEmail(data.email);
+        }
+
+        // Fetch company name
+        try {
+          const companyDoc = await getDoc(doc(firestore, 'companies', data.companyId));
+          if (companyDoc.exists()) {
+            setInviteCompanyName((companyDoc.data() as { name: string }).name);
+          } else {
+            setInviteCompanyName(data.companyId);
+          }
+        } catch {
+          setInviteCompanyName(data.companyId);
+        }
+      } catch {
+        setInviteStatus('invalid');
+      }
+    };
+
+    validateInvite();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Intentionally omit searchParams — invite param is read once on mount
+  // when Firestore initializes. searchParams is stable for this page.
+  }, [firestore]);
+
+  const markInviteUsed = async (usedInviteId: string) => {
+    if (!firestore) return;
+    try {
+      await updateDoc(doc(firestore, 'invites', usedInviteId), { used: true });
+    } catch {
+      // Non-critical — don't fail the signup
+    }
+  };
 
   const handleSignup = async () => {
     if (!name || !email || !password) {
@@ -64,56 +141,72 @@ export default function SignupPage() {
 
     setIsLoading(true);
     setError(null);
-    
+
     try {
-        const configDocRef = doc(firestore, 'configuration', 'app');
-        const configDoc = await getDoc(configDocRef);
-        
-        const allowedDomains = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
+        // If no invite, do domain check
+        if (!inviteData) {
+            const configDocRef = doc(firestore, 'configuration', 'app');
+            const configDoc = await getDoc(configDocRef);
 
-        const userDomain = email.split('@')[1];
+            const allowedDomains = configDoc.exists() ? configDoc.data()?.allowedDomains || [] : ["vidana.com.mx", "blacktrust.net", "activ8.com.mx"];
 
-        if (allowedDomains.length > 0 && !allowedDomains.includes(userDomain)) {
-            const errorMessage = "El dominio de su correo no está autorizado para registrarse.";
-            setError(errorMessage);
-            toast({
-                variant: 'destructive',
-                title: 'Registro no exitoso, usuario externo',
-                description: errorMessage,
-            });
-            setIsLoading(false);
-            return;
+            const userDomain = email.split('@')[1];
+
+            if (allowedDomains.length > 0 && !allowedDomains.includes(userDomain)) {
+                const errorMessage = "El dominio de su correo no está autorizado para registrarse.";
+                setError(errorMessage);
+                toast({
+                    variant: 'destructive',
+                    title: 'Registro no exitoso, usuario externo',
+                    description: errorMessage,
+                });
+                setIsLoading(false);
+                return;
+            }
         }
 
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        await updateProfile(user, { displayName: name });
-      
+        const newUser = userCredential.user;
+        await updateProfile(newUser, { displayName: name });
+
         const userProfile: UserProfile = {
-            uid: user.uid,
+            uid: newUser.uid,
             name: name,
             email: email,
-            role: 'user', // Default role for new sign-ups
+            role: inviteData ? inviteData.role : 'user',
+            ...(inviteData?.companyId ? { companyId: inviteData.companyId } : {}),
         };
-        await setDoc(doc(firestore, 'users', user.uid), userProfile);
+        await setDoc(doc(firestore, 'users', newUser.uid), userProfile);
+
+        // Mark invite as used
+        if (inviteData && inviteId) {
+            await markInviteUsed(inviteId);
+        }
+
+        if (typeof window !== 'undefined') {
+          document.cookie = 'vidana_session=1; path=/; max-age=86400; SameSite=Strict; Secure';
+        }
 
         toast({
           title: '¡Cuenta Creada!',
           description: 'Hemos creado tu cuenta exitosamente. Serás redirigido.'
         });
-        
+
         // Let useEffect handle redirection
-    } catch (err: any) {
+    } catch (err: unknown) {
       let friendlyMessage = 'Ocurrió un error al registrar la cuenta.';
-      if (err.code === 'auth/email-already-in-use') {
-        friendlyMessage = 'Este email ya se encuentra registrado.';
-      } else if (err.code === 'auth/invalid-email') {
-        friendlyMessage = 'El formato del email no es válido.';
-      } else if (err.code === 'auth/weak-password') {
-        friendlyMessage = 'La contraseña es demasiado débil.';
-      } else {
-        console.error(err);
-        friendlyMessage = err.message;
+      if (err instanceof Error && 'code' in err) {
+        const firebaseErr = err as { code: string; message: string };
+        if (firebaseErr.code === 'auth/email-already-in-use') {
+          friendlyMessage = 'Este email ya se encuentra registrado.';
+        } else if (firebaseErr.code === 'auth/invalid-email') {
+          friendlyMessage = 'El formato del email no es válido.';
+        } else if (firebaseErr.code === 'auth/weak-password') {
+          friendlyMessage = 'La contraseña es demasiado débil.';
+        } else {
+          console.error(err);
+          friendlyMessage = err.message;
+        }
       }
        setError(friendlyMessage);
        toast({
@@ -138,34 +231,42 @@ export default function SignupPage() {
 
     try {
         const result = await signInWithPopup(auth, provider);
-        await checkAndCreateUserProfile(firestore, result.user);
+        await checkAndCreateUserProfile(firestore, result.user, inviteData);
+
+        // Mark invite as used
+        if (inviteData && inviteId) {
+            await markInviteUsed(inviteId);
+        }
+
         toast({ title: '¡Cuenta Creada!', description: 'Hemos creado tu cuenta exitosamente con Google.' });
-    } catch (error: any) {
-        if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+    } catch (error: unknown) {
+        const firebaseErr = error as { code?: string; message?: string };
+        if (firebaseErr.code === 'auth/popup-blocked' || firebaseErr.code === 'auth/cancelled-popup-request' || firebaseErr.code === 'auth/popup-closed-by-user') {
             try {
                 await signInWithRedirect(auth, provider);
-            } catch(redirectError: any) {
-                 const friendlyMessage = redirectError.message.includes("El dominio de su correo no está autorizado") 
-                    ? redirectError.message 
+            } catch(redirectError: unknown) {
+                const rdErr = redirectError as { message?: string };
+                const friendlyMessage = rdErr.message?.includes("El dominio de su correo no está autorizado")
+                    ? rdErr.message
                     : 'No se pudo completar el registro con Google.';
-                setError(friendlyMessage);
+                setError(friendlyMessage ?? 'Error desconocido');
                 toast({ variant: 'destructive', title: 'Error de Google', description: friendlyMessage });
                 setGoogleLoading(false);
             }
         } else {
             let friendlyMessage = 'Ocurrió un error al registrarse con Google.';
-            if (error.message.includes("El dominio de su correo no está autorizado")) {
-                friendlyMessage = error.message;
+            if (firebaseErr.message?.includes("El dominio de su correo no está autorizado")) {
+                friendlyMessage = firebaseErr.message;
             }
             setError(friendlyMessage);
             toast({ variant: 'destructive', title: 'Error de registro con Google', description: friendlyMessage });
-            
+
             if (auth.currentUser) await signOut(auth);
             setGoogleLoading(false);
         }
     }
   };
-  
+
   if (isUserLoading || user) {
      return (
       <div className="flex h-screen items-center justify-center">
@@ -203,7 +304,27 @@ export default function SignupPage() {
             <Logo />
           </div>
           <h2 className="text-2xl font-semibold tracking-tight mb-1">Crear cuenta</h2>
-          <p className="text-sm text-muted-foreground mb-8">Completa el formulario para registrarte</p>
+          <p className="text-sm text-muted-foreground mb-6">Completa el formulario para registrarte</p>
+
+          {/* Invite banner */}
+          {inviteStatus === 'loading' && (
+            <div className="mb-4 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+              <span>Verificando invitación...</span>
+            </div>
+          )}
+          {inviteStatus === 'valid' && inviteCompanyName && (
+            <div className="mb-4 flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>Invitación válida para <strong>{inviteCompanyName}</strong></span>
+            </div>
+          )}
+          {inviteStatus === 'invalid' && (
+            <div className="mb-4 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <XCircle className="h-4 w-4 shrink-0" />
+              <span>Esta invitación no es válida o ya fue usada. Puedes crear una cuenta, pero necesitarás que un administrador te asigne a una empresa.</span>
+            </div>
+          )}
 
           <div className="space-y-4">
             <div className="relative">
@@ -265,5 +386,17 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <SignupForm />
+    </Suspense>
   );
 }

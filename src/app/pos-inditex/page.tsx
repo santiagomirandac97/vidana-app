@@ -3,24 +3,19 @@
 
 import { useState, useEffect, useMemo, type FC, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, where, doc, getDocs, orderBy, getDoc } from 'firebase/firestore';
+import { useFirebase, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { collection, query, where, doc, getDocs, orderBy } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { type Company, type UserProfile, type MenuItem, type OrderItem, type Consumption } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ShieldAlert, Home, Utensils, PlusCircle, ShoppingCart, Trash2, CheckCircle, Printer, Download, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, Utensils, PlusCircle, ShoppingCart, Trash2, CheckCircle, Printer } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
-import { cn, exportToCsv } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { DateRange } from 'react-day-picker';
-import { format, subDays } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
 
 export default function PosInditexPage() {
@@ -179,7 +174,7 @@ const PosDashboard: FC = () => {
             voided: false,
             items: order,
             totalAmount: orderTotal,
-            status: 'completed',
+            status: 'pending',
         };
 
         try {
@@ -475,106 +470,3 @@ const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, setIsOpen, co
         </Dialog>
     );
 };
-
-const DownloadReportDialog: FC<{company: Company, consumptions: Consumption[]}> = ({ company, consumptions }) => {
-    const { toast } = useToast();
-    const [date, setDate] = useState<DateRange | undefined>();
-
-    const handleDownload = () => {
-        if (!date?.from || !date?.to) {
-            toast({variant: 'destructive', title: 'Error', description: 'Por favor seleccione un rango de fechas.'});
-            return;
-        }
-
-        const from = date.from.getTime();
-        const to = date.to.getTime() + (24 * 60 * 60 * 1000 - 1); // include full end day
-
-        const filteredConsumptions = consumptions.filter(c => {
-            const c_time = new Date(c.timestamp).getTime();
-            return c_time >= from && c_time <= to && c.employeeId === 'anonymous'; // Filter for POS sales
-        });
-        
-        if (filteredConsumptions.length === 0) {
-             toast({variant: 'destructive', title: 'Sin Datos', description: 'No se encontraron ventas en el rango de fechas seleccionado.'});
-            return;
-        }
-
-        const rows: (string | number)[][] = [];
-        const headers = ['Fecha', 'Hora', 'Items', 'Total'];
-        rows.push(headers);
-
-        filteredConsumptions.sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-        .forEach(c => {
-            const consumptionDate = new Date(c.timestamp);
-            rows.push([
-                format(consumptionDate, "yyyy-MM-dd"),
-                format(consumptionDate, "HH:mm:ss"),
-                c.items?.map(i => `${i.quantity}x ${i.name}`).join(', ') || '',
-                c.totalAmount?.toFixed(2) || '0.00'
-            ]);
-        });
-
-        const filename = `Reporte_POS_${company.name}_${format(date.from, "yyyy-MM-dd")}_a_${format(date.to, "yyyy-MM-dd")}.csv`;
-        exportToCsv(filename, rows);
-        toast({ title: 'Reporte Descargado', description: `${filteredConsumptions.length} ventas exportadas.`});
-    };
-
-    return (
-        <Dialog>
-            <DialogTrigger asChild>
-                <Button variant="outline"><Download className="mr-2 h-4 w-4"/>Descargar Reporte</Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Descargar Reporte de Ventas</DialogTitle>
-                    <DialogDescription>Seleccione un rango de fechas para exportar las ventas del POS.</DialogDescription>
-                </DialogHeader>
-                 <div className="space-y-4 py-4">
-                    <label>Rango de Fechas</label>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                            variant={"outline"}
-                            className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !date && "text-muted-foreground"
-                            )}
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {date?.from ? (
-                                date.to ? (
-                                <>
-                                    {format(date.from, "LLL dd, y", { locale: es })} -{" "}
-                                    {format(date.to, "LLL dd, y", { locale: es })}
-                                </>
-                                ) : (
-                                format(date.from, "LLL dd, y", { locale: es })
-                                )
-                            ) : (
-                                <span>Elige una fecha</span>
-                            )}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={date?.from}
-                            selected={date}
-                            onSelect={setDate}
-                            numberOfMonths={1}
-                            locale={es}
-                            />
-                        </PopoverContent>
-                    </Popover>
-                </div>
-                <DialogFooter>
-                    <Button onClick={handleDownload} disabled={!date?.from || !date?.to}>
-                        <Download className="mr-2 h-4 w-4"/>
-                        Descargar CSV
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
-}

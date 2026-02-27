@@ -23,6 +23,7 @@ import { toZonedTime } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
 import {
   BarChart,
+  ComposedChart,
   Bar,
   XAxis,
   YAxis,
@@ -36,6 +37,13 @@ import {
 } from 'recharts';
 
 const TZ = 'America/Mexico_City';
+
+// Convert a UTC ISO timestamp to a 'yyyy-MM' string in Mexico City local time.
+// Prevents night-shift consumptions (stored as next-day UTC) from bucketing into the wrong month.
+function toMexicoMonth(utcIsoString: string): string {
+  const zonedDate = toZonedTime(new Date(utcIsoString), TZ);
+  return `${zonedDate.getFullYear()}-${String(zonedDate.getMonth() + 1).padStart(2, '0')}`;
+}
 
 const fmtMXN = (n: number) =>
   `$${n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -184,7 +192,7 @@ export default function ReportesPage() {
 
     return months.map(({ year, month, label }) => {
       const monthStr = `${year}-${String(month).padStart(2, '0')}`;
-      const monthConsumptions = consumptions.filter((c) => c.timestamp.startsWith(monthStr));
+      const monthConsumptions = consumptions.filter((c) => toMexicoMonth(c.timestamp) === monthStr);
       const meals = monthConsumptions.length;
       const revenue = monthConsumptions.reduce((sum, c) => {
         const company = companyMap.get(c.companyId);
@@ -202,7 +210,7 @@ export default function ReportesPage() {
       const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
       const foodCost = (allPurchaseOrders ?? [])
-        .filter((po) => po.createdAt.startsWith(monthStr))
+        .filter((po) => toMexicoMonth(po.createdAt) === monthStr)
         .reduce((sum, po) => sum + po.totalCost, 0);
 
       // Labor: weekStartDate is 'yyyy-MM-dd' — match on prefix
@@ -211,12 +219,12 @@ export default function ReportesPage() {
         .reduce((sum, lc) => sum + lc.amount, 0);
 
       const wasteCost = (allMerma ?? [])
-        .filter((m) => m.timestamp.startsWith(monthStr))
+        .filter((m) => toMexicoMonth(m.timestamp) === monthStr)
         .reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
 
       // Revenue from non-voided consumptions for this month
       const consumptions = (allConsumptions ?? []).filter(
-        (c) => !c.voided && c.timestamp.startsWith(monthStr)
+        (c) => !c.voided && toMexicoMonth(c.timestamp) === monthStr
       );
       const revenue = consumptions.reduce((sum, c) => {
         const company = companyMap.get(c.companyId);
@@ -341,20 +349,29 @@ export default function ReportesPage() {
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={tendenciasData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <ComposedChart data={tendenciasData} margin={{ top: 8, right: 48, bottom: 0, left: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip
-                        formatter={(value: number, name: string) => {
-                          if (name === 'meals') return [value.toLocaleString(), 'Comidas'];
-                          return [value.toLocaleString(), name];
-                        }}
+                      <YAxis yAxisId="meals" orientation="left" tick={{ fontSize: 12 }} />
+                      <YAxis
+                        yAxisId="revenue"
+                        orientation="right"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
                       />
-                      <Legend formatter={(value) => (value === 'meals' ? 'Comidas' : value)} />
-                      <Bar dataKey="meals" fill="hsl(224 76% 48%)" radius={[4, 4, 0, 0]} name="meals" />
-                    </BarChart>
+                      <Tooltip
+                        formatter={(value: number, name: string) => [
+                          name === 'meals'
+                            ? value.toLocaleString()
+                            : `$${value.toLocaleString('es-MX', { minimumFractionDigits: 0 })}`,
+                          name === 'meals' ? 'Comidas' : 'Ingresos',
+                        ]}
+                      />
+                      <Legend />
+                      <Bar yAxisId="meals" dataKey="meals" name="Comidas" fill="hsl(224 76% 48%)" radius={[4, 4, 0, 0]} />
+                      <Line yAxisId="revenue" type="monotone" dataKey="revenue" name="Ingresos" stroke="#10b981" strokeWidth={2} dot={false} />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 )}
               </CardContent>
@@ -555,7 +572,11 @@ export default function ReportesPage() {
                 <CardTitle className="text-sm">Análisis por Platillo</CardTitle>
               </CardHeader>
               <CardContent>
-                {menuData.length === 0 && !menuLoading ? (
+                {menuLoading ? (
+                  <div className="flex h-32 w-full items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : menuData.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Sin datos para este mes</p>
                 ) : (
                   <table className="w-full text-sm">

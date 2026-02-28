@@ -20,14 +20,14 @@ export interface BillingData {
 interface DailyRow {
   day: string;
   actual: number;
-  billed: number;   // = MAX(actual, dailyTarget) on Mon–Thu when target > 0
+  billed: number;   // = MAX(actual, dailyTarget) on chargeable days when target > 0
   subtotal: number; // billed * mealPrice
 }
 
 /**
- * Returns one row per day that has billable meals, applying the Mon–Thu
- * dailyTarget minimum: billed = MAX(actual, dailyTarget) on Mon–Thu,
- * billed = actual on Fri–Sun.
+ * Returns one row per day that has billable meals, applying the company's
+ * per-day minimum: billed = MAX(actual, dailyTarget) on targetDays (default
+ * Mon–Thu), billed = actual on all other days.
  */
 function computeDailyBilling(
   company: Company,
@@ -39,6 +39,7 @@ function computeDailyBilling(
   const monthEnd = new Date(year, monthNum, 0); // last day of month
   const mealPrice = company.mealPrice ?? 0;
   const dailyTarget = company.dailyTarget ?? 0;
+  const chargeable = company.targetDays ?? [1, 2, 3, 4]; // default Mon–Thu
 
   // Bucket consumptions by Mexico City calendar date
   const countByDay: Record<string, number> = {};
@@ -50,8 +51,8 @@ function computeDailyBilling(
   return eachDayOfInterval({ start: monthStart, end: monthEnd })
     .map((date): DailyRow => {
       const dayStr = format(date, 'yyyy-MM-dd');
-      const dow = getDay(date); // 0 = Sun, 1 = Mon … 4 = Thu, 5 = Fri, 6 = Sat
-      const isChargeable = dow >= 1 && dow <= 4; // Mon–Thu
+      const dow = getDay(date); // 0 = Sun, 1 = Mon … 6 = Sat
+      const isChargeable = chargeable.includes(dow);
       const actual = countByDay[dayStr] ?? 0;
       const billed =
         dailyTarget > 0 && isChargeable ? Math.max(actual, dailyTarget) : actual;

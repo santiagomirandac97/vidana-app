@@ -88,7 +88,8 @@ function calcMonthRevenue(
       total += days.reduce((dayTotal, date) => {
         const dayStr = format(date, 'yyyy-MM-dd');
         const dow = getDay(date); // 0 = Sun … 6 = Sat
-        const isChargeable = dow >= 1 && dow <= 4; // Mon–Thu
+        const chargeable = co.targetDays ?? [1, 2, 3, 4]; // default Mon–Thu
+        const isChargeable = chargeable.includes(dow);
         const count = countByDay[dayStr] ?? 0;
         return dayTotal + (isChargeable ? Math.max(count, dailyTarget) : count) * mealPrice;
       }, 0);

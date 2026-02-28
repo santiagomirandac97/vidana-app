@@ -6,6 +6,7 @@ export type Company = {
   accessCode?: string;
   mealPrice?: number;
   dailyTarget?: number;
+  targetDays?: number[];        // day-of-week indices when dailyTarget applies (0=Sun … 6=Sat). Default [1,2,3,4] = Mon–Thu.
   billingNote?: string;
   // Predictive restocking
   stockLookbackDays?: number;   // default 30 — how many days of movements to analyse

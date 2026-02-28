@@ -31,6 +31,7 @@ const companySchema = z.object({
   name: z.string().min(1, { message: "El nombre es obligatorio." }),
   mealPrice: z.coerce.number().min(0, { message: "El precio debe ser un número positivo." }).optional().default(0),
   dailyTarget: z.coerce.number().min(0, { message: "El objetivo debe ser un número positivo." }).optional().default(0),
+  targetDays: z.array(z.number()).optional().default([1, 2, 3, 4]),
   billingNote: z.string().optional(),
   stockLookbackDays: z.coerce.number().min(7).max(90).optional().default(30),
   restockLeadDays: z.coerce.number().min(1).max(30).optional().default(7),
@@ -38,6 +39,17 @@ const companySchema = z.object({
   billingEmail: z.string().email({ message: "Correo inválido." }).optional().or(z.literal('')),
 });
 type CompanyFormData = z.infer<typeof companySchema>;
+
+// Days of the week for the target-days picker (Mon-first order)
+const WEEK_DAYS = [
+  { label: 'Lu', dow: 1 },
+  { label: 'Ma', dow: 2 },
+  { label: 'Mi', dow: 3 },
+  { label: 'Ju', dow: 4 },
+  { label: 'Vi', dow: 5 },
+  { label: 'Sá', dow: 6 },
+  { label: 'Do', dow: 0 },
+];
 
 const menuItemSchema = z.object({
     sku: z.string().optional(),
@@ -173,7 +185,7 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
 
     const form = useForm<CompanyFormData>({
         resolver: zodResolver(companySchema),
-        defaultValues: { name: '', mealPrice: 0, dailyTarget: 0, billingNote: '', stockLookbackDays: 30, restockLeadDays: 7, targetFoodCostPct: 35, billingEmail: '' },
+        defaultValues: { name: '', mealPrice: 0, dailyTarget: 0, targetDays: [1, 2, 3, 4], billingNote: '', stockLookbackDays: 30, restockLeadDays: 7, targetFoodCostPct: 35, billingEmail: '' },
     });
 
     const onSubmit: SubmitHandler<CompanyFormData> = async (data) => {
@@ -183,6 +195,7 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
             name: data.name,
             mealPrice: data.mealPrice,
             dailyTarget: data.dailyTarget,
+            targetDays: data.targetDays,
             billingNote: data.billingNote,
         };
 
@@ -227,6 +240,28 @@ const CompanyManagementTab: FC<{companies: Company[] | null, companiesLoading: b
                                 <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre de la Empresa</FormLabel><FormControl><Input placeholder="Ej., Nueva Empresa S.A." {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="mealPrice" render={({ field }) => (<FormItem><FormLabel>Precio de Comida</FormLabel><FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="dailyTarget" render={({ field }) => (<FormItem><FormLabel>Objetivo Diario de Comidas</FormLabel><FormControl><Input type="number" placeholder="Ej., 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="targetDays" render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Días que aplica el mínimo</FormLabel>
+                                    <FormControl>
+                                      <div className="flex gap-1 flex-wrap">
+                                        {WEEK_DAYS.map(({ label, dow }) => {
+                                          const selected = (field.value ?? [1,2,3,4]).includes(dow);
+                                          return (
+                                            <button key={dow} type="button"
+                                              onClick={() => {
+                                                const cur = field.value ?? [1,2,3,4];
+                                                field.onChange(selected ? cur.filter((d: number) => d !== dow) : [...cur, dow].sort((a,b)=>a-b));
+                                              }}
+                                              className={cn('w-9 h-8 text-xs font-medium rounded border transition-colors', selected ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:bg-muted')}
+                                            >{label}</button>
+                                          );
+                                        })}
+                                      </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )} />
                                 <FormField control={form.control} name="billingNote" render={({ field }) => (<FormItem><FormLabel>Nota de Facturación</FormLabel><FormControl><Textarea placeholder="Ej., Se cobra un mínimo de 300 comidas de L-J." {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="stockLookbackDays" render={({ field }) => (<FormItem><FormLabel>Historial Reabasto (días)</FormLabel><FormControl><Input type="number" min={7} max={90} {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="restockLeadDays" render={({ field }) => (<FormItem><FormLabel>Anticipo de Reabasto (días)</FormLabel><FormControl><Input type="number" min={1} max={30} {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -822,6 +857,7 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
             name: company.name || '',
             mealPrice: company.mealPrice || 0,
             dailyTarget: company.dailyTarget || 0,
+            targetDays: company.targetDays ?? [1, 2, 3, 4],
             billingNote: company.billingNote || '',
             stockLookbackDays: company.stockLookbackDays || 30,
             restockLeadDays: company.restockLeadDays || 7,
@@ -835,6 +871,7 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
             name: company.name || '',
             mealPrice: company.mealPrice || 0,
             dailyTarget: company.dailyTarget || 0,
+            targetDays: company.targetDays ?? [1, 2, 3, 4],
             billingNote: company.billingNote || '',
             stockLookbackDays: company.stockLookbackDays || 30,
             restockLeadDays: company.restockLeadDays || 7,
@@ -890,6 +927,32 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
                                     <FormLabel>Objetivo Diario de Comidas (Opcional)</FormLabel>
                                     <FormControl>
                                         <Input type="number" placeholder="Ej., 300" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="targetDays"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Días que aplica el mínimo</FormLabel>
+                                    <FormControl>
+                                        <div className="flex gap-1 flex-wrap">
+                                            {WEEK_DAYS.map(({ label, dow }) => {
+                                                const selected = (field.value ?? [1,2,3,4]).includes(dow);
+                                                return (
+                                                    <button key={dow} type="button"
+                                                        onClick={() => {
+                                                            const cur = field.value ?? [1,2,3,4];
+                                                            field.onChange(selected ? cur.filter((d: number) => d !== dow) : [...cur, dow].sort((a,b)=>a-b));
+                                                        }}
+                                                        className={cn('w-9 h-8 text-xs font-medium rounded border transition-colors', selected ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:bg-muted')}
+                                                    >{label}</button>
+                                                );
+                                            })}
+                                        </div>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

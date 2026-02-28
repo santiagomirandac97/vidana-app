@@ -1,6 +1,93 @@
 # Session Notes — Vidana App
 
-**Last Updated:** 2026-02-26
+**Last Updated:** 2026-02-27
+
+---
+
+## Session: 2026-02-27 — Platform Polish & Quality (17 Tasks)
+
+**Branch:** `main`
+**Status:** ✅ 10 commits — build clean, pushed to GitHub. Firebase App Hosting auto-deploying.
+
+### Context: Revenue Formula Fixes (continued from 2026-02-26)
+
+Session also included two items completed at the start (continuing prior session):
+- **Per-company `targetDays`** — replaced hardcoded Mon–Thu (`dow >= 1 && dow <= 4`) with per-company `targetDays?: number[]` field (default `[1,2,3,4]`). Affected 6 calculation locations: `admin`, `costos×2`, `facturacion`, `reportes`, `billing-generators`. Added day-picker UI (Lu Ma Mi Ju Vi Sá Do toggle buttons) to Configuración create/edit company forms.
+- **Noticieros Televisa** = Mon–Fri, **Inditex** = all 7 days, **Grupo Axo** = Mon–Thu (default)
+
+### What Was Built
+
+Full platform polish pass — zero new features, only quality improvements. 3 phases:
+
+#### Phase 1 — Component Extraction (Foundation)
+
+| Page | Before | After |
+|---|---|---|
+| `configuracion/page.tsx` | 1,035 lines | **130 lines** + `components/EmpresasTab.tsx`, `MenuTab.tsx`, `UsuariosTab.tsx` |
+| `inventario/page.tsx` | 1,535 lines | **223 lines** + `components/IngredientsTab.tsx`, `MovimientosTab.tsx`, `OrdenesTab.tsx`, `constants.ts`, `PageLoadGuard.tsx`, `AutoOrderDialog.tsx` |
+| `main/page.tsx` | ~1,000 lines | **159 lines** + `components/EmployeeSearch.tsx`, `ConsumptionHistory.tsx` |
+
+Pure code movement — no logic, behavior, or UI changed. Each extracted component has `'use client'`; `constants.ts` has no directive (types/data only).
+
+#### Phase 2 — UX Polish
+
+**New shared components:**
+- `src/components/ui/error-state.tsx` — `ErrorState` with title, description, optional retry button (`AlertTriangle` icon)
+- `src/components/ui/empty-state.tsx` — `EmptyState` with configurable `icon: LucideIcon`, title, description, optional action button
+
+**Error states applied to:** Admin, Facturación, Costos, Reportes — uses `error` field returned by `useCollection` / `useDoc` hooks directly. Renders `<ErrorState onRetry={() => window.location.reload()} />` inside AppShell wrapper.
+
+**Empty states improved in:**
+- `MenuTab` — `Utensils` icon, "Este menú está vacío."
+- `UsuariosTab` — `Users` icon, "No hay miembros en el equipo."
+- `IngredientsTab` — `Package` icon, "No hay ingredientes registrados."
+- `OrdenesTab` — `ShoppingCart` icon, "No hay órdenes de compra."
+- `ConsumptionHistory` — `ClipboardList` icon, "No hay registros para este período."
+
+**Skeleton loaders:** Admin, Costos, Facturación — replaced full-page `<Loader2>` spinners with skeleton cards matching the page layout (header skeletons + KPI skeletons + card grid skeletons).
+
+**`src/hooks/use-pagination.ts`** — generic `usePagination<T>(items, pageSize=25)` hook returning `pageItems`, `page`, `totalPages`, `goToNext`, `goToPrev`, `reset`, `pageSize`. Pagination with Prev/Next controls added to:
+- `MovimientosTab` (stock movements)
+- `ConsumptionHistory` (monthly consumptions)
+
+**Mobile overflow:** `overflow-x-auto` wrappers on all `<Table>` components in Costos, Reportes, EmpresasTab, MenuTab, UsuariosTab.
+
+**Facturación tooltips:** PDF/Excel/Email buttons when disabled (0 meals) now wrapped in `TooltipProvider > Tooltip`. Tooltip message: "Sin comidas registradas para este período".
+
+**Configuración confirmations:** Delete platillo button in `MenuTab` wrapped in `AlertDialog` with "¿Eliminar platillo? Esta acción no se puede deshacer." confirmation.
+
+#### Phase 3 — Reliability
+
+**`src/components/ui/error-boundary.tsx`** — React class component `ErrorBoundary` with `getDerivedStateFromError`, `componentDidCatch` (console.error), Spanish fallback UI with reload button. Wraps `{children}` in both render branches of `AppShell` (pre-mount and mounted).
+
+**`src/lib/firestore-errors.ts`** — `formatFirestoreError(error: unknown): string` utility mapping Firebase error codes to Spanish: `permission-denied`, `unavailable`, `not-found`, `already-exists`, `resource-exhausted`, `unauthenticated`, `cancelled`, `deadline-exceeded`. Applied to `facturacion/page.tsx`, `recetas/page.tsx`, `kiosk/page.tsx`.
+
+**`KIOSK_COMPANY_ID` removed** from `kiosk/page.tsx` — now reads `kioskCompanyId` field from Firestore `configuration/app` document via `useDoc`. Guards for `configLoading` spinner and `!companyId` "not configured" state.
+
+### Post-Review Fixes (from final code reviewer)
+
+| Fix | Files |
+|---|---|
+| Pagination display hardcoded `25` → use `pageSize` variable | `MovimientosTab.tsx`, `ConsumptionHistory.tsx` |
+| Pagination `page` state didn't reset when company changed | `MovimientosTab.tsx`, `ConsumptionHistory.tsx` (added `useEffect(() => reset(), [data.length])`) |
+| Kiosk catch blocks used `error: any` + `error.message` directly | `kiosk/page.tsx` → now uses `formatFirestoreError(e)` |
+| Duplicate `import { ClipboardList }` merged into existing lucide block | `ConsumptionHistory.tsx` |
+| `overflow-x-auto` on configuracion tables | `EmpresasTab.tsx`, `MenuTab.tsx`, `UsuariosTab.tsx` |
+| `deadline-exceeded` case added to `formatFirestoreError` | `firestore-errors.ts` |
+
+### Commits
+```
+497c8c0 docs: add platform polish & quality improvement design doc (2026-02-27)
+3841b32 docs: add platform polish implementation plan (17 tasks, 3 phases)
+b4a6758 refactor(configuracion): extract tab components into separate files
+668ad73 refactor(inventario): extract tab components into separate files
+950913e refactor(inventario): slim page.tsx to shell only
+86095af refactor(main): extract employee search and consumption history into components
+a79b8d0 feat(ui): add ErrorState + EmptyState components, apply to all pages
+5d43a47 feat(ux): skeleton loaders, pagination, mobile overflow, tooltips, confirmation dialogs
+55863b0 feat(reliability): ErrorBoundary, Firestore error normalization, remove hardcoded KIOSK_COMPANY_ID
+bf0a111 fix: address code review findings — pagination pageSize, reset on data change, error handling, import cleanup
+```
 
 ---
 
@@ -319,8 +406,13 @@ Uses named export: `import { jsPDF } from 'jspdf'` (NOT default export)
 
 ## Pending / Next Steps
 
-1. **Deploy Firestore rules**: `firebase deploy --only firestore:rules` — Phase 2 updated `firestore.rules` (invites collection + `laborCosts` fix). Rules won't apply in production until deployed.
-2. **Firestore composite indexes for Comanda**: The Comanda page queries consumptions with `timestamp >= todayStart` + `voided == false` + `status == 'pending'` — Firestore may require a composite index. Check Firebase Console → Firestore → Indexes if the Comanda page shows no results in production.
-3. **Set Resend secret** (if not done): `firebase functions:secrets:set RESEND_API_KEY`
-4. **Deploy functions**: `firebase deploy --only functions`
-5. **Backfill companyId**: existing `stockMovements` and `purchaseOrders` documents in Firestore lack `companyId` — new writes include it; old data won't filter by company until backfilled
+1. **Configure `targetDays` for companies in Firestore**: Go to Configuración → Gestionar Empresas and set:
+   - Noticieros Televisa → `[1,2,3,4,5]` (Lu–Vi)
+   - Inditex → `[0,1,2,3,4,5,6]` (every day)
+   - Grupo Axo → `[1,2,3,4]` (Mon–Thu, already default)
+2. **Set `kioskCompanyId` in Firestore**: Firebase Console → Firestore → `configuration/app` → add field `kioskCompanyId` = the Televisa/Inditex company ID used by the kiosk
+3. **Deploy Firestore rules**: `firebase deploy --only firestore:rules` — Phase 2 updated `firestore.rules` (invites collection + `laborCosts` fix). Rules won't apply in production until deployed.
+4. **Firestore composite indexes for Comanda**: Check Firebase Console → Firestore → Indexes if Comanda shows no results in production.
+5. **Set Resend secret** (if not done): `firebase functions:secrets:set RESEND_API_KEY`
+6. **Deploy functions**: `firebase deploy --only functions`
+7. **Backfill companyId**: existing `stockMovements` and `purchaseOrders` documents in Firestore lack `companyId` — new writes include it; old data won't filter by company until backfilled

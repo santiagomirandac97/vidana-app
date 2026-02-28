@@ -18,8 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, ShieldAlert, TrendingUp } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { Button } from '@/components/ui/button';
-import { format, getDaysInMonth, startOfMonth, subMonths } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
+import { format, getDaysInMonth, startOfMonth, subMonths, eachDayOfInterval, getDay } from 'date-fns';
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
 import {
   BarChart,
@@ -51,6 +51,53 @@ const fmtMXN = (n: number) =>
 // Returns "Feb 26", "Ene 26", etc.
 const monthLabel = (year: number, month: number) =>
   format(new Date(year, month - 1, 1), 'MMM yy', { locale: es });
+
+/**
+ * Revenue for a calendar month applying the Mon–Thu dailyTarget minimum per
+ * company: billed = MAX(actual, dailyTarget) on Mon–Thu, actual on Fri–Sun.
+ */
+function calcMonthRevenue(
+  consumptions: Consumption[],  // non-voided, already filtered to this month
+  companies: Company[],
+  year: number,
+  month: number
+): number {
+  const monthStartDate = new Date(year, month - 1, 1);
+  const monthEndDate = new Date(year, month, 0); // last day of month
+
+  // Group consumptions by companyId
+  const byCompany: Record<string, Consumption[]> = {};
+  for (const c of consumptions) {
+    if (!byCompany[c.companyId]) byCompany[c.companyId] = [];
+    byCompany[c.companyId].push(c);
+  }
+
+  let total = 0;
+  for (const co of companies) {
+    const mealPrice = co.mealPrice ?? 0;
+    const dailyTarget = co.dailyTarget ?? 0;
+    const cons = byCompany[co.id!] ?? [];
+
+    if (dailyTarget > 0) {
+      const countByDay: Record<string, number> = {};
+      for (const c of cons) {
+        const d = formatInTimeZone(new Date(c.timestamp), TZ, 'yyyy-MM-dd');
+        countByDay[d] = (countByDay[d] ?? 0) + 1;
+      }
+      const days = eachDayOfInterval({ start: monthStartDate, end: monthEndDate });
+      total += days.reduce((dayTotal, date) => {
+        const dayStr = format(date, 'yyyy-MM-dd');
+        const dow = getDay(date); // 0 = Sun … 6 = Sat
+        const isChargeable = dow >= 1 && dow <= 4; // Mon–Thu
+        const count = countByDay[dayStr] ?? 0;
+        return dayTotal + (isChargeable ? Math.max(count, dailyTarget) : count) * mealPrice;
+      }, 0);
+    } else {
+      total += cons.length * mealPrice;
+    }
+  }
+  return total;
+}
 
 // Build last 6 months as { year, month, label }
 function buildLast6Months(now: Date): Array<{ year: number; month: number; label: string }> {
@@ -195,15 +242,12 @@ export default function ReportesPage() {
       const monthStr = `${year}-${String(month).padStart(2, '0')}`;
       const monthConsumptions = consumptions.filter((c) => toMexicoMonth(c.timestamp) === monthStr);
       const meals = monthConsumptions.length;
-      const revenue = monthConsumptions.reduce((sum, c) => {
-        const company = companyMap.get(c.companyId);
-        return sum + (company?.mealPrice ?? 0);
-      }, 0);
+      const revenue = calcMonthRevenue(monthConsumptions, companies ?? [], year, month);
       const daysInMonth = getDaysInMonth(new Date(year, month - 1, 1));
       const avgDaily = meals / daysInMonth;
       return { label, meals, revenue, avgDaily, daysInMonth };
     });
-  }, [allConsumptions, months, companyMap]);
+  }, [allConsumptions, months, companies]);
 
   // ── Tab 2: Costos ──────────────────────────────────────────────────────────
   const costosData = useMemo(() => {
@@ -227,16 +271,13 @@ export default function ReportesPage() {
       const consumptions = (allConsumptions ?? []).filter(
         (c) => !c.voided && toMexicoMonth(c.timestamp) === monthStr
       );
-      const revenue = consumptions.reduce((sum, c) => {
-        const company = companyMap.get(c.companyId);
-        return sum + (company?.mealPrice ?? 0);
-      }, 0);
+      const revenue = calcMonthRevenue(consumptions, companies ?? [], year, month);
 
       const foodCostPct = revenue > 0 ? (foodCost / revenue) * 100 : 0;
 
       return { label, foodCost, laborCost, wasteCost, foodCostPct };
     });
-  }, [months, allPurchaseOrders, allLaborCosts, allMerma, allConsumptions, companyMap]);
+  }, [months, allPurchaseOrders, allLaborCosts, allMerma, allConsumptions, companies]);
 
   // ── Tab 3: Menu analytics ──────────────────────────────────────────────────
   const menuData = useMemo(() => {

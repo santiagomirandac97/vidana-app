@@ -150,6 +150,7 @@ export const EmpresasTab: FC<{companies: Company[] | null, companiesLoading: boo
                         {companiesLoading ? (
                                 <div className="flex h-48 w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
                         ) : (
+                            <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead className="text-right">Precio Comida</TableHead><TableHead className="text-right">Objetivo Diario</TableHead><TableHead>Nota Facturación</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                                 <TableBody>
@@ -164,6 +165,7 @@ export const EmpresasTab: FC<{companies: Company[] | null, companiesLoading: boo
                                     ))}
                                 </TableBody>
                             </Table>
+                            </div>
                         )}
                     </CardContent>
                 </Card>

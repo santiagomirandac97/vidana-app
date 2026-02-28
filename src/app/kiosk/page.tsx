@@ -22,6 +22,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
 import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { formatFirestoreError } from '@/lib/firestore-errors';
 
 
 
@@ -140,8 +141,8 @@ const KioskDashboard: FC = () => {
                 setConsumptions(consumptionsSnapshot.docs.map(d => ({...d.data(), id: d.id} as Consumption)));
 
 
-            } catch (error: any) {
-                 toast({ variant: 'destructive', title: 'Error cargando datos', description: error.message });
+            } catch (e: unknown) {
+                 toast({ variant: 'destructive', title: 'Error cargando datos', description: formatFirestoreError(e) });
             } finally {
                 setIsLoading(false);
             }
@@ -217,8 +218,8 @@ const KioskDashboard: FC = () => {
             setSelectedEmployee(null);
             setOrder([]);
 
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error al confirmar', description: error.message });
+        } catch (e: unknown) {
+            toast({ variant: 'destructive', title: 'Error al confirmar', description: formatFirestoreError(e) });
         } finally {
             setIsSubmitting(false);
         }

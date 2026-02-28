@@ -20,6 +20,8 @@ export function formatFirestoreError(error: unknown): string {
         return 'Sesión expirada. Vuelve a iniciar sesión.';
       case 'cancelled':
         return 'La operación fue cancelada.';
+      case 'deadline-exceeded':
+        return 'Tiempo de respuesta agotado. Intenta de nuevo.';
       default:
         return `Error: ${error.message}`;
     }

@@ -152,6 +152,7 @@ export const MenuTab: FC<{ companies: Company[] | null, companiesLoading: boolea
                         ) : menuItems && menuItems.length === 0 ? (
                             <EmptyState icon={Utensils} title="Este menú está vacío." />
                         ) : (
+                            <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Nombre</TableHead><TableHead>Categoría</TableHead><TableHead className="text-right">Precio</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                                 <TableBody>
@@ -191,6 +192,7 @@ export const MenuTab: FC<{ companies: Company[] | null, companiesLoading: boolea
                                     ))}
                                 </TableBody>
                             </Table>
+                            </div>
                         )}
                     </CardContent>
                 </Card>

@@ -99,6 +99,7 @@ export const UsuariosTab: FC = () => {
                     ) : !users || users.length === 0 ? (
                         <EmptyState icon={Users} title="No hay miembros en el equipo." />
                     ) : (
+                        <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -179,6 +180,7 @@ export const UsuariosTab: FC = () => {
                                 })}
                             </TableBody>
                         </Table>
+                        </div>
                     )}
                 </CardContent>
             </Card>
@@ -204,6 +206,7 @@ export const UsuariosTab: FC = () => {
                     ) : !invites || invites.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-8">No hay invitaciones generadas aún.</p>
                     ) : (
+                        <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -239,6 +242,7 @@ export const UsuariosTab: FC = () => {
                                 })}
                             </TableBody>
                         </Table>
+                        </div>
                     )}
                 </CardContent>
             </Card>

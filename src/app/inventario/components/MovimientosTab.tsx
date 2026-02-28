@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { type StockMovement, type MovementType } from '@/lib/types';
 import { formatInTimeZone } from 'date-fns-tz';
 
@@ -26,7 +27,9 @@ interface MovimientosTabProps {
 }
 
 export function MovimientosTab({ movements, isLoading }: MovimientosTabProps) {
-  const { page, totalPages, pageItems, goToNext, goToPrev } = usePagination(movements, 25);
+  const { page, totalPages, pageItems, goToNext, goToPrev, reset, pageSize } = usePagination(movements, 25);
+
+  useEffect(() => { reset(); }, [movements.length]); // reset when movement list changes
 
   if (isLoading) {
     return (
@@ -91,7 +94,7 @@ export function MovimientosTab({ movements, isLoading }: MovimientosTabProps) {
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-2 py-3 border-t border-border/60 text-xs text-muted-foreground">
               <span>
-                Mostrando {page * 25 + 1}–{Math.min((page + 1) * 25, movements.length)} de {movements.length}
+                Mostrando {page * pageSize + 1}–{Math.min((page + 1) * pageSize, movements.length)} de {movements.length}
               </span>
               <div className="flex gap-2">
                 <Button variant="outline" size="icon" className="h-7 w-7" onClick={goToPrev} disabled={page === 0}>

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo, useRef, type ChangeEvent, type FC } from 'react';
+import { useState, useMemo, useEffect, useRef, type ChangeEvent, type FC } from 'react';
 import {
   BarChart,
   CheckCircle,
+  ClipboardList,
   Download,
   Calendar as CalendarIcon,
   Loader2,
@@ -48,7 +49,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from '@/components/ui/empty-state';
-import { ClipboardList } from 'lucide-react';
 import { usePagination } from '@/hooks/use-pagination';
 
 interface ConsumptionHistoryProps {
@@ -84,7 +84,11 @@ export function ConsumptionHistory({
     pageItems: consumptionPage,
     goToNext,
     goToPrev,
+    reset,
+    pageSize,
   } = usePagination(activeMonthlyConsumptions, 25);
+
+  useEffect(() => { reset(); }, [activeMonthlyConsumptions.length]); // reset when consumption list changes
 
   const dailyConsumptionCount = useMemo(() => {
     return todaysConsumptions.filter((c) => !c.voided).length;
@@ -368,7 +372,7 @@ export function ConsumptionHistory({
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between px-2 py-3 border-t border-border/60 text-xs text-muted-foreground">
                       <span>
-                        Mostrando {page * 25 + 1}–{Math.min((page + 1) * 25, activeMonthlyConsumptions.length)} de {activeMonthlyConsumptions.length}
+                        Mostrando {page * pageSize + 1}–{Math.min((page + 1) * pageSize, activeMonthlyConsumptions.length)} de {activeMonthlyConsumptions.length}
                       </span>
                       <div className="flex gap-2">
                         <Button variant="outline" size="icon" className="h-7 w-7" onClick={goToPrev} disabled={page === 0}>

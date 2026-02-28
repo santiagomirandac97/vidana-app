@@ -24,8 +24,8 @@ import { SectionLabel } from '@/components/ui/section-label';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useToast } from '@/hooks/use-toast';
-import { format, subMonths } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
+import { format, subMonths, eachDayOfInterval, getDay } from 'date-fns';
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
 import { generateInvoicePDF, generateInvoiceExcel, downloadBlob, blobToBase64 } from '@/lib/billing-generators';
 
@@ -39,6 +39,38 @@ const STATUS_CONFIG = {
   enviado: { label: 'Enviado', Icon: Send },
   pagado: { label: 'Pagado', Icon: CheckCircle2 },
 };
+
+/**
+ * Compute billed revenue for a company/month applying the Mon–Thu dailyTarget
+ * minimum: billed = MAX(actual, dailyTarget) on Mon–Thu, actual on Fri–Sun.
+ */
+function calcRevenue(company: Company, consumptions: Consumption[], month: string): number {
+  const mealPrice = company.mealPrice ?? 0;
+  const dailyTarget = company.dailyTarget ?? 0;
+
+  if (dailyTarget <= 0) return consumptions.length * mealPrice;
+
+  const [y, m] = month.split('-').map(Number);
+  const monthStartDate = new Date(y, m - 1, 1);
+  const monthEndDate = new Date(y, m, 0); // last day of month
+
+  const countByDay: Record<string, number> = {};
+  for (const c of consumptions) {
+    const d = formatInTimeZone(new Date(c.timestamp), TIME_ZONE, 'yyyy-MM-dd');
+    countByDay[d] = (countByDay[d] ?? 0) + 1;
+  }
+
+  return eachDayOfInterval({ start: monthStartDate, end: monthEndDate }).reduce(
+    (total, date) => {
+      const dayStr = format(date, 'yyyy-MM-dd');
+      const dow = getDay(date); // 0 = Sun … 6 = Sat
+      const isChargeable = dow >= 1 && dow <= 4; // Mon–Thu
+      const count = countByDay[dayStr] ?? 0;
+      return total + (isChargeable ? Math.max(count, dailyTarget) : count) * mealPrice;
+    },
+    0
+  );
+}
 
 export default function FacturacionPage() {
   const { user, isLoading: userLoading } = useUser();
@@ -146,7 +178,7 @@ export default function FacturacionPage() {
         billingEmail: company.billingEmail,
         month: selectedMonth,
         totalMeals: consumptions.length,
-        totalAmount: consumptions.length * (company.mealPrice ?? 0),
+        totalAmount: calcRevenue(company, consumptions, selectedMonth),
         pdfBase64,
       });
       toast({ title: `Factura enviada a ${company.billingEmail}` });
@@ -212,7 +244,7 @@ export default function FacturacionPage() {
     monthOptions.find((o) => o.value === selectedMonth)?.label ?? selectedMonth;
 
   const totalBilled = (companies ?? []).reduce(
-    (sum, co) => sum + (byCompany[co.id]?.length ?? 0) * (co.mealPrice ?? 0),
+    (sum, co) => sum + calcRevenue(co, byCompany[co.id] ?? [], selectedMonth),
     0
   );
   const totalMeals = (allConsumptions ?? []).filter((c) => !c.voided).length;
@@ -250,7 +282,7 @@ export default function FacturacionPage() {
           {(companies ?? []).map((company) => {
             const consumptions = byCompany[company.id] ?? [];
             const totalMealsForCompany = consumptions.length;
-            const totalAmount = totalMealsForCompany * (company.mealPrice ?? 0);
+            const totalAmount = calcRevenue(company, consumptions, selectedMonth);
             const status = (company.billingStatus?.[selectedMonth] ??
               'pendiente') as 'pendiente' | 'enviado' | 'pagado';
             const isSending = sendingCompanyId === company.id;

@@ -46,6 +46,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ClipboardList } from 'lucide-react';
 
 interface ConsumptionHistoryProps {
   companyId: string;
@@ -471,10 +473,10 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
 
   if (consumptions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-80 border rounded-md bg-gray-50 dark:bg-gray-800/50">
-        <BarChart className="h-10 w-10 text-muted-foreground" />
-        <p className="text-muted-foreground mt-4">No hay datos de consumo para mostrar el gráfico.</p>
-      </div>
+      <EmptyState
+        icon={ClipboardList}
+        title="No hay registros para este período."
+      />
     );
   }
 

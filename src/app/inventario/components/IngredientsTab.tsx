@@ -46,7 +46,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, AlertTriangle, Plus, ArrowDownUp, PackagePlus } from 'lucide-react';
+import { Loader2, AlertTriangle, Plus, ArrowDownUp, PackagePlus, Package } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 
 import {
   STOCK_UNITS,
@@ -462,12 +463,7 @@ export function IngredientsTab({ ingredients, isLoading, suppliers, companyId, u
       </Dialog>
 
       {ingredients.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center h-40 gap-2">
-            <PackagePlus className="h-10 w-10 text-muted-foreground" />
-            <p className="text-muted-foreground">No hay ingredientes registrados.</p>
-          </CardContent>
-        </Card>
+        <EmptyState icon={Package} title="No hay ingredientes registrados." />
       ) : (
         <Card>
           <Table>

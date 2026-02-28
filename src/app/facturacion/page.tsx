@@ -22,6 +22,7 @@ import {
 import { AppShell, PageHeader } from '@/components/layout';
 import { SectionLabel } from '@/components/ui/section-label';
 import { KpiCard } from '@/components/ui/kpi-card';
+import { ErrorState } from '@/components/ui/error-state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useToast } from '@/hooks/use-toast';
 import { format, subMonths, eachDayOfInterval, getDay } from 'date-fns';
@@ -89,7 +90,7 @@ export default function FacturacionPage() {
     () => (firestore ? query(collection(firestore, 'companies')) : null),
     [firestore]
   );
-  const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesRef);
+  const { data: companies, isLoading: companiesLoading, error: companiesError } = useCollection<Company>(companiesRef);
 
   const now = useMemo(() => toZonedTime(new Date(), TIME_ZONE), []);
 
@@ -130,7 +131,7 @@ export default function FacturacionPage() {
         : null,
     [firestore, monthStart, monthEnd]
   );
-  const { data: allConsumptions, isLoading: consumptionsLoading } =
+  const { data: allConsumptions, isLoading: consumptionsLoading, error: consumptionsError } =
     useCollection<Consumption>(consumptionsRef);
 
   // Group consumptions by company
@@ -215,6 +216,14 @@ export default function FacturacionPage() {
         <div className="flex h-screen w-full items-center justify-center">
           <Loader2 className="h-10 w-10 animate-spin" />
         </div>
+      </AppShell>
+    );
+  }
+
+  if (companiesError || consumptionsError) {
+    return (
+      <AppShell>
+        <ErrorState onRetry={() => window.location.reload()} />
       </AppShell>
     );
   }

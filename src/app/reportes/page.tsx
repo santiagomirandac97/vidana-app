@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, ShieldAlert, TrendingUp } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
+import { ErrorState } from '@/components/ui/error-state';
 import { Button } from '@/components/ui/button';
 import { format, getDaysInMonth, startOfMonth, subMonths, eachDayOfInterval, getDay } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
@@ -132,7 +133,7 @@ export default function ReportesPage() {
     () => (firestore ? query(collection(firestore, 'companies')) : null),
     [firestore]
   );
-  const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesRef);
+  const { data: companies, isLoading: companiesLoading, error: companiesError } = useCollection<Company>(companiesRef);
 
   // Anchor now to Mexico City timezone
   const now = useMemo(() => toZonedTime(new Date(), TZ), []);
@@ -171,7 +172,7 @@ export default function ReportesPage() {
         : null,
     [firestore, isAdmin, sixMonthsAgo]
   );
-  const { data: allConsumptions, isLoading: consumptionsLoading } = useCollection<Consumption>(consumptionsRef);
+  const { data: allConsumptions, isLoading: consumptionsLoading, error: consumptionsError } = useCollection<Consumption>(consumptionsRef);
 
   // Purchase orders last 6 months
   const purchaseOrdersRef = useMemoFirebase(
@@ -354,6 +355,14 @@ export default function ReportesPage() {
             </CardContent>
           </Card>
         </div>
+      </AppShell>
+    );
+  }
+
+  if (companiesError || consumptionsError) {
+    return (
+      <AppShell>
+        <ErrorState onRetry={() => window.location.reload()} />
       </AppShell>
     );
   }

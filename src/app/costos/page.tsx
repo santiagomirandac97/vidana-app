@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DollarSign, TrendingDown, TrendingUp, Users, Loader2, ShieldAlert, Plus, AlertTriangle } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
+import { ErrorState } from '@/components/ui/error-state';
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
@@ -40,7 +41,7 @@ export default function CostosPage() {
   const companiesRef = useMemoFirebase(() =>
     firestore ? query(collection(firestore, 'companies')) : null
   , [firestore]);
-  const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesRef);
+  const { data: companies, isLoading: companiesLoading, error: companiesError } = useCollection<Company>(companiesRef);
 
   const [filterCompanyId, setFilterCompanyId] = useState<string>('all');
 
@@ -52,7 +53,7 @@ export default function CostosPage() {
   const consumptionsRef = useMemoFirebase(() =>
     firestore ? query(collectionGroup(firestore, 'consumptions'), where('timestamp', '>=', monthStart)) : null
   , [firestore, monthStart]);
-  const { data: allConsumptions } = useCollection<Consumption>(consumptionsRef);
+  const { data: allConsumptions, error: consumptionsError } = useCollection<Consumption>(consumptionsRef);
 
   // Cross-company merma movements for current month
   const mermaRef = useMemoFirebase(() =>
@@ -204,6 +205,14 @@ export default function CostosPage() {
       </div>
     </AppShell>
   );
+
+  if (companiesError || consumptionsError) {
+    return (
+      <AppShell>
+        <ErrorState onRetry={() => window.location.reload()} />
+      </AppShell>
+    );
+  }
 
   if (!user || userProfile?.role !== 'admin') {
     return (

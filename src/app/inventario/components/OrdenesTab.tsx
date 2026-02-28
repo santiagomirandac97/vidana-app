@@ -45,7 +45,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Plus, Truck } from 'lucide-react';
+import { Loader2, Plus, Truck, ShoppingCart } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 
 import {
   TIME_ZONE,
@@ -493,12 +494,7 @@ export function OrdenesTab({
       </div>
 
       {purchaseOrders.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center h-40 gap-2">
-            <Truck className="h-10 w-10 text-muted-foreground" />
-            <p className="text-muted-foreground">No hay órdenes de compra registradas.</p>
-          </CardContent>
-        </Card>
+        <EmptyState icon={ShoppingCart} title="No hay órdenes de compra." />
       ) : (
         <div className="space-y-4">
           {purchaseOrders.map((order) => (

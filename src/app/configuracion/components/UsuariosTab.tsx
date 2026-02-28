@@ -14,6 +14,7 @@ import { Loader2, Users, ChevronDown, Link2, Copy, Check } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export const UsuariosTab: FC = () => {
     const { firestore } = useFirebase();
@@ -95,6 +96,8 @@ export const UsuariosTab: FC = () => {
                 <CardContent>
                     {isLoading ? (
                         <div className="flex h-64 w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                    ) : !users || users.length === 0 ? (
+                        <EmptyState icon={Users} title="No hay miembros en el equipo." />
                     ) : (
                         <Table>
                             <TableHeader>

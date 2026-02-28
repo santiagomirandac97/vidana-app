@@ -12,6 +12,7 @@ import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { DollarSign, Utensils, Loader2, ShieldAlert } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
+import { ErrorState } from '@/components/ui/error-state';
 
 const TZ = 'America/Mexico_City';
 
@@ -30,7 +31,7 @@ export default function AdminDashboardPage() {
     () => firestore ? query(collection(firestore, 'companies')) : null,
     [firestore]
   );
-  const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesQuery);
+  const { data: companies, isLoading: companiesLoading, error: companiesError } = useCollection<Company>(companiesQuery);
 
   const now = useMemo(() => toZonedTime(new Date(), TZ), []);
   const monthStart = useMemo(() => startOfMonth(now).toISOString(), [now]);
@@ -41,7 +42,7 @@ export default function AdminDashboardPage() {
       : null,
     [firestore, monthStart]
   );
-  const { data: allConsumptions, isLoading: consumptionsLoading } = useCollection<Consumption>(consumptionsQuery);
+  const { data: allConsumptions, isLoading: consumptionsLoading, error: consumptionsError } = useCollection<Consumption>(consumptionsQuery);
 
   useEffect(() => {
     if (!userLoading && !user) router.push('/login');
@@ -101,6 +102,14 @@ export default function AdminDashboardPage() {
         <div className="flex h-full items-center justify-center p-8">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
+      </AppShell>
+    );
+  }
+
+  if (companiesError || consumptionsError) {
+    return (
+      <AppShell>
+        <ErrorState onRetry={() => window.location.reload()} />
       </AppShell>
     );
   }

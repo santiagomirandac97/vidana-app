@@ -8,12 +8,13 @@ import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { type Company, type Consumption, type StockMovement, type PurchaseOrder, type LaborCost, type UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DollarSign, TrendingDown, TrendingUp, Users, Loader2, ShieldAlert, Plus, AlertTriangle } from 'lucide-react';
+import { DollarSign, TrendingDown, TrendingUp, Users, ShieldAlert, Plus, AlertTriangle } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { ErrorState } from '@/components/ui/error-state';
@@ -200,8 +201,15 @@ export default function CostosPage() {
   const pageIsLoading = userLoading || profileLoading || companiesLoading;
   if (pageIsLoading) return (
     <AppShell>
-      <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin" />
+      <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+        <Skeleton className="h-8 w-48 mb-2" />
+        <Skeleton className="h-4 w-32 mb-8" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-lg" />)}
+        </div>
       </div>
     </AppShell>
   );
@@ -355,37 +363,39 @@ export default function CostosPage() {
             <Card className="shadow-card hover:shadow-card-hover transition-shadow">
               <CardHeader><CardTitle className="text-sm">Movimientos de Merma — {format(now, 'MMMM yyyy', { locale: es })}</CardTitle></CardHeader>
               <CardContent>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left pb-2">Fecha</th>
-                      <th className="text-left pb-2">Ingrediente</th>
-                      <th className="text-right pb-2">Cantidad</th>
-                      <th className="text-right pb-2">Costo Unit.</th>
-                      <th className="text-right pb-2">Costo Total</th>
-                      <th className="text-left pb-2">Motivo</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(allMerma || []).filter(m =>
-                      filterCompanyId === 'all' || m.companyId === filterCompanyId
-                    ).map(m => (
-                      <tr key={m.id} className="border-b last:border-0">
-                        <td className="py-2 text-muted-foreground">{formatInTimeZone(new Date(m.timestamp), timeZone, 'dd/MM/yyyy')}</td>
-                        <td className="py-2 font-medium">{m.ingredientName}</td>
-                        <td className="py-2 text-right font-mono">{m.quantity}</td>
-                        <td className="py-2 text-right font-mono">${m.unitCost.toFixed(2)}</td>
-                        <td className="py-2 text-right font-mono text-red-600">${(m.quantity * m.unitCost).toFixed(2)}</td>
-                        <td className="py-2 text-muted-foreground">{m.reason || '—'}</td>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left pb-2">Fecha</th>
+                        <th className="text-left pb-2">Ingrediente</th>
+                        <th className="text-right pb-2">Cantidad</th>
+                        <th className="text-right pb-2">Costo Unit.</th>
+                        <th className="text-right pb-2">Costo Total</th>
+                        <th className="text-left pb-2">Motivo</th>
                       </tr>
-                    ))}
-                    {(allMerma || []).filter(m =>
-                      filterCompanyId === 'all' || m.companyId === filterCompanyId
-                    ).length === 0 && (
-                      <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No hay movimientos de merma este mes.</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {(allMerma || []).filter(m =>
+                        filterCompanyId === 'all' || m.companyId === filterCompanyId
+                      ).map(m => (
+                        <tr key={m.id} className="border-b last:border-0">
+                          <td className="py-2 text-muted-foreground">{formatInTimeZone(new Date(m.timestamp), timeZone, 'dd/MM/yyyy')}</td>
+                          <td className="py-2 font-medium">{m.ingredientName}</td>
+                          <td className="py-2 text-right font-mono">{m.quantity}</td>
+                          <td className="py-2 text-right font-mono">${m.unitCost.toFixed(2)}</td>
+                          <td className="py-2 text-right font-mono text-red-600">${(m.quantity * m.unitCost).toFixed(2)}</td>
+                          <td className="py-2 text-muted-foreground">{m.reason || '—'}</td>
+                        </tr>
+                      ))}
+                      {(allMerma || []).filter(m =>
+                        filterCompanyId === 'all' || m.companyId === filterCompanyId
+                      ).length === 0 && (
+                        <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No hay movimientos de merma este mes.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

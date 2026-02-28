@@ -12,7 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { usePagination } from '@/hooks/use-pagination';
 
 import { TIME_ZONE } from './constants';
 
@@ -24,6 +26,8 @@ interface MovimientosTabProps {
 }
 
 export function MovimientosTab({ movements, isLoading }: MovimientosTabProps) {
+  const { page, totalPages, pageItems, goToNext, goToPrev } = usePagination(movements, 25);
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-40">
@@ -50,38 +54,55 @@ export function MovimientosTab({ movements, isLoading }: MovimientosTabProps) {
         </Card>
       ) : (
         <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Ingrediente</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Cantidad</TableHead>
-                <TableHead>Costo Unitario</TableHead>
-                <TableHead>Motivo</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {movements.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell className="whitespace-nowrap text-sm">
-                    {formatInTimeZone(new Date(m.timestamp), TIME_ZONE, 'dd/MM/yyyy HH:mm')}
-                  </TableCell>
-                  <TableCell className="font-medium">{m.ingredientName}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${movementTypeColor[m.type]}`}
-                    >
-                      {m.type}
-                    </span>
-                  </TableCell>
-                  <TableCell>{m.quantity}</TableCell>
-                  <TableCell>${m.unitCost.toFixed(2)}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{m.reason ?? '—'}</TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Ingrediente</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Cantidad</TableHead>
+                  <TableHead>Costo Unitario</TableHead>
+                  <TableHead>Motivo</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {pageItems.map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {formatInTimeZone(new Date(m.timestamp), TIME_ZONE, 'dd/MM/yyyy HH:mm')}
+                    </TableCell>
+                    <TableCell className="font-medium">{m.ingredientName}</TableCell>
+                    <TableCell>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${movementTypeColor[m.type]}`}
+                      >
+                        {m.type}
+                      </span>
+                    </TableCell>
+                    <TableCell>{m.quantity}</TableCell>
+                    <TableCell>${m.unitCost.toFixed(2)}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{m.reason ?? '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-2 py-3 border-t border-border/60 text-xs text-muted-foreground">
+              <span>
+                Mostrando {page * 25 + 1}–{Math.min((page + 1) * 25, movements.length)} de {movements.length}
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={goToPrev} disabled={page === 0}>
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={goToNext} disabled={page === totalPages - 1}>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
     </div>

@@ -10,7 +10,8 @@ import {
   PlusCircle,
   Upload,
   Users,
-  DollarSign,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { format, getDate } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -48,6 +49,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ClipboardList } from 'lucide-react';
+import { usePagination } from '@/hooks/use-pagination';
 
 interface ConsumptionHistoryProps {
   companyId: string;
@@ -70,6 +72,19 @@ export function ConsumptionHistory({
   const [isLoading, setIsLoading] = useState(false);
 
   const [date, setDate] = useState<DateRange | undefined>();
+
+  const activeMonthlyConsumptions = useMemo(
+    () => monthlyConsumptions.filter((c) => !c.voided),
+    [monthlyConsumptions]
+  );
+
+  const {
+    page,
+    totalPages,
+    pageItems: consumptionPage,
+    goToNext,
+    goToPrev,
+  } = usePagination(activeMonthlyConsumptions, 25);
 
   const dailyConsumptionCount = useMemo(() => {
     return todaysConsumptions.filter((c) => !c.voided).length;
@@ -323,6 +338,50 @@ export function ConsumptionHistory({
               <Button className="w-full" onClick={handleExportConsumptions}>
                 <Download className="mr-2 h-4 w-4" /> Exportar Reporte
               </Button>
+
+              {/* Monthly consumptions list with pagination */}
+              {activeMonthlyConsumptions.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="font-semibold mb-2">Consumos del Mes</h3>
+                  <div className="overflow-x-auto border rounded-md">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/40">
+                          <th className="text-left px-3 py-2 font-medium">Nombre</th>
+                          <th className="text-left px-3 py-2 font-medium">No. Empleado</th>
+                          <th className="text-left px-3 py-2 font-medium">Fecha</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {consumptionPage.map((c, i) => (
+                          <tr key={`${c.employeeNumber}-${c.timestamp}-${i}`} className="border-b last:border-0">
+                            <td className="px-3 py-2 font-medium">{c.name}</td>
+                            <td className="px-3 py-2 font-mono text-muted-foreground">{c.employeeNumber}</td>
+                            <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                              {formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'dd/MM/yyyy HH:mm')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between px-2 py-3 border-t border-border/60 text-xs text-muted-foreground">
+                      <span>
+                        Mostrando {page * 25 + 1}–{Math.min((page + 1) * 25, activeMonthlyConsumptions.length)} de {activeMonthlyConsumptions.length}
+                      </span>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="icon" className="h-7 w-7" onClick={goToPrev} disabled={page === 0}>
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="outline" size="icon" className="h-7 w-7" onClick={goToNext} disabled={page === totalPages - 1}>
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </TabsContent>
             <TabsContent value="statistics" className="space-y-4 pt-6">
               <ConsumptionChart consumptions={monthlyConsumptions} />

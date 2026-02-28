@@ -435,6 +435,7 @@ export default function ReportesPage() {
                 <CardTitle className="text-sm">Resumen Mensual</CardTitle>
               </CardHeader>
               <CardContent>
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
@@ -455,6 +456,7 @@ export default function ReportesPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -631,6 +633,7 @@ export default function ReportesPage() {
                 ) : menuData.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Sin datos para este mes</p>
                 ) : (
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
@@ -663,6 +666,7 @@ export default function ReportesPage() {
                       )}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </CardContent>
             </Card>

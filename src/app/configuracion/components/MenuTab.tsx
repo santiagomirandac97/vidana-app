@@ -12,6 +12,17 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, Utensils, Trash2 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -150,7 +161,32 @@ export const MenuTab: FC<{ companies: Company[] | null, companiesLoading: boolea
                                             <TableCell className="font-medium">{item.name}</TableCell>
                                             <TableCell>{item.category}</TableCell>
                                             <TableCell className="text-right">${(item.price || 0).toFixed(2)}</TableCell>
-                                            <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleDeleteMenuItem(item.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                                            <TableCell className="text-right">
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon">
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>¿Eliminar platillo?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Esto eliminará {item.name} del menú. Esta acción no se puede deshacer.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                            <AlertDialogAction
+                                                                onClick={() => handleDeleteMenuItem(item.id)}
+                                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                            >
+                                                                Sí, eliminar
+                                                            </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

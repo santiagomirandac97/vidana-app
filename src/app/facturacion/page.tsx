@@ -8,7 +8,9 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { type Company, type Consumption, type UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   FileText,
   Mail,
@@ -213,8 +215,15 @@ export default function FacturacionPage() {
   if (pageIsLoading) {
     return (
       <AppShell>
-        <div className="flex h-screen w-full items-center justify-center">
-          <Loader2 className="h-10 w-10 animate-spin" />
+        <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-32 mb-8" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-lg" />)}
+          </div>
         </div>
       </AppShell>
     );
@@ -352,41 +361,80 @@ export default function FacturacionPage() {
                     <span className="font-bold text-base text-foreground">{fmt(totalAmount)}</span>
                   </div>
                   <div className="flex gap-1.5 pt-0.5">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 h-8 text-xs border-border/60 hover:border-primary/40 hover:text-primary"
-                      onClick={() => handleDownloadPDF(company)}
-                      disabled={totalMealsForCompany === 0}
-                    >
-                      <FileText className="h-3 w-3 mr-1" />
-                      PDF
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 h-8 text-xs border-border/60 hover:border-primary/40 hover:text-primary"
-                      onClick={() => handleDownloadExcel(company)}
-                      disabled={totalMealsForCompany === 0}
-                    >
-                      Excel
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 h-8 text-xs border-border/60 hover:border-primary/40 hover:text-primary"
-                      onClick={() => handleSendEmail(company)}
-                      disabled={isSending || !company.billingEmail || totalMealsForCompany === 0}
-                    >
-                      {isSending ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <>
-                          <Mail className="h-3 w-3 mr-1" />
-                          Email
-                        </>
-                      )}
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-8 text-xs border-border/60 hover:border-primary/40 hover:text-primary"
+                              onClick={() => handleDownloadPDF(company)}
+                              disabled={totalMealsForCompany === 0}
+                            >
+                              <FileText className="h-3 w-3 mr-1" />
+                              PDF
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        {totalMealsForCompany === 0 && (
+                          <TooltipContent>
+                            <p>Sin comidas registradas para este período</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-8 text-xs border-border/60 hover:border-primary/40 hover:text-primary"
+                              onClick={() => handleDownloadExcel(company)}
+                              disabled={totalMealsForCompany === 0}
+                            >
+                              Excel
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        {totalMealsForCompany === 0 && (
+                          <TooltipContent>
+                            <p>Sin comidas registradas para este período</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-8 text-xs border-border/60 hover:border-primary/40 hover:text-primary"
+                              onClick={() => handleSendEmail(company)}
+                              disabled={isSending || !company.billingEmail || totalMealsForCompany === 0}
+                            >
+                              {isSending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <>
+                                  <Mail className="h-3 w-3 mr-1" />
+                                  Email
+                                </>
+                              )}
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        {totalMealsForCompany === 0 && (
+                          <TooltipContent>
+                            <p>Sin comidas registradas para este período</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </CardContent>
               </Card>

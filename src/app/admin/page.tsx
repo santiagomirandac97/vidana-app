@@ -6,10 +6,11 @@ import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/
 import { collection, query, doc, where, collectionGroup } from 'firebase/firestore';
 import { type Company, type Consumption, type UserProfile } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { format, startOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
-import { DollarSign, Utensils, Loader2, ShieldAlert } from 'lucide-react';
+import { DollarSign, Utensils, ShieldAlert } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { ErrorState } from '@/components/ui/error-state';
@@ -99,8 +100,15 @@ export default function AdminDashboardPage() {
   if (userLoading || profileLoading || companiesLoading) {
     return (
       <AppShell>
-        <div className="flex h-full items-center justify-center p-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-32 mb-8" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-lg" />)}
+          </div>
         </div>
       </AppShell>
     );

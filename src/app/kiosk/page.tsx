@@ -24,7 +24,6 @@ import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 
-const KIOSK_COMPANY_ID = process.env.NEXT_PUBLIC_KIOSK_COMPANY_ID ?? "Yzf6ucrafGkOPqbqCJpl"; // Configure the target company ID here
 
 export default function KioskPage() {
     const { user, isLoading: userLoading } = useUser();
@@ -85,6 +84,14 @@ const KioskDashboard: FC = () => {
     const router = useRouter();
     const { toast } = useToast();
 
+    // Load kioskCompanyId from Firestore config
+    const appConfigRef = useMemoFirebase(
+        () => (firestore ? doc(firestore, 'configuration/app') : null),
+        [firestore]
+    );
+    const { data: appConfig, isLoading: configLoading } = useDoc<{ kioskCompanyId?: string }>(appConfigRef);
+    const companyId = appConfig?.kioskCompanyId ?? null;
+
     const [kioskCompany, setKioskCompany] = useState<Company | null>(null);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -97,16 +104,16 @@ const KioskDashboard: FC = () => {
 
     // Fetch company, employees, and menu for the designated Kiosk company
     useEffect(() => {
-        if (!firestore) return;
+        if (!firestore || !companyId) return;
         const fetchKioskData = async () => {
             setIsLoading(true);
             try {
                 // 1. Find the company by ID
-                const companyDocRef = doc(firestore, 'companies', KIOSK_COMPANY_ID);
+                const companyDocRef = doc(firestore, 'companies', companyId);
                 const companySnapshot = await getDoc(companyDocRef);
 
                 if (!companySnapshot.exists()) {
-                    toast({ variant: 'destructive', title: 'Error de Configuración', description: `La empresa con ID "${KIOSK_COMPANY_ID}" no fue encontrada.` });
+                    toast({ variant: 'destructive', title: 'Error de Configuración', description: `La empresa con ID "${companyId}" no fue encontrada.` });
                     setIsLoading(false);
                     return;
                 }
@@ -140,7 +147,7 @@ const KioskDashboard: FC = () => {
             }
         };
         fetchKioskData();
-    }, [firestore, toast]);
+    }, [firestore, toast, companyId]);
     
     const addToOrder = (item: MenuItem) => {
         setOrder(prev => {
@@ -217,6 +224,22 @@ const KioskDashboard: FC = () => {
         }
     }
 
+
+    if (configLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        );
+    }
+
+    if (!companyId) {
+        return (
+            <div className="flex h-screen items-center justify-center p-8 text-center">
+                <p className="text-muted-foreground text-sm">Kiosco no configurado. Configura el campo kioskCompanyId en la consola de Firebase.</p>
+            </div>
+        );
+    }
 
     if (isLoading) {
         return (

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Sidebar } from './sidebar';
 import { MobileTopBar } from './mobile-top-bar';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 const STORAGE_KEY = 'vidana_sidebar_collapsed';
 
@@ -30,7 +31,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!mounted) {
     return (
       <div className="flex h-screen bg-background overflow-hidden">
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
       </div>
     );
   }
@@ -55,7 +58,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <main className="flex-1 overflow-y-auto min-w-0">
         <div className="md:hidden h-12" /> {/* spacer for mobile top bar */}
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </main>
     </div>
   );

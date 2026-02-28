@@ -63,6 +63,7 @@ import {
   Calendar,
   ShoppingCart,
 } from 'lucide-react';
+import { formatFirestoreError } from '@/lib/firestore-errors';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -852,8 +853,7 @@ function MenuSemanalTab({
 
       toast({ title: '✨ Plan generado y aplicado. Revisa y ajusta si lo deseas.' });
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error desconocido';
-      toast({ title: `No se pudo generar el plan: ${message}`, variant: 'destructive' });
+      toast({ title: `No se pudo generar el plan: ${formatFirestoreError(e)}`, variant: 'destructive' });
     } finally {
       setAiLoading(false);
     }

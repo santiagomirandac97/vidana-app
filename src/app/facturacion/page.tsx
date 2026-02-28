@@ -31,6 +31,7 @@ import { format, subMonths, eachDayOfInterval, getDay } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
 import { generateInvoicePDF, generateInvoiceExcel, downloadBlob, blobToBase64 } from '@/lib/billing-generators';
+import { formatFirestoreError } from '@/lib/firestore-errors';
 
 const TIME_ZONE = 'America/Mexico_City';
 
@@ -187,8 +188,7 @@ export default function FacturacionPage() {
       });
       toast({ title: `Factura enviada a ${company.billingEmail}` });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Error desconocido';
-      toast({ title: `Error al enviar: ${msg}`, variant: 'destructive' });
+      toast({ title: `Error al enviar: ${formatFirestoreError(e)}`, variant: 'destructive' });
     } finally {
       setSendingCompanyId(null);
     }

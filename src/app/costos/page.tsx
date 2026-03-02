@@ -21,10 +21,11 @@ import { ErrorState } from '@/components/ui/error-state';
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { APP_TIMEZONE } from '@/lib/constants';
 import { es } from 'date-fns/locale';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
-const timeZone = 'America/Mexico_City';
+const timeZone = APP_TIMEZONE;
 
 const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 

@@ -13,9 +13,10 @@ import { KpiCard } from '@/components/ui/kpi-card';
 import { SectionLabel } from '@/components/ui/section-label';
 import { type Company, type Consumption, type UserProfile } from '@/lib/types';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { APP_TIMEZONE } from '@/lib/constants';
 import { startOfMonth } from 'date-fns';
 
-const TZ = 'America/Mexico_City';
+const TZ = APP_TIMEZONE;
 
 const NAV_ITEMS = [
   { href: '/main',        label: 'Registros',      icon: ClipboardList },

@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { formatInTimeZone } from 'date-fns-tz';
+import { APP_TIMEZONE } from '@/lib/constants';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -8,11 +9,11 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatTimestamp(isoString: string): string {
   const date = new Date(isoString);
-  return formatInTimeZone(date, 'America/Mexico_City', 'pp');
+  return formatInTimeZone(date, APP_TIMEZONE, 'pp');
 }
 
 export function getTodayInMexicoCity(): string {
-    return formatInTimeZone(new Date(), 'America/Mexico_City', 'yyyy-MM-dd');
+    return formatInTimeZone(new Date(), APP_TIMEZONE, 'yyyy-MM-dd');
 }
 
 export function exportToCsv(filename: string, rows: (string | number | boolean)[][]) {

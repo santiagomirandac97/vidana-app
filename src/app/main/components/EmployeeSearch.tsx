@@ -16,6 +16,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { formatInTimeZone } from 'date-fns-tz';
+import { APP_TIMEZONE } from '@/lib/constants';
 
 import { type Company, type Employee, type Consumption } from '@/lib/types';
 import { cn, getTodayInMexicoCity, formatTimestamp } from '@/lib/utils';
@@ -131,7 +132,7 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
     setIsProcessing(true);
 
     const newConsumptionData: Omit<Consumption, 'id'> = {
-      employeeId: employee.id!,
+      employeeId: employee.id ?? '',
       employeeNumber: employee.employeeNumber,
       name: employee.name,
       companyId: companyId,
@@ -168,7 +169,7 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
     const hasEatenToday = todaysConsumptions?.some(
       (c) =>
         c.employeeId === employee.id &&
-        formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'yyyy-MM-dd') === today &&
+        formatInTimeZone(new Date(c.timestamp), APP_TIMEZONE, 'yyyy-MM-dd') === today &&
         !c.voided
     );
 
@@ -427,8 +428,9 @@ const RecentConsumptionsCard: FC<{ recentConsumptions: Consumption[] | null; com
 
   useEffect(() => {
     if (recentConsumptions && prevConsumptionsRef.current) {
+      const prev = prevConsumptionsRef.current;
       const newItems = recentConsumptions.filter(
-        (newItem) => !prevConsumptionsRef.current!.some((oldItem) => oldItem.id === newItem.id)
+        (newItem) => !prev.some((oldItem) => oldItem.id === newItem.id)
       );
       if (newItems.length > 0) {
         setHighlighted(newItems.map((item) => item.id!));

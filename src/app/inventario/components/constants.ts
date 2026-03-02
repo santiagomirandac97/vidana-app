@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import type { StockUnit, MovementType } from '@/lib/types';
+import { APP_TIMEZONE } from '@/lib/constants';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const TIME_ZONE = 'America/Mexico_City';
+export const TIME_ZONE = APP_TIMEZONE;
 
 export const STOCK_UNITS: StockUnit[] = ['kg', 'L', 'pz', 'g', 'ml'];
 export const MOVEMENT_TYPES: MovementType[] = ['entrada', 'salida', 'ajuste', 'merma'];

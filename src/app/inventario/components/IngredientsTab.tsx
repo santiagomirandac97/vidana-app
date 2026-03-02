@@ -103,7 +103,7 @@ export function AutoOrderContent({ ingredients, suppliers, daysUntilStockout, le
   const [supplierId, setSupplierId] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const candidateIngredients = ingredients.filter(ing => ing.id && daysUntilStockout[ing.id] !== null && daysUntilStockout[ing.id]! <= leadDays * 2);
+  const candidateIngredients = ingredients.filter(ing => ing.id && daysUntilStockout[ing.id] !== null && (daysUntilStockout[ing.id] ?? Infinity) <= leadDays * 2);
 
   const handleSubmit = async () => {
     if (!firestore || !user || !supplierId) return;
@@ -114,7 +114,7 @@ export function AutoOrderContent({ ingredients, suppliers, daysUntilStockout, le
     setSaving(true);
     try {
       const items: PurchaseOrderItem[] = selectedIng.map(ing => ({
-        ingredientId: ing.id!,
+        ingredientId: ing.id ?? '',
         ingredientName: ing.name,
         // Clamp to 1 to avoid zero/negative quantities when currentStock >= minStock*2
         quantity: Math.max(1, Math.ceil((ing.minStock * 2) - ing.currentStock)),
@@ -131,7 +131,8 @@ export function AutoOrderContent({ ingredients, suppliers, daysUntilStockout, le
         createdBy: user.uid,
         companyId,
       };
-      await addDocumentNonBlocking(collection(firestore, `companies/${companyId}/purchaseOrders`), order);
+      const newOrder = await addDocumentNonBlocking(collection(firestore, `companies/${companyId}/purchaseOrders`), order);
+      if (!newOrder) throw new Error('Failed to create order');
       toast({ title: 'Orden de compra creada en estado Borrador.' });
       onClose();
     } catch {
@@ -151,12 +152,12 @@ export function AutoOrderContent({ ingredients, suppliers, daysUntilStockout, le
             <label key={ing.id} className="flex items-center gap-3 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
               <input
                 type="checkbox"
-                checked={selected[ing.id!] ?? false}
-                onChange={e => setSelected(prev => ({ ...prev, [ing.id!]: e.target.checked }))}
+                checked={ing.id ? (selected[ing.id] ?? false) : false}
+                onChange={e => { if (ing.id) setSelected(prev => ({ ...prev, [ing.id]: e.target.checked })); }}
                 className="h-4 w-4"
               />
               <span className="flex-1 text-sm font-medium">{ing.name}</span>
-              <StockoutBadge days={daysUntilStockout[ing.id!]} />
+              <StockoutBadge days={ing.id ? daysUntilStockout[ing.id] : undefined} />
               <span className="text-xs text-muted-foreground">Stock: {ing.currentStock} {ing.unit}</span>
             </label>
           ))}
@@ -493,7 +494,7 @@ export function IngredientsTab({ ingredients, isLoading, suppliers, companyId, u
                       {ingredient.minStock} {ingredient.unit}
                     </TableCell>
                     <TableCell>${ingredient.costPerUnit.toFixed(2)}</TableCell>
-                    <TableCell><StockoutBadge days={daysUntilStockout[ingredient.id!]} /></TableCell>
+                    <TableCell><StockoutBadge days={ingredient.id ? daysUntilStockout[ingredient.id] : undefined} /></TableCell>
                     <TableCell>
                       {isLow ? (
                         <Badge variant="destructive" className="flex items-center gap-1 w-fit">

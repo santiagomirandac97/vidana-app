@@ -29,11 +29,12 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { useToast } from '@/hooks/use-toast';
 import { format, subMonths, eachDayOfInterval, getDay } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { APP_TIMEZONE } from '@/lib/constants';
 import { es } from 'date-fns/locale';
 import { generateInvoicePDF, generateInvoiceExcel, downloadBlob, blobToBase64 } from '@/lib/billing-generators';
 import { formatFirestoreError } from '@/lib/firestore-errors';
 
-const TIME_ZONE = 'America/Mexico_City';
+const TIME_ZONE = APP_TIMEZONE;
 
 const fmt = (n: number) =>
   `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

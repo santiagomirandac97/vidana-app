@@ -21,6 +21,7 @@ import { useFirebase } from '@/firebase';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { formatInTimeZone, toDate, toZonedTime } from 'date-fns-tz';
+import { APP_TIMEZONE } from '@/lib/constants';
 import {
   Bar,
   BarChart as RechartsBarChart,
@@ -362,7 +363,7 @@ export function ConsumptionHistory({
                             <td className="px-3 py-2 font-medium">{c.name}</td>
                             <td className="px-3 py-2 font-mono text-muted-foreground">{c.employeeNumber}</td>
                             <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
-                              {formatInTimeZone(new Date(c.timestamp), 'America/Mexico_City', 'dd/MM/yyyy HH:mm')}
+                              {formatInTimeZone(new Date(c.timestamp), APP_TIMEZONE, 'dd/MM/yyyy HH:mm')}
                             </td>
                           </tr>
                         ))}
@@ -475,7 +476,7 @@ const QuickAddForm: FC<{ onAdd: (employee: Omit<Employee, 'id'>) => void; compan
 };
 
 const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumptions }) => {
-  const timeZone = 'America/Mexico_City';
+  const timeZone = APP_TIMEZONE;
 
   const chartData = useMemo(() => {
     if (!consumptions) return [];

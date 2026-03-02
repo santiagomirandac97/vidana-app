@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { format, getDaysInMonth, startOfMonth, subMonths, eachDayOfInterval, getDay } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
+import { APP_TIMEZONE } from '@/lib/constants';
 import {
   BarChart,
   ComposedChart,
@@ -37,7 +38,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-const TZ = 'America/Mexico_City';
+const TZ = APP_TIMEZONE;
 
 // Convert a UTC ISO timestamp to a 'yyyy-MM' string in Mexico City local time.
 // Prevents night-shift consumptions (stored as next-day UTC) from bucketing into the wrong month.
@@ -77,7 +78,7 @@ function calcMonthRevenue(
   for (const co of companies) {
     const mealPrice = co.mealPrice ?? 0;
     const dailyTarget = co.dailyTarget ?? 0;
-    const cons = byCompany[co.id!] ?? [];
+    const cons = byCompany[co.id ?? ''] ?? [];
 
     if (dailyTarget > 0) {
       const countByDay: Record<string, number> = {};
@@ -229,7 +230,7 @@ export default function ReportesPage() {
 
   // ── Company map for mealPrice lookup ──────────────────────────────────────
   const companyMap = useMemo(
-    () => new Map((companies ?? []).map((co) => [co.id!, co])),
+    () => new Map((companies ?? []).map((co) => [co.id ?? '', co])),
     [companies]
   );
 

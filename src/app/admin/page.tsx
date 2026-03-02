@@ -10,12 +10,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format, startOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { APP_TIMEZONE } from '@/lib/constants';
 import { DollarSign, Utensils, ShieldAlert } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { ErrorState } from '@/components/ui/error-state';
 
-const TZ = 'America/Mexico_City';
+const TZ = APP_TIMEZONE;
 
 export default function AdminDashboardPage() {
   const { user, isLoading: userLoading } = useUser();

@@ -194,7 +194,7 @@ const KioskDashboard: FC = () => {
         setIsSubmitting(true);
         try {
             const consumptionData: Omit<Consumption, 'id'> = {
-                employeeId: selectedEmployee.id!,
+                employeeId: selectedEmployee.id ?? '',
                 employeeNumber: selectedEmployee.employeeNumber,
                 name: selectedEmployee.name,
                 companyId: kioskCompany.id,
@@ -206,7 +206,8 @@ const KioskDashboard: FC = () => {
             };
 
             const consumptionsCollection = collection(firestore, `companies/${kioskCompany.id}/consumptions`);
-            await addDocumentNonBlocking(consumptionsCollection, consumptionData);
+            const docRef = await addDocumentNonBlocking(consumptionsCollection, consumptionData);
+            if (!docRef) throw new Error('Failed to save consumption');
 
             toast({
                 title: 'Orden Confirmada',

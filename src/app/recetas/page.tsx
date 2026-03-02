@@ -9,6 +9,7 @@ import {
   orderBy,
   doc,
   setDoc,
+  type Firestore,
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import {
@@ -24,6 +25,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { startOfWeek } from 'date-fns';
 import { toZonedTime, format as formatTZ } from 'date-fns-tz';
+import { APP_TIMEZONE } from '@/lib/constants';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -67,7 +69,7 @@ import { formatFirestoreError } from '@/lib/firestore-errors';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TIME_ZONE = 'America/Mexico_City';
+const TIME_ZONE = APP_TIMEZONE;
 
 const DAYS_OF_WEEK: { key: DayOfWeek; label: string }[] = [
   { key: 'lunes', label: 'Lunes' },
@@ -386,10 +388,8 @@ interface RecetasTabProps {
   ingredients: Ingredient[];
   recipesMap: Record<string, Recipe>;
   companyId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  firestore: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  toast: any;
+  firestore: Firestore;
+  toast: ReturnType<typeof useToast>['toast'];
 }
 
 function RecetasTab({ menuItems, ingredients, recipesMap, companyId, firestore, toast }: RecetasTabProps) {
@@ -502,10 +502,8 @@ interface RecipeBuilderDialogProps {
   existingRecipe: Recipe | null;
   ingredients: Ingredient[];
   companyId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  firestore: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  toast: any;
+  firestore: Firestore;
+  toast: ReturnType<typeof useToast>['toast'];
 }
 
 
@@ -730,10 +728,8 @@ interface MenuSemanalTabProps {
   weeklyMenu: WeeklyMenu | null;
   weekStartDate: string;
   companyId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  firestore: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  toast: any;
+  firestore: Firestore;
+  toast: ReturnType<typeof useToast>['toast'];
 }
 
 function MenuSemanalTab({

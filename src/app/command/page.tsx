@@ -26,6 +26,7 @@ import { Loader2, ChefHat, Clock, CheckCircle2, ChevronDown } from 'lucide-react
 import { AppShell, PageHeader } from '@/components/layout';
 import { getTodayInMexicoCity } from '@/lib/utils';
 import { fromZonedTime } from 'date-fns-tz';
+import { APP_TIMEZONE } from '@/lib/constants';
 
 // ─── Auth guard ───────────────────────────────────────────────────────────────
 
@@ -111,7 +112,7 @@ const CommandDashboard: FC<CommandDashboardProps> = ({ isAdmin, defaultCompanyId
   // Today start in Mexico City timezone (ISO string)
   const todayStart = useMemo(() => {
     const todayMexico = getTodayInMexicoCity(); // 'yyyy-MM-dd'
-    return fromZonedTime(`${todayMexico}T00:00:00`, 'America/Mexico_City').toISOString();
+    return fromZonedTime(`${todayMexico}T00:00:00`, APP_TIMEZONE).toISOString();
   }, []);
 
   // Pending orders query
@@ -314,7 +315,7 @@ const PendingOrderCard: FC<PendingOrderCardProps> = ({ order, onComplete }) => {
         {/* Items list */}
         {hasItems ? (
           <ul className="space-y-1 flex-1">
-            {order.items!.map((item) => (
+            {(order.items ?? []).map((item) => (
               <li
                 key={item.itemId}
                 className="flex justify-between items-baseline text-sm"
@@ -366,7 +367,7 @@ const CompletedOrderRow: FC<CompletedOrderRowProps> = ({ order }) => {
   const timeStr = new Date(order.timestamp).toLocaleTimeString('es-MX', {
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: 'America/Mexico_City',
+    timeZone: APP_TIMEZONE,
   });
 
   return (

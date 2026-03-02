@@ -7,6 +7,7 @@ import { startOfMonth } from 'date-fns';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { toZonedTime } from 'date-fns-tz';
+import { APP_TIMEZONE } from '@/lib/constants';
 
 import { type Company, type Employee, type Consumption, type UserProfile } from '@/lib/types';
 import { getTodayInMexicoCity } from '@/lib/utils';
@@ -21,7 +22,7 @@ export default function MainPage() {
   const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
   const { firestore } = useFirebase();
-  const timeZone = 'America/Mexico_City';
+  const timeZone = APP_TIMEZONE;
 
   const userProfileRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, `users/${user.uid}`) : null),

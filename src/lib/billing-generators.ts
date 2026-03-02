@@ -4,10 +4,11 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { format, eachDayOfInterval, getDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
+import { APP_TIMEZONE } from '@/lib/constants';
 import { es } from 'date-fns/locale';
 import type { Consumption, Company } from './types';
 
-const TIME_ZONE = 'America/Mexico_City';
+const TIME_ZONE = APP_TIMEZONE;
 
 export interface BillingData {
   company: Company;

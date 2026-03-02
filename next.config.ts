@@ -2,7 +2,9 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Force Node.js to resolve Firebase using its `node` export instead of
+  // Turbopack loading the browser bundle, which calls localStorage at module level.
+  serverExternalPackages: ['firebase', '@firebase/auth', '@firebase/firestore', '@firebase/app'],
   typescript: {
     ignoreBuildErrors: false,
   },

@@ -2,7 +2,7 @@
 'use client';
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore, DocumentReference, Query } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, memoryLocalCache, Firestore, DocumentReference, Query } from 'firebase/firestore';
 import { getAuth, Auth, browserSessionPersistence, inMemoryPersistence, setPersistence } from 'firebase/auth';
 import { useMemo } from 'react';
 import { useCollection as useCollectionHook } from './firestore/use-collection';
@@ -34,8 +34,13 @@ const getAuthInstance = (app: FirebaseApp): Auth => {
 
 
 export function initializeFirebase() {
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-    const firestore = getFirestore(app);
+    const isFirstInit = getApps().length === 0;
+    const app = isFirstInit ? initializeApp(firebaseConfig) : getApps()[0];
+    // Use memoryLocalCache on first init so Firestore never touches window.localStorage,
+    // which crashes during Next.js SSR when window is partially polyfilled.
+    const firestore = isFirstInit
+        ? initializeFirestore(app, { localCache: memoryLocalCache() })
+        : getFirestore(app);
     const auth = getAuthInstance(app);
     return { app, auth, firestore };
 }

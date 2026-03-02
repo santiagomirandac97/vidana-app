@@ -46,9 +46,9 @@ export default function CostosPage() {
 
   const [filterCompanyId, setFilterCompanyId] = useState<string>('all');
 
-  // Month bounds — memoized with empty dep array so they never change mid-render
-  const now = useMemo(() => toZonedTime(new Date(), timeZone), []);
-  const monthStart = useMemo(() => startOfMonth(now).toISOString(), [now]);
+  // Month bounds — recomputed each render so they stay current across month boundaries
+  const now = toZonedTime(new Date(), timeZone);
+  const monthStart = useMemo(() => startOfMonth(now).toISOString(), [now.getMonth(), now.getFullYear()]);
 
   // Cross-company consumptions for current month
   const consumptionsRef = useMemoFirebase(() =>
@@ -64,10 +64,10 @@ export default function CostosPage() {
   , [firestore, monthStart]);
   const { data: allMerma } = useCollection<StockMovement>(mermaRef);
 
-  // Cross-company received purchase orders for current month
+  // Cross-company received purchase orders for current month — filter by receivedAt (when food actually arrived)
   const purchaseOrdersRef = useMemoFirebase(() =>
     firestore
-      ? query(collectionGroup(firestore, 'purchaseOrders'), where('status', '==', 'recibido'), where('createdAt', '>=', monthStart))
+      ? query(collectionGroup(firestore, 'purchaseOrders'), where('status', '==', 'recibido'), where('receivedAt', '>=', monthStart))
       : null
   , [firestore, monthStart]);
   const { data: allPurchaseOrders } = useCollection<PurchaseOrder>(purchaseOrdersRef);

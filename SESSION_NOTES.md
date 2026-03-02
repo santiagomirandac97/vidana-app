@@ -1,6 +1,79 @@
 # Session Notes — Vidana App
 
-**Last Updated:** 2026-02-27
+**Last Updated:** 2026-03-02
+
+---
+
+## Session: 2026-03-02 — Costos Calculation Fixes + SSR Crash Fix
+
+**Branch:** `main` (via `fix/nodejs25-localstorage-ssr-crash` → fast-forward merged)
+**Status:** ✅ 2 commits — build clean, pushed to GitHub. Firebase App Hosting auto-deploying.
+
+### Bug 1 — Costos Calculation Errors (Food Cost Always $0)
+
+Three bugs found in `src/app/costos/page.tsx`:
+
+#### Bug 1a — Wrong date field on purchase orders query
+Food cost query was filtering by `createdAt` instead of `receivedAt`. Orders created in one month but received in another landed in the wrong month.
+```ts
+// Before (wrong — uses creation date)
+where('createdAt', '>=', monthStart)
+// After (correct — uses receipt date)
+where('receivedAt', '>=', monthStart)
+```
+
+#### Bug 1b — Missing Firestore COLLECTION_GROUP indexes
+`firestore.indexes.json` only had indexes for `consumptions`. All three financial sub-collection queries failed silently (returned empty) without indexes:
+- `stockMovements` (type + timestamp) — waste cost showed $0
+- `purchaseOrders` (status + receivedAt) — food cost showed $0
+- `laborCosts` (weekStartDate with COLLECTION_GROUP scope) — labor cost showed $0
+
+Added all three to `firestore.indexes.json`. ⚠️ Requires `firebase deploy --only firestore:indexes` to activate (needs `firebase login --reauth` first if credentials are stale).
+
+#### Bug 1c — Frozen `now` date
+`now` was memoized with empty deps `[]`, so it never updated after page mount. Changed to recalculate on each render with stable deps `[now.getMonth(), now.getFullYear()]`.
+
+---
+
+### Bug 2 — HTTP 500 on All Pages (SSR Crash)
+
+**Symptom:** Every page load returned `500 Internal Server Error` with `unhandledRejection: TypeError: localStorage.getItem is not a function` in server logs. Digest `2773814222` — same every time.
+
+**Root cause (after 4+ failed fix attempts):**
+Node.js v25.6.1 ships an experimental WinterCG `localStorage` global (empty `{}` object with no methods) when `--localstorage-file` is not set. This is part of Node.js's new WinterCG/web compatibility layer. Firebase's browser ESM bundle (loaded by Turbopack for SSR of `'use client'` page components) creates a floating initialization Promise that calls `localStorage.getItem(key)` → `TypeError` → `unhandledRejection` → Next.js treats it as a fatal error → 500.
+
+Key investigation findings:
+- `typeof localStorage` = `'object'` in Node 25, but `localStorage.getItem` = `undefined`
+- Next.js 15 + Turbopack loads Firebase's **browser ESM bundle** for SSR (not the Node.js bundle), even with `serverExternalPackages` set (ignored by Turbopack)
+- `dynamic({ ssr: false })` for the Firebase provider prevents the provider from rendering, but `'use client'` PAGE components still have their module-level imports evaluated server-side
+- `instrumentation.ts` runs BEFORE any request handling — the correct place to polyfill
+
+**Fix — `src/instrumentation.ts` (new file):**
+```ts
+export async function register() {
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    // Replace Node 22+ broken localStorage/sessionStorage with in-memory implementations
+    patchStorage('localStorage');
+    patchStorage('sessionStorage');
+  }
+}
+```
+Uses `Object.defineProperty` to replace the broken accessor property with a proper in-memory Storage implementation. Tested and confirmed working.
+
+**Defence-in-depth changes also included:**
+- `src/firebase/index.ts` — `initializeFirestore(app, { localCache: memoryLocalCache() })` so Firestore also never touches localStorage
+- `src/components/firebase-provider-wrapper.tsx` — `dynamic({ ssr: false })` wrapper for `FirebaseClientProvider`
+- `src/app/layout.tsx` — uses `FirebaseProviderWrapper` instead of direct `FirebaseClientProvider` import
+- `next.config.ts` — `serverExternalPackages: ['firebase', '@firebase/auth', '@firebase/firestore', '@firebase/app']` (benefit for webpack builds)
+
+### Commits
+```
+c782b89 fix(costos): correct food cost date filter and add missing Firestore indexes
+6e26e64 fix: resolve Node.js 25 localStorage SSR crash breaking all pages
+```
+
+### Pending
+- Run `firebase login --reauth` then `firebase deploy --only firestore:indexes` to activate the new Firestore indexes in production (required for food cost, waste, and labor cost to show correctly)
 
 ---
 

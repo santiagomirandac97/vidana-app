@@ -187,7 +187,7 @@ export default function InventarioPage() {
               <TabsContent value="stock">
                 <IngredientsTab
                   ingredients={ingredients ?? []} isLoading={ingredientsLoading}
-                  suppliers={suppliersList} companyId={cid} userId={user!.uid}
+                  suppliers={suppliersList} companyId={cid} userId={user?.uid ?? ''}
                   firestore={firestore} toast={toast} daysUntilStockout={daysUntilStockout}
                 />
               </TabsContent>
@@ -204,7 +204,7 @@ export default function InventarioPage() {
                 <OrdenesTab
                   purchaseOrders={purchaseOrders ?? []} isLoading={ordersLoading}
                   suppliers={suppliersList} ingredients={ingredientsList}
-                  companyId={cid} userId={user!.uid} firestore={firestore} toast={toast}
+                  companyId={cid} userId={user?.uid ?? ''} firestore={firestore} toast={toast}
                 />
               </TabsContent>
             </Tabs>

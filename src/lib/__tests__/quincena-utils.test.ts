@@ -2,6 +2,10 @@ import { getQuincenaDateIfDue, formatQuincenaLabel } from '../quincena-utils';
 
 describe('getQuincenaDateIfDue', () => {
   it('returns quincena date when today is the 15th (weekday)', () => {
+    // April 15 2026 is a Wednesday — direct weekday hit
+    const wed15 = new Date(2026, 3, 15);
+    expect(getQuincenaDateIfDue(wed15)).toBe('2026-04-15');
+
     // March 15 2026 is a Sunday — so Friday the 13th should trigger it
     const sunday15 = new Date(2026, 2, 15);  // Sun
     expect(getQuincenaDateIfDue(sunday15)).toBeNull();

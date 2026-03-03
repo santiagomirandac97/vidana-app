@@ -23,10 +23,12 @@ export interface Employee {
   employeeNumber: string;
   name: string;
   companyId: string;
+  position?: string;           // job title e.g. "Cocinero", "Cajero"
   department?: string;
   email?: string;
   active: boolean;
-  paymentAmount?: number;
+  salaryPerQuincena?: number;  // fixed bi-weekly salary MXN
+  paymentAmount?: number;      // kept for backwards compat
   voided?: boolean;
 }
 
@@ -185,6 +187,38 @@ export interface LaborCost {
   amount: number; // MXN
   notes?: string;
   createdBy: string;
+}
+
+// ─── Payroll ─────────────────────────────────────────────────────────────────
+
+export interface Bonus {
+  id?: string;
+  employeeId: string;
+  companyId: string;
+  description: string;        // e.g. "Bono puntualidad"
+  amount: number;             // MXN
+  isRecurring: boolean;       // true = every quincena
+  appliesTo?: string;         // 'yyyy-MM-dd' — only for one-time bonuses
+  active: boolean;
+  createdBy: string;
+}
+
+export interface PayrollRecord {
+  id?: string;
+  companyId: string;
+  quincenaDate: string;       // 'yyyy-MM-dd' — the 15th or 30th
+  totalAmount: number;
+  generatedBy: string;        // admin uid
+  generatedAt: string;        // ISO timestamp
+  breakdown: PayrollBreakdownItem[];
+}
+
+export interface PayrollBreakdownItem {
+  employeeId: string;
+  employeeName: string;
+  salary: number;
+  bonuses: { description: string; amount: number; isRecurring: boolean }[];
+  subtotal: number;
 }
 
 // ─── Surveys ─────────────────────────────────────────────────────────────────

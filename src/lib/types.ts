@@ -186,3 +186,30 @@ export interface LaborCost {
   notes?: string;
   createdBy: string;
 }
+
+// ─── Surveys ─────────────────────────────────────────────────────────────────
+
+export interface SurveyQuestion {
+  id: string;       // stable uuid — used as key in answers Record
+  text: string;     // question label shown to respondent
+  type: 'star' | 'emoji' | 'text';
+  required: boolean;
+}
+
+export interface Survey {
+  id?: string;
+  name: string;           // "Satisfacción Enero 2026"
+  companyId: string;      // ties to existing Company doc
+  status: 'active' | 'closed';
+  questions: SurveyQuestion[];  // ordered, 5–8 items
+  createdAt: string;      // ISO-8601
+  createdBy: string;      // admin uid
+}
+
+export interface SurveyResponse {
+  id?: string;
+  surveyId: string;
+  companyId: string;                        // denormalized
+  submittedAt: string;                      // ISO-8601
+  answers: Record<string, number | string>; // questionId → 1–5 for ratings, string for text
+}

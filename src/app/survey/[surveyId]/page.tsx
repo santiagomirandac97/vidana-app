@@ -11,11 +11,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Logo } from '@/components/logo';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function PublicSurveyPage() {
   const params = useParams();
   const surveyId = params.surveyId as string;
   const { firestore } = useFirebase();
+  const { toast } = useToast();
 
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,15 +25,10 @@ export default function PublicSurveyPage() {
   const [answers, setAnswers] = useState<Record<string, number | string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
-
-  // Soft double-submit guard: sessionStorage flag
-  useEffect(() => {
-    const key = `survey_submitted_${surveyId}`;
-    if (sessionStorage.getItem(key) === 'true') {
-      setAlreadySubmitted(true);
-    }
-  }, [surveyId]);
+  const [alreadySubmitted] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem(`survey_submitted_${surveyId}`) === 'true';
+  });
 
   // Fetch survey on mount — one-time getDoc (no real-time listener needed)
   useEffect(() => {
@@ -80,8 +77,12 @@ export default function PublicSurveyPage() {
       sessionStorage.setItem(`survey_submitted_${surveyId}`, 'true');
       setSubmitted(true);
     } catch {
-      // Let the user try again — no toast available without AppShell
       setSubmitting(false);
+      toast({
+        title: 'Error al enviar',
+        description: 'Revisa tu conexión e intenta de nuevo.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -109,8 +110,11 @@ export default function PublicSurveyPage() {
     );
   }
 
+  // Narrow survey type — unreachable at runtime, satisfies TypeScript
+  if (!survey) return null;
+
   // ── Closed ──
-  if (survey?.status === 'closed') {
+  if (survey.status === 'closed') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="text-center max-w-sm">
@@ -150,13 +154,13 @@ export default function PublicSurveyPage() {
       {/* Survey content */}
       <div className="max-w-lg mx-auto px-6 py-8 space-y-8">
         <div>
-          <h1 className="text-xl font-bold">{survey!.name}</h1>
+          <h1 className="text-xl font-bold">{survey.name}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Tus respuestas son anónimas y nos ayudan a mejorar el servicio.
           </p>
         </div>
 
-        {survey!.questions.map((q, idx) => (
+        {survey.questions.map((q, idx) => (
           <div key={q.id} className="space-y-3">
             <p className="text-sm font-medium leading-snug">
               <span className="text-muted-foreground mr-1.5">{idx + 1}.</span>

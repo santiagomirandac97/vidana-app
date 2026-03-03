@@ -166,6 +166,7 @@ export default function CostosPage() {
     [now.getMonth(), now.getFullYear()]
   );
 
+  // Intentional: sparklines show the all-kitchen trend as context regardless of filterCompanyId.
   const monthlyBuckets = useMemo(() => {
     return MONTHS.map(monthDate => {
       const start = monthDate.toISOString();
@@ -203,7 +204,7 @@ export default function CostosPage() {
   const sparkFoodCostPct = monthlyBuckets.map(b => ({ month: b.month, value: b.foodCostPct }));
 
   // Delta: index 4 = previous month, index 5 = current month
-  const prev = monthlyBuckets[4] ?? { revenue: 0, foodCost: 0, laborCost: 0, wasteCost: 0, netMargin: 0, foodCostPct: 0 };
+  const prev = monthlyBuckets.at(-2) ?? { revenue: 0, foodCost: 0, laborCost: 0, wasteCost: 0, netMargin: 0, foodCostPct: 0 };
 
   const perKitchenStats = useMemo(() => {
     if (!companies) return [];

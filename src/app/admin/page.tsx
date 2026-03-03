@@ -110,8 +110,8 @@ export default function AdminDashboardPage() {
   }, [allConsumptions, companies, MONTHS, monthStart, now]);
 
   // Delta: index 4 = previous month, index 5 = current month
-  const prevMeals   = sparklineData.meals[4]?.value   ?? 0;
-  const prevRevenue = sparklineData.revenue[4]?.value  ?? 0;
+  const prevMeals   = sparklineData.meals.at(-2)?.value   ?? 0;
+  const prevRevenue = sparklineData.revenue.at(-2)?.value  ?? 0;
 
   if (userLoading || profileLoading || companiesLoading) {
     return (

@@ -1,5 +1,5 @@
 // src/lib/revenue-utils.ts
-import { eachDayOfInterval, getDay, format } from 'date-fns';
+import { eachDayOfInterval, getDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { type Consumption, type Company } from './types';
 import { APP_TIMEZONE } from './constants';
@@ -32,7 +32,7 @@ export function computeRevenue(
       countByDay[d] = (countByDay[d] || 0) + 1;
     });
     return days.reduce((total, date) => {
-      const dayStr = format(date, 'yyyy-MM-dd');
+      const dayStr = formatInTimeZone(date, APP_TIMEZONE, 'yyyy-MM-dd');
       const dow = getDay(date);
       const isChargeable = chargeable.includes(dow);
       const count = countByDay[dayStr] || 0;

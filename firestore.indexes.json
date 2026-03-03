@@ -61,6 +61,14 @@
       ]
     },
     {
+      "collectionGroup": "payrollRecords",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "companyId",    "order": "ASCENDING"  },
+        { "fieldPath": "quincenaDate", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "bonuses",
       "queryScope": "COLLECTION",
       "fields": [

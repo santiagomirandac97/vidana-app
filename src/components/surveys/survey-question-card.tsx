@@ -57,16 +57,20 @@ export function SurveyQuestionCard({ question, responses }: SurveyQuestionCardPr
     <div className="rounded-lg border bg-card p-4 shadow-card">
       <p className="text-sm font-medium mb-2">{question.text}</p>
 
-      {/* Average score */}
+      {/* Average score — only show rating widget when there is at least one response */}
       <div className="flex items-center gap-3 mb-4">
-        {question.type === 'star' ? (
-          <StarRating value={avg} size="sm" />
-        ) : (
-          <EmojiRating value={avg} size="sm" />
+        {numericAnswers.length > 0 && (
+          question.type === 'star' ? (
+            <StarRating value={avg} size="sm" />
+          ) : (
+            <EmojiRating value={avg} size="sm" />
+          )
         )}
-        <span className="text-2xl font-bold font-mono">{avg.toFixed(1)}</span>
+        <span className="text-2xl font-bold font-mono">
+          {numericAnswers.length > 0 ? avg.toFixed(1) : '—'}
+        </span>
         <span className="text-xs text-muted-foreground">
-          / 5 · {numericAnswers.length} respuesta{numericAnswers.length !== 1 ? 's' : ''}
+          {numericAnswers.length > 0 ? '/ 5 · ' : ''}{numericAnswers.length} respuesta{numericAnswers.length !== 1 ? 's' : ''}
         </span>
       </div>
 

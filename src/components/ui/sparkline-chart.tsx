@@ -9,10 +9,13 @@ interface SparklineChartProps {
 }
 
 export function SparklineChart({ data, color = 'hsl(var(--primary))' }: SparklineChartProps) {
+  // Derive a stable, unique gradient id from the color value
+  const gradId = `sparkGrad-${color.replace(/[^a-z0-9]/gi, '')}`;
+
   // Flat line for insufficient data
   if (data.length < 2) {
     return (
-      <div className="h-6 w-[60px] flex items-end">
+      <div className="h-6 w-[60px] shrink-0 flex items-end">
         <div className="w-full border-t border-muted-foreground/30" />
       </div>
     );
@@ -23,7 +26,7 @@ export function SparklineChart({ data, color = 'hsl(var(--primary))' }: Sparklin
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 1, right: 0, left: 0, bottom: 1 }}>
           <defs>
-            <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor={color} stopOpacity={0.25} />
               <stop offset="95%" stopColor={color} stopOpacity={0} />
             </linearGradient>
@@ -33,7 +36,7 @@ export function SparklineChart({ data, color = 'hsl(var(--primary))' }: Sparklin
             dataKey="value"
             stroke={color}
             strokeWidth={1.5}
-            fill="url(#sparkGrad)"
+            fill={`url(#${gradId})`}
             dot={false}
             isAnimationActive={false}
           />

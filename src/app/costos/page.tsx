@@ -40,6 +40,7 @@ export default function CostosPage() {
     firestore && user ? doc(firestore, `users/${user.uid}`) : null
   , [firestore, user]);
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
+  const isAdmin = userProfile?.role === 'admin';
 
   const companiesRef = useMemoFirebase(() =>
     firestore ? query(collection(firestore, 'companies')) : null
@@ -58,30 +59,30 @@ export default function CostosPage() {
 
   // Cross-company consumptions for current month
   const consumptionsRef = useMemoFirebase(() =>
-    firestore ? query(collectionGroup(firestore, 'consumptions'), where('timestamp', '>=', sixMonthsAgo)) : null
-  , [firestore, sixMonthsAgo]);
+    firestore && isAdmin ? query(collectionGroup(firestore, 'consumptions'), where('timestamp', '>=', sixMonthsAgo)) : null
+  , [firestore, isAdmin, sixMonthsAgo]);
   const { data: allConsumptions, error: consumptionsError } = useCollection<Consumption>(consumptionsRef);
 
   // Cross-company merma movements for current month
   const mermaRef = useMemoFirebase(() =>
-    firestore
+    firestore && isAdmin
       ? query(collectionGroup(firestore, 'stockMovements'), where('type', '==', 'merma'), where('timestamp', '>=', sixMonthsAgo))
       : null
-  , [firestore, sixMonthsAgo]);
+  , [firestore, isAdmin, sixMonthsAgo]);
   const { data: allMerma } = useCollection<StockMovement>(mermaRef);
 
   // Cross-company received purchase orders for current month — filter by receivedAt (when food actually arrived)
   const purchaseOrdersRef = useMemoFirebase(() =>
-    firestore
+    firestore && isAdmin
       ? query(collectionGroup(firestore, 'purchaseOrders'), where('status', '==', 'recibido'), where('receivedAt', '>=', sixMonthsAgo))
       : null
-  , [firestore, sixMonthsAgo]);
+  , [firestore, isAdmin, sixMonthsAgo]);
   const { data: allPurchaseOrders } = useCollection<PurchaseOrder>(purchaseOrdersRef);
 
   // Cross-company labor costs for current month
   const laborRef = useMemoFirebase(() =>
-    firestore ? query(collectionGroup(firestore, 'laborCosts'), where('weekStartDate', '>=', sixMonthsAgo.slice(0, 10))) : null
-  , [firestore, sixMonthsAgo]);
+    firestore && isAdmin ? query(collectionGroup(firestore, 'laborCosts'), where('weekStartDate', '>=', sixMonthsAgo.slice(0, 10))) : null
+  , [firestore, isAdmin, sixMonthsAgo]);
   const { data: allLaborCosts } = useCollection<LaborCost>(laborRef);
 
   const [showAddLabor, setShowAddLabor] = useState(false);

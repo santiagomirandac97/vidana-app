@@ -59,7 +59,7 @@ export default function PublicSurveyPage() {
       .filter(q => q.required)
       .every(q => {
         const a = answers[q.id];
-        if (q.type === 'text') return true; // text is never required in the submit gate
+        if (q.type === 'text') return true; // text questions are always optional (open_text in library has required:false)
         return typeof a === 'number' && a > 0;
       }) ?? false;
 

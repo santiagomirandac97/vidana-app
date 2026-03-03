@@ -1,3 +1,5 @@
+'use client';
+
 import { type SurveyQuestion, type SurveyResponse } from '@/lib/types';
 import { StarRating } from '@/components/ui/star-rating';
 import { EmojiRating } from '@/components/ui/emoji-rating';

@@ -121,7 +121,7 @@ export default function NuevaEncuestaPage() {
       <div className="p-6 lg:p-8 max-w-2xl mx-auto">
         <PageHeader
           title="Nueva Encuesta"
-          subtitle={`Paso ${step} de ${step === 3 ? 3 : 2}`}
+          subtitle={`Paso ${step} de 3`}
         />
 
         {/* ── Step 1: Company + Name ── */}

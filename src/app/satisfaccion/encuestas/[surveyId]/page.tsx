@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { collection, query, doc, updateDoc } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
@@ -68,13 +68,13 @@ export default function SurveyResultsPage() {
     return (responses ?? []).filter(r => r.submittedAt >= cutoff).length;
   }, [responses]);
 
-  const surveyUrl =
-    typeof window !== 'undefined' && surveyId
-      ? `${window.location.origin}/survey/${surveyId}`
-      : '';
+  const surveyUrl = surveyId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/survey/${surveyId}` : '';
+
+  const [isToggling, setIsToggling] = useState(false);
 
   const handleToggleStatus = async () => {
-    if (!firestore || !survey?.id) return;
+    if (!firestore || !survey?.id || isToggling) return;
+    setIsToggling(true);
     try {
       await updateDoc(doc(firestore, `surveys/${survey.id}`), {
         status: survey.status === 'active' ? 'closed' : 'active',
@@ -84,6 +84,8 @@ export default function SurveyResultsPage() {
       });
     } catch {
       toast({ title: 'Error al actualizar estado', variant: 'destructive' });
+    } finally {
+      setIsToggling(false);
     }
   };
 
@@ -146,8 +148,9 @@ export default function SurveyResultsPage() {
             variant="outline"
             size="sm"
             onClick={handleToggleStatus}
+            disabled={isToggling}
           >
-            {survey.status === 'active' ? 'Cerrar encuesta' : 'Reactivar encuesta'}
+            {isToggling ? '…' : survey.status === 'active' ? 'Cerrar encuesta' : 'Reactivar encuesta'}
           </Button>
         </div>
 
@@ -197,9 +200,11 @@ export default function SurveyResultsPage() {
         <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
           Compartir encuesta
         </p>
-        <div className="rounded-lg border bg-card shadow-card p-6 flex justify-center">
-          <QrCodeDisplay url={surveyUrl} />
-        </div>
+        {surveyUrl && (
+          <div className="rounded-lg border bg-card shadow-card p-6 flex justify-center">
+            <QrCodeDisplay url={surveyUrl} />
+          </div>
+        )}
       </div>
     </AppShell>
   );

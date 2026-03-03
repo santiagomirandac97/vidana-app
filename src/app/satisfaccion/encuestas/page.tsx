@@ -9,6 +9,7 @@ import { AppShell, PageHeader } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/error-state';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { ShieldAlert, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
@@ -128,15 +129,10 @@ export default function EncuestasPage() {
                     {companyMap.get(survey.companyId) ?? '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        survey.status === 'active'
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {survey.status === 'active' ? 'Activa' : 'Cerrada'}
-                    </span>
+                    <StatusBadge
+                      variant={survey.status === 'active' ? 'success' : 'borrador'}
+                      label={survey.status === 'active' ? 'Activa' : 'Cerrada'}
+                    />
                   </td>
                   <td className="px-4 py-3 text-right font-mono">{survey.questions.length}</td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">

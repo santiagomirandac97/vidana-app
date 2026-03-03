@@ -182,7 +182,7 @@ export default function ReportesPage() {
         ? query(
             collectionGroup(firestore, 'purchaseOrders'),
             where('status', '==', 'recibido'),
-            where('createdAt', '>=', sixMonthsAgo)
+            where('receivedAt', '>=', sixMonthsAgo)
           )
         : null,
     [firestore, isAdmin, sixMonthsAgo]
@@ -258,7 +258,7 @@ export default function ReportesPage() {
       const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
       const foodCost = (allPurchaseOrders ?? [])
-        .filter((po) => toMexicoMonth(po.createdAt) === monthStr)
+        .filter((po) => po.receivedAt ? toMexicoMonth(po.receivedAt) === monthStr : toMexicoMonth(po.createdAt) === monthStr)
         .reduce((sum, po) => sum + po.totalCost, 0);
 
       // Labor: weekStartDate is 'yyyy-MM-dd' — match on prefix

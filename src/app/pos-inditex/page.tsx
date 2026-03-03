@@ -179,7 +179,12 @@ const PosDashboard: FC = () => {
 
         try {
             const consumptionsCollection = collection(firestore, `companies/${inditexCompany.id}/consumptions`);
-            await addDocumentNonBlocking(consumptionsCollection, consumptionData);
+            const docRef = await addDocumentNonBlocking(consumptionsCollection, consumptionData);
+
+            if (!docRef) {
+                toast({ variant: 'destructive', title: 'Error al confirmar', description: 'No se pudo guardar la venta. Intenta de nuevo.' });
+                return;
+            }
 
             toast({
                 title: 'Venta Confirmada',

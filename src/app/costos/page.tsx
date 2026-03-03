@@ -139,7 +139,7 @@ export default function CostosPage() {
 
     const foodCost = (allPurchaseOrders || [])
       .filter(po => filterCompanyId === 'all' || po.companyId === filterCompanyId)
-      .reduce((sum, po) => sum + po.totalCost, 0);
+      .reduce((sum, po) => sum + (po.totalCost ?? 0), 0);
 
     const wasteCost = (allMerma || [])
       .filter(m => filterCompanyId === 'all' || m.companyId === filterCompanyId)
@@ -188,7 +188,7 @@ export default function CostosPage() {
       } else {
         rev = cons.length * mealPrice;
       }
-      const food = (allPurchaseOrders || []).filter(po => po.companyId === company.id).reduce((s, po) => s + po.totalCost, 0);
+      const food = (allPurchaseOrders || []).filter(po => po.companyId === company.id).reduce((s, po) => s + (po.totalCost ?? 0), 0);
       const waste = (allMerma || []).filter(m => m.companyId === company.id).reduce((s, m) => s + m.quantity * m.unitCost, 0);
       const labor = (allLaborCosts || []).filter(lc => lc.companyId === company.id).reduce((s, lc) => s + lc.amount, 0);
       const meals = cons.length;

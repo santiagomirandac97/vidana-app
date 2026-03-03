@@ -30,7 +30,7 @@ export default function ConfiguracionPage() {
     , [firestore, user]);
     const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
-    const isLoading = userLoading || profileLoading;
+    const isLoading = userLoading || profileLoading || (!!user && !userProfile);
 
     useEffect(() => {
         if (!isLoading && !user) {

@@ -5,6 +5,8 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Sidebar } from './sidebar';
 import { MobileTopBar } from './mobile-top-bar';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { useToast } from '@/hooks/use-toast';
 
 const STORAGE_KEY = 'vidana_sidebar_collapsed';
 
@@ -12,12 +14,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     setMounted(true);
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'true') setCollapsed(true);
   }, []);
+
+  useEffect(() => {
+    const handlePermissionError = () => {
+      toast({
+        variant: 'destructive',
+        title: 'Error de permisos',
+        description: 'No tienes permisos para realizar esta acción.',
+      });
+    };
+    errorEmitter.on('permission-error', handlePermissionError);
+    return () => {
+      errorEmitter.off('permission-error', handlePermissionError);
+    };
+  }, [toast]);
 
   const toggleCollapsed = () => {
     setCollapsed(prev => {

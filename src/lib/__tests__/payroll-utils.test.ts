@@ -43,13 +43,16 @@ describe('calculatePayroll', () => {
     expect(result.breakdown[0].subtotal).toBe(5500);
   });
 
-  it('includes one-time bonus only when appliesTo matches quincenaDate', () => {
+  it('includes one-time bonus when appliesTo matches quincenaDate', () => {
     const oneTime = makeBonus({ isRecurring: false, appliesTo: '2026-03-15' });
     const result = calculatePayroll([makeEmployee()], { emp1: [oneTime] }, '2026-03-15');
     expect(result.totalAmount).toBe(5500);
+  });
 
-    const resultOther = calculatePayroll([makeEmployee()], { emp1: [oneTime] }, '2026-03-30');
-    expect(resultOther.totalAmount).toBe(5000); // not included
+  it('excludes one-time bonus when appliesTo does not match quincenaDate', () => {
+    const oneTime = makeBonus({ isRecurring: false, appliesTo: '2026-03-15' });
+    const result = calculatePayroll([makeEmployee()], { emp1: [oneTime] }, '2026-03-30');
+    expect(result.totalAmount).toBe(5000);
   });
 
   it('skips inactive employees', () => {

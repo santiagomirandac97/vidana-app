@@ -190,7 +190,7 @@ export interface LaborCost {
 // ─── Surveys ─────────────────────────────────────────────────────────────────
 
 export interface SurveyQuestion {
-  id: string;       // stable uuid — used as key in answers Record
+  id: string;       // stable slug — used as key in answers Record (e.g. 'food_quality')
   text: string;     // question label shown to respondent
   type: 'star' | 'emoji' | 'text';
   required: boolean;

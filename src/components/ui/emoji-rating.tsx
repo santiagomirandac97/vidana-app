@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils';
 
 const EMOJIS = ['😞', '😕', '😐', '🙂', '😄'] as const;
+const EMOJI_LABELS = ['Muy insatisfecho', 'Insatisfecho', 'Neutral', 'Satisfecho', 'Muy satisfecho'] as const;
 
 interface EmojiRatingProps {
   value: number;           // 1–5 for interactive (0 = nothing selected), or decimal for read-only
@@ -17,11 +18,18 @@ export function EmojiRating({ value, onChange, size = 'lg' }: EmojiRatingProps) 
   // Read-only mode: show the single closest emoji for the average
   if (readOnly) {
     const idx = Math.max(0, Math.min(4, Math.round(value) - 1));
-    return <span className={cn(emojiSize, 'leading-none')}>{EMOJIS[idx]}</span>;
+    return (
+      <span
+        className={cn(emojiSize, 'leading-none')}
+        aria-label={`${Math.max(1, Math.round(value))} - ${EMOJI_LABELS[Math.max(0, Math.min(4, Math.round(value) - 1))]}`}
+      >
+        {EMOJIS[idx]}
+      </span>
+    );
   }
 
   return (
-    <div className="flex gap-3">
+    <div className="flex gap-3" role="group" aria-label="Valoración">
       {EMOJIS.map((emoji, i) => {
         const n = i + 1;
         const isSelected = value === n;
@@ -30,6 +38,7 @@ export function EmojiRating({ value, onChange, size = 'lg' }: EmojiRatingProps) 
             key={n}
             type="button"
             onClick={() => onChange(n)}
+            aria-label={`${n} - ${EMOJI_LABELS[i]}`}
             className={cn(
               emojiSize,
               'leading-none transition-all duration-150',

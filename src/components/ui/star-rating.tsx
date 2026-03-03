@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -12,18 +13,27 @@ interface StarRatingProps {
 export function StarRating({ value, onChange, size = 'lg' }: StarRatingProps) {
   const starSize = size === 'lg' ? 36 : 16;
   const readOnly = !onChange;
+  const [hoverValue, setHoverValue] = useState(0);
 
   return (
-    <div className="flex gap-1">
+    <div
+      className="flex gap-1"
+      role="group"
+      aria-label="Valoración"
+      onMouseLeave={() => !readOnly && setHoverValue(0)}
+    >
       {[1, 2, 3, 4, 5].map((n) => {
         // In read-only mode, fill stars up to value (with tolerance for decimals)
-        const filled = readOnly ? value >= n - 0.25 : value >= n;
+        const effectiveValue = !readOnly && hoverValue > 0 ? hoverValue : value;
+        const filled = readOnly ? value >= n - 0.25 : effectiveValue >= n;
         return (
           <button
             key={n}
             type="button"
             disabled={readOnly}
             onClick={() => onChange?.(n)}
+            onMouseEnter={() => !readOnly && setHoverValue(n)}
+            aria-label={`${n} estrella${n > 1 ? 's' : ''}`}
             className={cn(
               'transition-transform',
               !readOnly && 'hover:scale-110 active:scale-95 cursor-pointer',

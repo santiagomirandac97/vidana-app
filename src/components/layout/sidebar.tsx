@@ -15,7 +15,7 @@ import {
   ClipboardList, Monitor, ShoppingCart, ChefHat,
   Package, BookOpen, Settings,
   BarChart2, TrendingDown, Receipt, TrendingUp,
-  SmilePlus,
+  SmilePlus, Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +43,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin',       label: 'Admin',       icon: BarChart2 },
       { href: '/costos',      label: 'Costos',      icon: TrendingDown },
+      { href: '/empleados',   label: 'Empleados',   icon: Users },
       { href: '/facturacion', label: 'Facturación', icon: Receipt },
       { href: '/reportes',    label: 'Reportes',    icon: TrendingUp },
     ],

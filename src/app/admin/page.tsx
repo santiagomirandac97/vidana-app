@@ -5,15 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, doc, where, collectionGroup } from 'firebase/firestore';
 import { type Company, type Consumption, type UserProfile } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, startOfMonth, eachDayOfInterval, getDay } from 'date-fns';
+import { format, startOfMonth, subMonths, endOfMonth, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { toZonedTime } from 'date-fns-tz';
 import { APP_TIMEZONE } from '@/lib/constants';
 import { DollarSign, Utensils, ShieldAlert } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
+import { computeRevenue } from '@/lib/revenue-utils';
 import { ErrorState } from '@/components/ui/error-state';
 
 const TZ = APP_TIMEZONE;
@@ -37,12 +37,16 @@ export default function AdminDashboardPage() {
 
   const now = useMemo(() => toZonedTime(new Date(), TZ), []);
   const monthStart = useMemo(() => startOfMonth(now).toISOString(), [now]);
+  const sixMonthsAgo = useMemo(
+    () => startOfMonth(subMonths(now, 5)).toISOString(),
+    [now]
+  );
 
   const consumptionsQuery = useMemoFirebase(
     () => firestore
-      ? query(collectionGroup(firestore, 'consumptions'), where('timestamp', '>=', monthStart))
+      ? query(collectionGroup(firestore, 'consumptions'), where('timestamp', '>=', sixMonthsAgo))
       : null,
-    [firestore, monthStart]
+    [firestore, sixMonthsAgo]
   );
   const { data: allConsumptions, isLoading: consumptionsLoading, error: consumptionsError } = useCollection<Consumption>(consumptionsQuery);
 
@@ -52,43 +56,21 @@ export default function AdminDashboardPage() {
 
   const statsByCompany = useMemo(() => {
     if (companiesLoading || !companies) return [];
-    const consumptions = allConsumptions ?? [];
+    // Only current month for KPI totals
+    const consumptions = (allConsumptions ?? []).filter(c => c.timestamp >= monthStart);
     return companies.map(company => {
-      // Include all non-voided consumptions (including anonymous/POS sales)
-      const cc = consumptions.filter(
-        c => c.companyId === company.id && !c.voided
-      );
-      const mealPrice = company.mealPrice ?? 0;
-      const dailyTarget = company.dailyTarget ?? 0;
-      let revenue = 0;
-      if (dailyTarget > 0) {
-        const days = eachDayOfInterval({ start: startOfMonth(now), end: now });
-        const countByDay: Record<string, number> = {};
-        cc.forEach(c => {
-          const d = formatInTimeZone(new Date(c.timestamp), TZ, 'yyyy-MM-dd');
-          countByDay[d] = (countByDay[d] || 0) + 1;
-        });
-        revenue = days.reduce((total, date) => {
-          const dayStr = format(date, 'yyyy-MM-dd');
-          const dow = getDay(date);
-          const chargeable = company.targetDays ?? [1, 2, 3, 4]; // default Mon–Thu
-          const isChargeable = chargeable.includes(dow);
-          const count = countByDay[dayStr] || 0;
-          return total + (isChargeable ? Math.max(count, dailyTarget) : count) * mealPrice;
-        }, 0);
-      } else {
-        revenue = cc.length * mealPrice;
-      }
+      const cc = consumptions.filter(c => c.companyId === company.id && !c.voided);
+      const revenue = computeRevenue(cc, company, startOfMonth(now), now);
       return {
         id: company.id,
         name: company.name,
-        mealPrice,
-        dailyTarget,
+        mealPrice: company.mealPrice ?? 0,
+        dailyTarget: company.dailyTarget ?? 0,
         mealsServed: cc.length,
         revenue,
       };
     });
-  }, [companies, allConsumptions, companiesLoading, now]);
+  }, [companies, allConsumptions, companiesLoading, monthStart, now]);
 
   const totals = useMemo(() =>
     statsByCompany.reduce(
@@ -97,6 +79,39 @@ export default function AdminDashboardPage() {
     ),
     [statsByCompany]
   );
+
+  // The last 6 calendar months in order (oldest first, current last)
+  const MONTHS = useMemo(
+    () => Array.from({ length: 6 }, (_, i) => startOfMonth(subMonths(now, 5 - i))),
+    [now]
+  );
+
+  // Monthly aggregates for sparklines and delta badges
+  const sparklineData = useMemo(() => {
+    if (!companies) return { meals: [] as { month: string; value: number }[], revenue: [] as { month: string; value: number }[] };
+    return MONTHS.reduce<{ meals: { month: string; value: number }[]; revenue: { month: string; value: number }[] }>(
+      (acc, monthDate) => {
+        const start = monthDate.toISOString();
+        const end = startOfMonth(addMonths(monthDate, 1)).toISOString();
+        const cons = (allConsumptions ?? []).filter(c => c.timestamp >= start && c.timestamp < end && !c.voided);
+        const isCurrentMonth = start === monthStart;
+        const to = isCurrentMonth ? now : endOfMonth(monthDate);
+        const monthRevenue = companies.reduce((total, company) => {
+          const companyCons = cons.filter(c => c.companyId === company.id);
+          return total + computeRevenue(companyCons, company, monthDate, to);
+        }, 0);
+        const monthLabel = format(monthDate, 'MMM', { locale: es });
+        acc.meals.push({ month: monthLabel, value: cons.length });
+        acc.revenue.push({ month: monthLabel, value: monthRevenue });
+        return acc;
+      },
+      { meals: [], revenue: [] }
+    );
+  }, [allConsumptions, companies, MONTHS, monthStart, now]);
+
+  // Delta: index 4 = previous month, index 5 = current month
+  const prevMeals   = sparklineData.meals[4]?.value   ?? 0;
+  const prevRevenue = sparklineData.revenue[4]?.value  ?? 0;
 
   if (userLoading || profileLoading || companiesLoading) {
     return (
@@ -157,6 +172,8 @@ export default function AdminDashboardPage() {
             icon={<Utensils size={14} />}
             loading={consumptionsLoading}
             variant="default"
+            delta={{ current: totals.mealsServed, previous: prevMeals, positiveDirection: 'up' }}
+            sparklineData={sparklineData.meals}
           />
           <KpiCard
             label="Ingresos del mes (Total)"
@@ -164,56 +181,69 @@ export default function AdminDashboardPage() {
             icon={<DollarSign size={14} />}
             loading={consumptionsLoading}
             variant="success"
+            delta={{ current: totals.revenue, previous: prevRevenue, positiveDirection: 'up' }}
+            sparklineData={sparklineData.revenue}
           />
         </div>
 
-        {/* Per-company grid */}
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-          Por cocina
+        {/* ── Company Ranking Table ── */}
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+          Cocinas — este mes
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {statsByCompany.map(company => (
-            <Card key={company.id} className="shadow-card hover:shadow-card-hover transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-sm font-semibold">{company.name}</CardTitle>
-                  <span className="shrink-0 text-xs font-mono font-medium px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                    ${company.mealPrice}/comida
-                  </span>
-                </div>
-                {company.dailyTarget > 0 && (
-                  <CardDescription className="text-xs">
-                    Objetivo: {company.dailyTarget} comidas/día
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-md bg-muted/60 p-3">
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1.5">
-                      <Utensils size={11} /> Comidas
-                    </p>
-                    {consumptionsLoading ? (
-                      <div className="h-6 w-12 bg-muted animate-pulse rounded" />
-                    ) : (
-                      <p className="text-lg font-bold font-mono">{company.mealsServed.toLocaleString()}</p>
-                    )}
-                  </div>
-                  <div className="rounded-md bg-muted/60 p-3">
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1.5">
-                      <DollarSign size={11} /> Ingresos
-                    </p>
-                    {consumptionsLoading ? (
-                      <div className="h-6 w-16 bg-muted animate-pulse rounded" />
-                    ) : (
-                      <p className="text-lg font-bold font-mono">{fmtMoney(company.revenue)}</p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {(() => {
+          const sorted = [...statsByCompany].sort((a, b) => b.revenue - a.revenue);
+          const maxRevenue = sorted[0]?.revenue ?? 1;
+          return (
+            <div className="rounded-lg border bg-card shadow-card overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">#</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Cocina</th>
+                    <th className="text-right px-4 py-2 font-medium text-muted-foreground">Comidas</th>
+                    <th className="text-right px-4 py-2 font-medium text-muted-foreground">Ingresos</th>
+                    <th className="px-4 py-2 font-medium text-muted-foreground w-32">Participación</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((company, idx) => {
+                    const sharePct = maxRevenue > 0 ? (company.revenue / maxRevenue) * 100 : 0;
+                    return (
+                      <tr key={company.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                        <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{idx + 1}</td>
+                        <td className="px-4 py-3 font-medium">{company.name}</td>
+                        <td className="px-4 py-3 text-right font-mono">{company.mealsServed.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right font-mono font-semibold text-green-600 dark:text-green-400">
+                          {fmtMoney(company.revenue)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-muted rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="bg-primary h-1.5 rounded-full transition-all"
+                                style={{ width: `${sharePct}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-mono text-muted-foreground w-8 text-right">
+                              {sharePct.toFixed(0)}%
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {statsByCompany.length === 0 && !consumptionsLoading && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                        Sin datos este mes.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
       </div>
     </AppShell>
   );

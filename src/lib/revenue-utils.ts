@@ -19,8 +19,10 @@ export function computeRevenue(
   from: Date,
   to: Date,
 ): number {
+  // Caller must pass consumptions already filtered to !voided and within [from, to].
   const mealPrice = company.mealPrice ?? 0;
   const dailyTarget = company.dailyTarget ?? 0;
+  const chargeable = company.targetDays ?? [1, 2, 3, 4]; // Mon–Thu by default
 
   if (dailyTarget > 0) {
     const days = eachDayOfInterval({ start: from, end: to });
@@ -32,7 +34,6 @@ export function computeRevenue(
     return days.reduce((total, date) => {
       const dayStr = format(date, 'yyyy-MM-dd');
       const dow = getDay(date);
-      const chargeable = company.targetDays ?? [1, 2, 3, 4]; // Mon–Thu by default
       const isChargeable = chargeable.includes(dow);
       const count = countByDay[dayStr] || 0;
       return total + (isChargeable ? Math.max(count, dailyTarget) : count) * mealPrice;

@@ -19,9 +19,10 @@ import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { ErrorState } from '@/components/ui/error-state';
 import { useToast } from '@/hooks/use-toast';
-import { format, startOfMonth, eachDayOfInterval, getDay } from 'date-fns';
+import { format, startOfMonth, subMonths, endOfMonth, addMonths } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { APP_TIMEZONE } from '@/lib/constants';
+import { computeRevenue } from '@/lib/revenue-utils';
 import { es } from 'date-fns/locale';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -50,33 +51,37 @@ export default function CostosPage() {
   // Month bounds — recomputed each render so they stay current across month boundaries
   const now = toZonedTime(new Date(), timeZone);
   const monthStart = useMemo(() => startOfMonth(now).toISOString(), [now.getMonth(), now.getFullYear()]);
+  const sixMonthsAgo = useMemo(
+    () => startOfMonth(subMonths(now, 5)).toISOString(),
+    [now.getMonth(), now.getFullYear()]
+  );
 
   // Cross-company consumptions for current month
   const consumptionsRef = useMemoFirebase(() =>
-    firestore ? query(collectionGroup(firestore, 'consumptions'), where('timestamp', '>=', monthStart)) : null
-  , [firestore, monthStart]);
+    firestore ? query(collectionGroup(firestore, 'consumptions'), where('timestamp', '>=', sixMonthsAgo)) : null
+  , [firestore, sixMonthsAgo]);
   const { data: allConsumptions, error: consumptionsError } = useCollection<Consumption>(consumptionsRef);
 
   // Cross-company merma movements for current month
   const mermaRef = useMemoFirebase(() =>
     firestore
-      ? query(collectionGroup(firestore, 'stockMovements'), where('type', '==', 'merma'), where('timestamp', '>=', monthStart))
+      ? query(collectionGroup(firestore, 'stockMovements'), where('type', '==', 'merma'), where('timestamp', '>=', sixMonthsAgo))
       : null
-  , [firestore, monthStart]);
+  , [firestore, sixMonthsAgo]);
   const { data: allMerma } = useCollection<StockMovement>(mermaRef);
 
   // Cross-company received purchase orders for current month — filter by receivedAt (when food actually arrived)
   const purchaseOrdersRef = useMemoFirebase(() =>
     firestore
-      ? query(collectionGroup(firestore, 'purchaseOrders'), where('status', '==', 'recibido'), where('receivedAt', '>=', monthStart))
+      ? query(collectionGroup(firestore, 'purchaseOrders'), where('status', '==', 'recibido'), where('receivedAt', '>=', sixMonthsAgo))
       : null
-  , [firestore, monthStart]);
+  , [firestore, sixMonthsAgo]);
   const { data: allPurchaseOrders } = useCollection<PurchaseOrder>(purchaseOrdersRef);
 
   // Cross-company labor costs for current month
   const laborRef = useMemoFirebase(() =>
-    firestore ? query(collectionGroup(firestore, 'laborCosts'), where('weekStartDate', '>=', monthStart.slice(0, 10))) : null
-  , [firestore, monthStart]);
+    firestore ? query(collectionGroup(firestore, 'laborCosts'), where('weekStartDate', '>=', sixMonthsAgo.slice(0, 10))) : null
+  , [firestore, sixMonthsAgo]);
   const { data: allLaborCosts } = useCollection<LaborCost>(laborRef);
 
   const [showAddLabor, setShowAddLabor] = useState(false);
@@ -106,47 +111,40 @@ export default function CostosPage() {
   const kpis = useMemo(() => {
     const filteredConsumptions = (allConsumptions || []).filter(c =>
       !c.voided &&
+      c.timestamp >= monthStart &&
       (filterCompanyId === 'all' || c.companyId === filterCompanyId)
     );
 
     const filteredCompanies = (companies ?? []).filter(co =>
       filterCompanyId === 'all' || co.id === filterCompanyId
     );
+
     const revenue = filteredCompanies.reduce((total, company) => {
-      const mealPrice = company.mealPrice ?? 0;
-      const dailyTarget = company.dailyTarget ?? 0;
       const companyCons = filteredConsumptions.filter(c => c.companyId === company.id);
-      if (dailyTarget > 0) {
-        const days = eachDayOfInterval({ start: startOfMonth(now), end: now });
-        const countByDay: Record<string, number> = {};
-        companyCons.forEach(c => {
-          const d = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
-          countByDay[d] = (countByDay[d] || 0) + 1;
-        });
-        return total + days.reduce((dayTotal, date) => {
-          const dayStr = format(date, 'yyyy-MM-dd');
-          const dow = getDay(date);
-          const chargeable = company.targetDays ?? [1, 2, 3, 4]; // default Mon–Thu
-          const isChargeable = chargeable.includes(dow);
-          const count = countByDay[dayStr] || 0;
-          return dayTotal + (isChargeable ? Math.max(count, dailyTarget) : count) * mealPrice;
-        }, 0);
-      }
-      return total + companyCons.length * mealPrice;
+      return total + computeRevenue(companyCons, company, startOfMonth(now), now);
     }, 0);
 
     const mealsServed = filteredConsumptions.length;
 
     const foodCost = (allPurchaseOrders || [])
-      .filter(po => filterCompanyId === 'all' || po.companyId === filterCompanyId)
+      .filter(po =>
+        po.receivedAt && po.receivedAt >= monthStart &&
+        (filterCompanyId === 'all' || po.companyId === filterCompanyId)
+      )
       .reduce((sum, po) => sum + (po.totalCost ?? 0), 0);
 
     const wasteCost = (allMerma || [])
-      .filter(m => filterCompanyId === 'all' || m.companyId === filterCompanyId)
+      .filter(m =>
+        m.timestamp >= monthStart &&
+        (filterCompanyId === 'all' || m.companyId === filterCompanyId)
+      )
       .reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
 
     const laborCost = (allLaborCosts || [])
-      .filter(lc => filterCompanyId === 'all' || lc.companyId === filterCompanyId)
+      .filter(lc =>
+        lc.weekStartDate >= monthStart.slice(0, 10) &&
+        (filterCompanyId === 'all' || lc.companyId === filterCompanyId)
+      )
       .reduce((sum, lc) => sum + lc.amount, 0);
 
     const totalCost = foodCost + laborCost + wasteCost;
@@ -155,7 +153,7 @@ export default function CostosPage() {
     const costPerMeal = mealsServed > 0 ? totalCost / mealsServed : 0;
 
     return { revenue, mealsServed, foodCost, laborCost, wasteCost, totalCost, netMargin, foodCostPct, costPerMeal };
-  }, [allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, companies, filterCompanyId]);
+  }, [allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, companies, filterCompanyId, monthStart, now]);
 
   const pieData = useMemo(() => [
     { name: 'Alimentos', value: kpis.foodCost, color: '#3b82f6' },
@@ -163,38 +161,70 @@ export default function CostosPage() {
     { name: 'Merma', value: kpis.wasteCost, color: '#ef4444' },
   ].filter(d => d.value > 0), [kpis]);
 
+  const MONTHS = useMemo(
+    () => Array.from({ length: 6 }, (_, i) => startOfMonth(subMonths(now, 5 - i))),
+    [now.getMonth(), now.getFullYear()]
+  );
+
+  const monthlyBuckets = useMemo(() => {
+    return MONTHS.map(monthDate => {
+      const start = monthDate.toISOString();
+      const end = startOfMonth(addMonths(monthDate, 1)).toISOString();
+      const isCurrentMonth = start === monthStart;
+      const to = isCurrentMonth ? now : endOfMonth(monthDate);
+
+      const monthCons = (allConsumptions || []).filter(c => !c.voided && c.timestamp >= start && c.timestamp < end);
+      const monthPOs  = (allPurchaseOrders  || []).filter(po => po.receivedAt && po.receivedAt >= start && po.receivedAt < end);
+      const monthMerma = (allMerma || []).filter(m => m.timestamp >= start && m.timestamp < end);
+      const monthLabor = (allLaborCosts || []).filter(lc => lc.weekStartDate >= start.slice(0, 10) && lc.weekStartDate < end.slice(0, 10));
+
+      const revenue = (companies ?? []).reduce((total, company) => {
+        const companyCons = monthCons.filter(c => c.companyId === company.id);
+        return total + computeRevenue(companyCons, company, monthDate, to);
+      }, 0);
+
+      const foodCost  = monthPOs.reduce((s, po) => s + (po.totalCost ?? 0), 0);
+      const laborCost = monthLabor.reduce((s, lc) => s + lc.amount, 0);
+      const wasteCost = monthMerma.reduce((s, m) => s + m.quantity * m.unitCost, 0);
+      const netMargin = revenue - foodCost - laborCost - wasteCost;
+      const foodCostPct = revenue > 0 ? (foodCost / revenue) * 100 : 0;
+      const monthLabel = format(monthDate, 'MMM', { locale: es });
+
+      return { month: monthLabel, revenue, foodCost, laborCost, wasteCost, netMargin, foodCostPct };
+    });
+  }, [MONTHS, allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, companies, monthStart, now]);
+
+  // Sparkline arrays — one entry per month (oldest first)
+  const sparkRevenue     = monthlyBuckets.map(b => ({ month: b.month, value: b.revenue }));
+  const sparkFoodCost    = monthlyBuckets.map(b => ({ month: b.month, value: b.foodCost }));
+  const sparkLabor       = monthlyBuckets.map(b => ({ month: b.month, value: b.laborCost }));
+  const sparkWaste       = monthlyBuckets.map(b => ({ month: b.month, value: b.wasteCost }));
+  const sparkNetMargin   = monthlyBuckets.map(b => ({ month: b.month, value: b.netMargin }));
+  const sparkFoodCostPct = monthlyBuckets.map(b => ({ month: b.month, value: b.foodCostPct }));
+
+  // Delta: index 4 = previous month, index 5 = current month
+  const prev = monthlyBuckets[4] ?? { revenue: 0, foodCost: 0, laborCost: 0, wasteCost: 0, netMargin: 0, foodCostPct: 0 };
+
   const perKitchenStats = useMemo(() => {
     if (!companies) return [];
     return companies.map(company => {
-      const cons = (allConsumptions || []).filter(c => c.companyId === company.id && !c.voided);
-      const mealPrice = company.mealPrice ?? 0;
-      const dailyTarget = company.dailyTarget ?? 0;
-      let rev = 0;
-      if (dailyTarget > 0) {
-        const days = eachDayOfInterval({ start: startOfMonth(now), end: now });
-        const countByDay: Record<string, number> = {};
-        cons.forEach(c => {
-          const d = formatInTimeZone(new Date(c.timestamp), timeZone, 'yyyy-MM-dd');
-          countByDay[d] = (countByDay[d] || 0) + 1;
-        });
-        rev = days.reduce((total, date) => {
-          const dayStr = format(date, 'yyyy-MM-dd');
-          const dow = getDay(date);
-          const chargeable = company.targetDays ?? [1, 2, 3, 4]; // default Mon–Thu
-          const isChargeable = chargeable.includes(dow);
-          const count = countByDay[dayStr] || 0;
-          return total + (isChargeable ? Math.max(count, dailyTarget) : count) * mealPrice;
-        }, 0);
-      } else {
-        rev = cons.length * mealPrice;
-      }
-      const food = (allPurchaseOrders || []).filter(po => po.companyId === company.id).reduce((s, po) => s + (po.totalCost ?? 0), 0);
-      const waste = (allMerma || []).filter(m => m.companyId === company.id).reduce((s, m) => s + m.quantity * m.unitCost, 0);
-      const labor = (allLaborCosts || []).filter(lc => lc.companyId === company.id).reduce((s, lc) => s + lc.amount, 0);
+      const cons = (allConsumptions || []).filter(c =>
+        c.companyId === company.id && !c.voided && c.timestamp >= monthStart
+      );
+      const rev = computeRevenue(cons, company, startOfMonth(now), now);
+      const food = (allPurchaseOrders || [])
+        .filter(po => po.companyId === company.id && po.receivedAt && po.receivedAt >= monthStart)
+        .reduce((s, po) => s + (po.totalCost ?? 0), 0);
+      const waste = (allMerma || [])
+        .filter(m => m.companyId === company.id && m.timestamp >= monthStart)
+        .reduce((s, m) => s + m.quantity * m.unitCost, 0);
+      const labor = (allLaborCosts || [])
+        .filter(lc => lc.companyId === company.id && lc.weekStartDate >= monthStart.slice(0, 10))
+        .reduce((s, lc) => s + lc.amount, 0);
       const meals = cons.length;
       return { company, rev, food, waste, labor, meals, margin: rev - food - waste - labor, costPerMeal: meals > 0 ? (food + labor + waste) / meals : 0 };
     });
-  }, [companies, allConsumptions, allPurchaseOrders, allMerma, allLaborCosts]);
+  }, [companies, allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, monthStart, now]);
 
   // Auth flash guard
   if (!userLoading && !user) return null;
@@ -265,36 +295,48 @@ export default function CostosPage() {
             value={fmt(kpis.revenue)}
             icon={<DollarSign className="h-4 w-4" />}
             variant="success"
+            delta={{ current: kpis.revenue, previous: prev.revenue, positiveDirection: 'up' }}
+            sparklineData={sparkRevenue}
           />
           <KpiCard
             label="Costo Alimentos"
             value={fmt(kpis.foodCost)}
             icon={<TrendingDown className="h-4 w-4" />}
             variant="default"
+            delta={{ current: kpis.foodCost, previous: prev.foodCost, positiveDirection: 'down' }}
+            sparklineData={sparkFoodCost}
           />
           <KpiCard
             label="Costo Laboral"
             value={fmt(kpis.laborCost)}
             icon={<Users className="h-4 w-4" />}
             variant="default"
+            delta={{ current: kpis.laborCost, previous: prev.laborCost, positiveDirection: 'down' }}
+            sparklineData={sparkLabor}
           />
           <KpiCard
             label="Merma"
             value={fmt(kpis.wasteCost)}
             icon={<AlertTriangle className="h-4 w-4" />}
             variant="destructive"
+            delta={{ current: kpis.wasteCost, previous: prev.wasteCost, positiveDirection: 'down' }}
+            sparklineData={sparkWaste}
           />
           <KpiCard
             label="% Costo Alim."
             value={`${kpis.foodCostPct.toFixed(1)}%`}
             icon={<TrendingUp className="h-4 w-4" />}
             variant={kpis.foodCostPct > 35 ? 'destructive' : 'success'}
+            delta={{ current: kpis.foodCostPct, previous: prev.foodCostPct, positiveDirection: 'down' }}
+            sparklineData={sparkFoodCostPct}
           />
           <KpiCard
             label="Margen Neto"
             value={fmt(kpis.netMargin)}
             icon={<DollarSign className="h-4 w-4" />}
             variant={kpis.netMargin >= 0 ? 'success' : 'destructive'}
+            delta={{ current: kpis.netMargin, previous: prev.netMargin, positiveDirection: 'up' }}
+            sparklineData={sparkNetMargin}
           />
         </div>
 
@@ -352,6 +394,25 @@ export default function CostosPage() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Labor</span><span className="font-mono">{fmt(labor)}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Merma</span><span className="font-mono text-red-600">{fmt(waste)}</span></div>
                 <div className="flex justify-between border-t pt-2"><span className="font-semibold">Margen</span><span className={`font-bold font-mono ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(margin)}</span></div>
+                {rev > 0 && (() => {
+                  const marginPct = Math.max(0, (margin / rev) * 100);
+                  const barColor = marginPct >= 25
+                    ? 'bg-green-500'
+                    : marginPct >= 10
+                    ? 'bg-yellow-500'
+                    : 'bg-red-500';
+                  return (
+                    <div className="mt-2">
+                      <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                        <span>Margen %</span>
+                        <span className="font-mono">{marginPct.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                        <div className={`${barColor} h-1.5 rounded-full transition-all`} style={{ width: `${marginPct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           ))}

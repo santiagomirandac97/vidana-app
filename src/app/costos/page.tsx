@@ -439,7 +439,8 @@ export default function CostosPage() {
                     </thead>
                     <tbody>
                       {(allMerma || []).filter(m =>
-                        filterCompanyId === 'all' || m.companyId === filterCompanyId
+                        m.timestamp >= monthStart &&
+                        (filterCompanyId === 'all' || m.companyId === filterCompanyId)
                       ).map(m => (
                         <tr key={m.id} className="border-b last:border-0">
                           <td className="py-2 text-muted-foreground">{formatInTimeZone(new Date(m.timestamp), timeZone, 'dd/MM/yyyy')}</td>
@@ -451,7 +452,8 @@ export default function CostosPage() {
                         </tr>
                       ))}
                       {(allMerma || []).filter(m =>
-                        filterCompanyId === 'all' || m.companyId === filterCompanyId
+                        m.timestamp >= monthStart &&
+                        (filterCompanyId === 'all' || m.companyId === filterCompanyId)
                       ).length === 0 && (
                         <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No hay movimientos de merma este mes.</td></tr>
                       )}

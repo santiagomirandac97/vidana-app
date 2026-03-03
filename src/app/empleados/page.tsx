@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useUser, useDoc, useMemoFirebase, useFirebase } from '@/firebase';
+import { useFirebase, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { type UserProfile } from '@/lib/types';
 import { AppShell, PageHeader } from '@/components/layout';

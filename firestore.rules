@@ -164,5 +164,26 @@ service cloud.firestore {
       allow list, get: if request.auth != null && isUserAdmin(request.auth.uid);
       allow update, delete: if false;
     }
+
+    // — Empleados & Payroll ——————————————————————————————————————————————
+
+    // Bonuses subcollection
+    match /companies/{companyId}/employees/{employeeId}/bonuses/{bonusId} {
+      allow get, list: if request.auth != null && isUserAdmin(request.auth.uid);
+      allow create, update: if isUserAdmin(request.auth.uid);
+      allow delete: if false;
+    }
+
+    // Payroll records
+    match /companies/{companyId}/payrollRecords/{recordId} {
+      allow get, list: if request.auth != null;
+      allow create: if isUserAdmin(request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    // CollectionGroup rule for payrollRecords (cross-company admin queries)
+    match /{path=**}/payrollRecords/{recordId} {
+      allow list: if request.auth != null && isUserAdmin(request.auth.uid);
+    }
   }
 }

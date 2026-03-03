@@ -51,6 +51,22 @@
         { "fieldPath": "status",     "order": "ASCENDING" },
         { "fieldPath": "receivedAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "payrollRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId",    "order": "ASCENDING"  },
+        { "fieldPath": "quincenaDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bonuses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId", "order": "ASCENDING" },
+        { "fieldPath": "active",     "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
@@ -69,6 +85,14 @@
       "indexes": [
         { "order": "ASCENDING",  "queryScope": "COLLECTION" },
         { "order": "ASCENDING",  "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
+      "collectionGroup": "payrollRecords",
+      "fieldPath": "quincenaDate",
+      "indexes": [
+        { "order": "ASCENDING",  "queryScope": "COLLECTION_GROUP" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION_GROUP" }
       ]
     }
   ]

@@ -220,10 +220,14 @@ export default function EmpleadosPage() {
 
   const handleDeactivateBonus = async (bonus: Bonus) => {
     if (!firestore || !bonusEmployee?.id || !activeCompanyId || !bonus.id) return;
-    await updateDoc(
-      firestoreDoc(firestore, `companies/${activeCompanyId}/employees/${bonusEmployee.id}/bonuses/${bonus.id}`),
-      { active: false }
-    );
+    try {
+      await updateDoc(
+        firestoreDoc(firestore, `companies/${activeCompanyId}/employees/${bonusEmployee.id}/bonuses/${bonus.id}`),
+        { active: false }
+      );
+    } catch {
+      toast({ title: 'Error al quitar bono.', variant: 'destructive' });
+    }
   };
 
   // Quincena confirmation
@@ -252,6 +256,9 @@ export default function EmpleadosPage() {
     try {
       const bonuses = await fetchBonusesForPreview();
       setPreviewBonuses(bonuses);
+    } catch {
+      toast({ title: 'Error al cargar bonos.', variant: 'destructive' });
+      setShowQuincenaDialog(false);
     } finally {
       setPreviewLoading(false);
     }
@@ -437,20 +444,21 @@ export default function EmpleadosPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Nombre completo</Label>
-              <Input value={empName} onChange={e => setEmpName(e.target.value)} placeholder="Ej: Juan López" />
+              <Label htmlFor="emp-name">Nombre completo</Label>
+              <Input id="emp-name" value={empName} onChange={e => setEmpName(e.target.value)} placeholder="Ej: Juan López" />
             </div>
             <div>
-              <Label>Número de empleado</Label>
-              <Input value={empNumber} onChange={e => setEmpNumber(e.target.value)} placeholder="Ej: 001" />
+              <Label htmlFor="emp-number">Número de empleado</Label>
+              <Input id="emp-number" value={empNumber} onChange={e => setEmpNumber(e.target.value)} placeholder="Ej: 001" />
             </div>
             <div>
-              <Label>Puesto (opcional)</Label>
-              <Input value={empPosition} onChange={e => setEmpPosition(e.target.value)} placeholder="Ej: Cocinero" />
+              <Label htmlFor="emp-position">Puesto (opcional)</Label>
+              <Input id="emp-position" value={empPosition} onChange={e => setEmpPosition(e.target.value)} placeholder="Ej: Cocinero" />
             </div>
             <div>
-              <Label>Salario por quincena (MXN)</Label>
+              <Label htmlFor="emp-salary">Salario por quincena (MXN)</Label>
               <Input
+                id="emp-salary"
                 type="number" min="0" step="0.01"
                 value={empSalary}
                 onChange={e => setEmpSalary(e.target.value)}
@@ -482,7 +490,7 @@ export default function EmpleadosPage() {
                   <div>
                     <span className="font-medium">{b.description}</span>
                     {' · '}
-                    <span className="font-mono">${b.amount.toLocaleString('es-MX')}</span>
+                    <span className="font-mono">{fmt(b.amount)}</span>
                     {' · '}
                     <Badge variant={b.isRecurring ? 'default' : 'secondary'} className="text-xs">
                       {b.isRecurring ? 'Recurrente' : `Una vez · ${b.appliesTo}`}
@@ -503,12 +511,13 @@ export default function EmpleadosPage() {
           <div className="space-y-3 border-t pt-4">
             <p className="text-sm font-medium">Agregar bono</p>
             <div>
-              <Label>Descripción</Label>
-              <Input value={bonusDesc} onChange={e => setBonusDesc(e.target.value)} placeholder="Ej: Bono puntualidad" />
+              <Label htmlFor="bonus-desc">Descripción</Label>
+              <Input id="bonus-desc" value={bonusDesc} onChange={e => setBonusDesc(e.target.value)} placeholder="Ej: Bono puntualidad" />
             </div>
             <div>
-              <Label>Monto (MXN)</Label>
+              <Label htmlFor="bonus-amount">Monto (MXN)</Label>
               <Input
+                id="bonus-amount"
                 type="number" min="0" step="0.01"
                 value={bonusAmount}
                 onChange={e => setBonusAmount(e.target.value)}
@@ -521,8 +530,8 @@ export default function EmpleadosPage() {
             </div>
             {!bonusRecurring && (
               <div>
-                <Label>Aplica a quincena (fecha)</Label>
-                <Input type="date" value={bonusAppliesTo} onChange={e => setBonusAppliesTo(e.target.value)} />
+                <Label htmlFor="bonus-applies-to">Aplica a quincena (fecha)</Label>
+                <Input id="bonus-applies-to" type="date" value={bonusAppliesTo} onChange={e => setBonusAppliesTo(e.target.value)} />
               </div>
             )}
           </div>

@@ -75,6 +75,14 @@
         { "fieldPath": "employeeId", "order": "ASCENDING" },
         { "fieldPath": "active",     "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "employees",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "voided", "order": "ASCENDING" },
+        { "fieldPath": "name",   "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

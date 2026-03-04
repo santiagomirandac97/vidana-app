@@ -209,7 +209,7 @@ export interface PayrollRecord {
   quincenaDate: string;       // 'yyyy-MM-dd' — the 15th or 30th
   totalAmount: number;
   generatedBy: string;        // admin uid
-  generatedAt: string;        // ISO timestamp
+  generatedAt: string;        // ISO-8601
   breakdown: PayrollBreakdownItem[];
 }
 

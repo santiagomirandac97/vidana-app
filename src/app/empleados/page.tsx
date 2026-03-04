@@ -119,6 +119,8 @@ export default function EmpleadosPage() {
   // Quincena confirmation dialog state
   const [showQuincenaDialog, setShowQuincenaDialog] = useState(false);
   const [confirmingQuincena, setConfirmingQuincena] = useState(false);
+  const [previewBonuses, setPreviewBonuses] = useState<Record<string, Bonus[]>>({});
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -172,10 +174,14 @@ export default function EmpleadosPage() {
 
   const handleToggleActive = async (emp: Employee) => {
     if (!firestore || !activeCompanyId || !emp.id) return;
-    await updateDoc(
-      firestoreDoc(firestore, `companies/${activeCompanyId}/employees/${emp.id}`),
-      { active: !emp.active }
-    );
+    try {
+      await updateDoc(
+        firestoreDoc(firestore, `companies/${activeCompanyId}/employees/${emp.id}`),
+        { active: !emp.active }
+      );
+    } catch {
+      toast({ title: 'Error al cambiar estado.', variant: 'destructive' });
+    }
   };
 
   // Bonus management
@@ -221,25 +227,42 @@ export default function EmpleadosPage() {
   };
 
   // Quincena confirmation
+  const fetchBonusesForPreview = async (): Promise<Record<string, Bonus[]>> => {
+    if (!firestore || !activeCompanyId || !employees) return {};
+    const activeEmps = employees.filter(e => e.active && !e.voided);
+    const bonusesByEmpId: Record<string, Bonus[]> = {};
+    await Promise.all(
+      activeEmps.map(async emp => {
+        if (!emp.id) return;
+        const snap = await getDocs(
+          query(
+            collection(firestore, `companies/${activeCompanyId}/employees/${emp.id}/bonuses`),
+            where('active', '==', true)
+          )
+        );
+        bonusesByEmpId[emp.id] = snap.docs.map(d => ({ id: d.id, ...d.data() } as Bonus));
+      })
+    );
+    return bonusesByEmpId;
+  };
+
+  const openQuincenaDialog = async () => {
+    setPreviewLoading(true);
+    setShowQuincenaDialog(true);
+    try {
+      const bonuses = await fetchBonusesForPreview();
+      setPreviewBonuses(bonuses);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const handleConfirmQuincena = async () => {
     if (!firestore || !activeCompanyId || !quincenaDate || !user || !employees) return;
     setConfirmingQuincena(true);
     try {
       const activeEmps = employees.filter(e => e.active && !e.voided);
-      const bonusesByEmpId: Record<string, Bonus[]> = {};
-      await Promise.all(
-        activeEmps.map(async emp => {
-          if (!emp.id) return;
-          const snap = await getDocs(
-            query(
-              collection(firestore, `companies/${activeCompanyId}/employees/${emp.id}/bonuses`),
-              where('active', '==', true)
-            )
-          );
-          bonusesByEmpId[emp.id] = snap.docs.map(d => ({ id: d.id, ...d.data() } as Bonus));
-        })
-      );
-      const payroll = calculatePayroll(activeEmps, bonusesByEmpId, quincenaDate);
+      const payroll = calculatePayroll(activeEmps, previewBonuses, quincenaDate);
       await addDoc(collection(firestore, `companies/${activeCompanyId}/payrollRecords`), {
         quincenaDate,
         totalAmount: payroll.totalAmount,
@@ -331,7 +354,7 @@ export default function EmpleadosPage() {
             <AlertTitle className="text-primary">Día de quincena</AlertTitle>
             <AlertDescription className="flex items-center justify-between">
               <span>Hoy corresponde generar la nómina del {formatQuincenaLabel(quincenaDate)}.</span>
-              <Button size="sm" className="ml-4" onClick={() => setShowQuincenaDialog(true)}>
+              <Button size="sm" className="ml-4" onClick={openQuincenaDialog}>
                 <Banknote className="h-4 w-4 mr-1" /> Ver y confirmar
               </Button>
             </AlertDescription>
@@ -523,46 +546,43 @@ export default function EmpleadosPage() {
             <DialogTitle>Nómina — {quincenaDate ? formatQuincenaLabel(quincenaDate) : ''}</DialogTitle>
           </DialogHeader>
 
-          {employees && quincenaDate && (() => {
+          {previewLoading && <Skeleton className="h-32 w-full rounded-md" />}
+
+          {!previewLoading && employees && quincenaDate && (() => {
             const activeEmps = employees.filter(e => e.active && !e.voided);
-            const preview = calculatePayroll(activeEmps, {}, quincenaDate);
+            const preview = calculatePayroll(activeEmps, previewBonuses, quincenaDate);
             return (
-              <div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left pb-2">Empleado</th>
-                        <th className="text-right pb-2">Salario</th>
-                        <th className="text-right pb-2">Bonos</th>
-                        <th className="text-right pb-2">Subtotal</th>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left pb-2">Empleado</th>
+                      <th className="text-right pb-2">Salario</th>
+                      <th className="text-right pb-2">Bonos</th>
+                      <th className="text-right pb-2">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.breakdown.map(row => (
+                      <tr key={row.employeeId} className="border-b last:border-0">
+                        <td className="py-2">{row.employeeName}</td>
+                        <td className="py-2 text-right font-mono">{fmt(row.salary)}</td>
+                        <td className="py-2 text-right font-mono">
+                          {row.bonuses.length > 0
+                            ? fmt(row.bonuses.reduce((s, b) => s + b.amount, 0))
+                            : '—'}
+                        </td>
+                        <td className="py-2 text-right font-mono font-semibold">{fmt(row.subtotal)}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {preview.breakdown.map(row => (
-                        <tr key={row.employeeId} className="border-b last:border-0">
-                          <td className="py-2">{row.employeeName}</td>
-                          <td className="py-2 text-right font-mono">{fmt(row.salary)}</td>
-                          <td className="py-2 text-right font-mono">
-                            {row.bonuses.length > 0
-                              ? fmt(row.bonuses.reduce((s, b) => s + b.amount, 0))
-                              : '—'}
-                          </td>
-                          <td className="py-2 text-right font-mono font-semibold">{fmt(row.subtotal)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t font-bold">
-                        <td colSpan={3} className="pt-2">Total</td>
-                        <td className="pt-2 text-right font-mono">{fmt(preview.totalAmount)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-                <p className="text-xs text-muted-foreground mt-3">
-                  * Los bonos individuales se cargarán al confirmar. Este preview muestra salarios base únicamente.
-                </p>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t font-bold">
+                      <td colSpan={3} className="pt-2">Total</td>
+                      <td className="pt-2 text-right font-mono">{fmt(preview.totalAmount)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             );
           })()}

@@ -4,21 +4,16 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, doc, where, collectionGroup } from 'firebase/firestore';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { type Company, type Consumption, type StockMovement, type PurchaseOrder, type LaborCost, type PayrollRecord, type UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DollarSign, TrendingDown, TrendingUp, Users, ShieldAlert, Plus, AlertTriangle } from 'lucide-react';
+import { DollarSign, TrendingDown, TrendingUp, Users, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { ErrorState } from '@/components/ui/error-state';
-import { useToast } from '@/hooks/use-toast';
 import { format, startOfMonth, subMonths, endOfMonth, addMonths } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { APP_TIMEZONE } from '@/lib/constants';
@@ -34,7 +29,6 @@ export default function CostosPage() {
   const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
   const { firestore } = useFirebase();
-  const { toast } = useToast();
 
   const userProfileRef = useMemoFirebase(() =>
     firestore && user ? doc(firestore, `users/${user.uid}`) : null
@@ -95,28 +89,6 @@ export default function CostosPage() {
       : null
   , [firestore, isAdmin, sixMonthsAgo]);
   const { data: allPayrollRecords } = useCollection<PayrollRecord>(payrollRef);
-
-  const [showAddLabor, setShowAddLabor] = useState(false);
-  const [laborCompanyId, setLaborCompanyId] = useState('');
-  const [laborAmount, setLaborAmount] = useState('');
-  const [laborNotes, setLaborNotes] = useState('');
-
-  const handleAddLabor = async () => {
-    if (!firestore || !laborCompanyId || !laborAmount || !user) return;
-    const weekStart = format(startOfMonth(now), 'yyyy-MM-dd');
-    const result = await addDocumentNonBlocking(
-      collection(firestore, `companies/${laborCompanyId}/laborCosts`),
-      { weekStartDate: weekStart, amount: parseFloat(laborAmount), notes: laborNotes, createdBy: user.uid, companyId: laborCompanyId }
-    );
-    if (!result) {
-      toast({ title: 'Error al registrar.', variant: 'destructive' });
-      return;
-    }
-    toast({ title: 'Costo laboral registrado.' });
-    setShowAddLabor(false);
-    setLaborAmount('');
-    setLaborNotes('');
-  };
 
   // ── KPI Calculations ──────────────────────────────────────────────────────
 
@@ -495,33 +467,6 @@ export default function CostosPage() {
         </Tabs>
       </div>
 
-      {/* ── Add Labor Cost Dialog ── */}
-      <Dialog open={showAddLabor} onOpenChange={setShowAddLabor}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Registrar Costo Laboral</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Cocina</Label>
-              <Select value={laborCompanyId} onValueChange={setLaborCompanyId}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                <SelectContent>{(companies || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Monto (MXN)</Label>
-              <Input type="number" min="0" step="0.01" value={laborAmount} onChange={e => setLaborAmount(e.target.value)} placeholder="Ej: 15000" />
-            </div>
-            <div>
-              <Label>Notas (opcional)</Label>
-              <Input value={laborNotes} onChange={e => setLaborNotes(e.target.value)} placeholder="Ej: Nómina semana 1" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddLabor(false)}>Cancelar</Button>
-            <Button onClick={handleAddLabor} disabled={!laborCompanyId || !laborAmount}>Registrar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </AppShell>
   );
 }

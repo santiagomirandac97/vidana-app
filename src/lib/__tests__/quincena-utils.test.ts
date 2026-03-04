@@ -40,6 +40,12 @@ describe('getQuincenaDateIfDue', () => {
     const fri29Nov = new Date(2024, 10, 29); // Friday November 29 2024
     expect(getQuincenaDateIfDue(fri29Nov)).toBe('2024-11-30');
   });
+
+  it('returns null on last Friday of February when the 30th would overflow to March', () => {
+    // Feb 28 2025 is a Friday; day+1=29, day+2=30, but February has only 28 days
+    const fri28Feb2025 = new Date(2025, 1, 28);
+    expect(getQuincenaDateIfDue(fri28Feb2025)).toBeNull();
+  });
 });
 
 describe('formatQuincenaLabel', () => {

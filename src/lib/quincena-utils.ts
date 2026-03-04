@@ -27,7 +27,9 @@ export function getQuincenaDateIfDue(today: Date): string | null {
     if (saturday === 15 || sunday === 15) {
       return format(setDate(today, 15), 'yyyy-MM-dd');
     }
-    if (saturday === 30 || sunday === 30) {
+    // Guard against months shorter than 30 days (e.g. February) — setDate(29, 30) overflows to March
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    if ((saturday === 30 || sunday === 30) && daysInMonth >= 30) {
       return format(setDate(today, 30), 'yyyy-MM-dd');
     }
   }

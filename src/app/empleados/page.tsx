@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { doc, collection, query, where, orderBy, addDoc, updateDoc, getDocs, doc as firestoreDoc } from 'firebase/firestore';
+import { doc, collection, query, where, orderBy, addDoc, updateDoc, getDocs, setDoc, doc as firestoreDoc } from 'firebase/firestore';
 import { type UserProfile, type Employee, type Company, type Bonus, type PayrollRecord } from '@/lib/types';
 import { AppShell, PageHeader } from '@/components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -196,6 +196,13 @@ export default function EmpleadosPage() {
 
   const handleAddBonus = async () => {
     if (!firestore || !bonusEmployee?.id || !activeCompanyId || !bonusDesc.trim() || !bonusAmount) return;
+    if (!bonusRecurring && bonusAppliesTo) {
+      const day = parseInt(bonusAppliesTo.split('-')[2], 10);
+      if (day !== 15 && day !== 30) {
+        toast({ title: 'La fecha debe ser el día 15 o 30 del mes.', variant: 'destructive' });
+        return;
+      }
+    }
     try {
       await addDoc(
         collection(firestore, `companies/${activeCompanyId}/employees/${bonusEmployee.id}/bonuses`),
@@ -205,7 +212,7 @@ export default function EmpleadosPage() {
           description: bonusDesc.trim(),
           amount: parseFloat(bonusAmount),
           isRecurring: bonusRecurring,
-          appliesTo: bonusRecurring ? null : bonusAppliesTo,
+          appliesTo: bonusRecurring ? undefined : bonusAppliesTo,
           active: true,
           createdBy: user!.uid,
         }
@@ -270,7 +277,13 @@ export default function EmpleadosPage() {
     try {
       const activeEmps = employees.filter(e => e.active && !e.voided);
       const payroll = calculatePayroll(activeEmps, previewBonuses, quincenaDate);
-      await addDoc(collection(firestore, `companies/${activeCompanyId}/payrollRecords`), {
+      // Deterministic document ID prevents duplicate records if two admin sessions confirm simultaneously.
+      // The Firestore rule (allow update: if false) will reject any second write as an update.
+      const payrollDocRef = firestoreDoc(
+        firestore,
+        `companies/${activeCompanyId}/payrollRecords/${activeCompanyId}_${quincenaDate}`
+      );
+      await setDoc(payrollDocRef, {
         quincenaDate,
         totalAmount: payroll.totalAmount,
         companyId: activeCompanyId,
@@ -598,7 +611,7 @@ export default function EmpleadosPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowQuincenaDialog(false)}>Cancelar</Button>
-            <Button onClick={handleConfirmQuincena} disabled={confirmingQuincena}>
+            <Button onClick={handleConfirmQuincena} disabled={confirmingQuincena || previewLoading}>
               {confirmingQuincena ? 'Registrando…' : 'Confirmar y Registrar'}
             </Button>
           </DialogFooter>

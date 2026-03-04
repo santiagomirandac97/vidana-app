@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, doc, where, collectionGroup } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { type Company, type Consumption, type StockMovement, type PurchaseOrder, type LaborCost, type UserProfile } from '@/lib/types';
+import { type Company, type Consumption, type StockMovement, type PurchaseOrder, type LaborCost, type PayrollRecord, type UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -85,6 +85,17 @@ export default function CostosPage() {
   , [firestore, isAdmin, sixMonthsAgo]);
   const { data: allLaborCosts } = useCollection<LaborCost>(laborRef);
 
+  // Cross-company confirmed payroll records
+  const payrollRef = useMemoFirebase(() =>
+    firestore && isAdmin
+      ? query(
+          collectionGroup(firestore, 'payrollRecords'),
+          where('quincenaDate', '>=', sixMonthsAgo.slice(0, 10))
+        )
+      : null
+  , [firestore, isAdmin, sixMonthsAgo]);
+  const { data: allPayrollRecords } = useCollection<PayrollRecord>(payrollRef);
+
   const [showAddLabor, setShowAddLabor] = useState(false);
   const [laborCompanyId, setLaborCompanyId] = useState('');
   const [laborAmount, setLaborAmount] = useState('');
@@ -141,20 +152,31 @@ export default function CostosPage() {
       )
       .reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
 
-    const laborCost = (allLaborCosts || [])
+    // Confirmed payroll from payroll records
+    const laborCost = (allPayrollRecords || [])
+      .filter(pr =>
+        pr.quincenaDate >= monthStart.slice(0, 10) &&
+        (filterCompanyId === 'all' || pr.companyId === filterCompanyId)
+      )
+      .reduce((sum, pr) => sum + pr.totalAmount, 0);
+
+    // Legacy one-off costs (contractors, freelancers)
+    const extraLaborCost = (allLaborCosts || [])
       .filter(lc =>
         lc.weekStartDate >= monthStart.slice(0, 10) &&
         (filterCompanyId === 'all' || lc.companyId === filterCompanyId)
       )
       .reduce((sum, lc) => sum + lc.amount, 0);
 
-    const totalCost = foodCost + laborCost + wasteCost;
+    const totalLaborCost = laborCost + extraLaborCost;
+
+    const totalCost = foodCost + totalLaborCost + wasteCost;
     const netMargin = revenue - totalCost;
     const foodCostPct = revenue > 0 ? (foodCost / revenue) * 100 : 0;
     const costPerMeal = mealsServed > 0 ? totalCost / mealsServed : 0;
 
-    return { revenue, mealsServed, foodCost, laborCost, wasteCost, totalCost, netMargin, foodCostPct, costPerMeal };
-  }, [allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, companies, filterCompanyId, monthStart, now]);
+    return { revenue, mealsServed, foodCost, laborCost: totalLaborCost, wasteCost, totalCost, netMargin, foodCostPct, costPerMeal };
+  }, [allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, allPayrollRecords, companies, filterCompanyId, monthStart, now]);
 
   const pieData = useMemo(() => [
     { name: 'Alimentos', value: kpis.foodCost, color: '#3b82f6' },
@@ -179,6 +201,9 @@ export default function CostosPage() {
       const monthPOs  = (allPurchaseOrders  || []).filter(po => po.receivedAt && po.receivedAt >= start && po.receivedAt < end);
       const monthMerma = (allMerma || []).filter(m => m.timestamp >= start && m.timestamp < end);
       const monthLabor = (allLaborCosts || []).filter(lc => lc.weekStartDate >= start.slice(0, 10) && lc.weekStartDate < end.slice(0, 10));
+      const monthPayroll = (allPayrollRecords || []).filter(pr =>
+        pr.quincenaDate >= start.slice(0, 10) && pr.quincenaDate < end.slice(0, 10)
+      );
 
       const revenue = (companies ?? []).reduce((total, company) => {
         const companyCons = monthCons.filter(c => c.companyId === company.id);
@@ -186,7 +211,9 @@ export default function CostosPage() {
       }, 0);
 
       const foodCost  = monthPOs.reduce((s, po) => s + (po.totalCost ?? 0), 0);
-      const laborCost = monthLabor.reduce((s, lc) => s + lc.amount, 0);
+      const payrollCost = monthPayroll.reduce((s, pr) => s + pr.totalAmount, 0);
+      const extraLabor = monthLabor.reduce((s, lc) => s + lc.amount, 0);
+      const laborCost = payrollCost + extraLabor;
       const wasteCost = monthMerma.reduce((s, m) => s + m.quantity * m.unitCost, 0);
       const netMargin = revenue - foodCost - laborCost - wasteCost;
       const foodCostPct = revenue > 0 ? (foodCost / revenue) * 100 : 0;
@@ -194,7 +221,7 @@ export default function CostosPage() {
 
       return { month: monthLabel, revenue, foodCost, laborCost, wasteCost, netMargin, foodCostPct };
     });
-  }, [MONTHS, allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, companies, monthStart, now]);
+  }, [MONTHS, allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, allPayrollRecords, companies, monthStart, now]);
 
   // Sparkline arrays — one entry per month (oldest first)
   const sparkRevenue     = monthlyBuckets.map(b => ({ month: b.month, value: b.revenue }));
@@ -220,13 +247,16 @@ export default function CostosPage() {
       const waste = (allMerma || [])
         .filter(m => m.companyId === company.id && m.timestamp >= monthStart)
         .reduce((s, m) => s + m.quantity * m.unitCost, 0);
-      const labor = (allLaborCosts || [])
+      const payroll = (allPayrollRecords || [])
+        .filter(pr => pr.companyId === company.id && pr.quincenaDate >= monthStart.slice(0, 10))
+        .reduce((s, pr) => s + pr.totalAmount, 0);
+      const labor = payroll + (allLaborCosts || [])
         .filter(lc => lc.companyId === company.id && lc.weekStartDate >= monthStart.slice(0, 10))
         .reduce((s, lc) => s + lc.amount, 0);
       const meals = cons.length;
       return { company, rev, food, waste, labor, meals, margin: rev - food - waste - labor, costPerMeal: meals > 0 ? (food + labor + waste) / meals : 0 };
     });
-  }, [companies, allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, monthStart, now]);
+  }, [companies, allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, allPayrollRecords, monthStart, now]);
 
   // Auth flash guard
   if (!userLoading && !user) return null;
@@ -283,9 +313,6 @@ export default function CostosPage() {
                   {(companies || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button onClick={() => setShowAddLabor(true)} size="sm" variant="outline" className="h-8 text-sm gap-1">
-                <Plus className="h-3.5 w-3.5" /> Costo Laboral
-              </Button>
             </div>
           }
         />

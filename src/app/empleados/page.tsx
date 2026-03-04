@@ -1,20 +1,39 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFirebase, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import { type UserProfile } from '@/lib/types';
+import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { doc, collection, query, where, orderBy, addDoc, updateDoc, getDocs, doc as firestoreDoc } from 'firebase/firestore';
+import { type UserProfile, type Employee, type Company, type Bonus, type PayrollRecord } from '@/lib/types';
 import { AppShell, PageHeader } from '@/components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShieldAlert } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ShieldAlert, Plus, MoreVertical, AlertCircle, Banknote } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { toZonedTime } from 'date-fns-tz';
+import { getQuincenaDateIfDue, formatQuincenaLabel } from '@/lib/quincena-utils';
+import { calculatePayroll } from '@/lib/payroll-utils';
+import { APP_TIMEZONE } from '@/lib/constants';
+
+const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function EmpleadosPage() {
+  // Auth
   const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
   const { firestore } = useFirebase();
+  const { toast } = useToast();
 
+  // User profile / admin check
   const userProfileRef = useMemoFirebase(
     () => firestore && user ? doc(firestore, `users/${user.uid}`) : null,
     [firestore, user]
@@ -22,14 +41,237 @@ export default function EmpleadosPage() {
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
   const isAdmin = userProfile?.role === 'admin';
 
+  // Companies
+  const companiesRef = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'companies')) : null,
+    [firestore]
+  );
+  const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesRef);
+
+  // Selected company
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+  useEffect(() => {
+    if (!selectedCompanyId && companies && companies.length > 0) {
+      setSelectedCompanyId(companies[0].id);
+    }
+  }, [companies, selectedCompanyId]);
+  const activeCompanyId = selectedCompanyId || companies?.[0]?.id || '';
+
+  // Employees for selected company
+  const employeesRef = useMemoFirebase(
+    () => firestore && activeCompanyId
+      ? query(
+          collection(firestore, `companies/${activeCompanyId}/employees`),
+          where('voided', '!=', true),
+          orderBy('voided'),
+          orderBy('name')
+        )
+      : null,
+    [firestore, activeCompanyId]
+  );
+  const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesRef);
+
+  // Quincena detection
+  const now = toZonedTime(new Date(), APP_TIMEZONE);
+  const quincenaDate = getQuincenaDateIfDue(now);
+
+  // Check if payroll already confirmed for this quincena + company
+  const existingPayrollRef = useMemoFirebase(
+    () => firestore && isAdmin && quincenaDate && activeCompanyId
+      ? query(
+          collection(firestore, `companies/${activeCompanyId}/payrollRecords`),
+          where('quincenaDate', '==', quincenaDate)
+        )
+      : null,
+    [firestore, isAdmin, quincenaDate, activeCompanyId]
+  );
+  const { data: existingPayroll } = useCollection<PayrollRecord>(existingPayrollRef);
+  const quincenaAlreadyConfirmed = (existingPayroll?.length ?? 0) > 0;
+
+  // Employee dialog state
+  const [showEmployeeDialog, setShowEmployeeDialog] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [empName, setEmpName] = useState('');
+  const [empNumber, setEmpNumber] = useState('');
+  const [empPosition, setEmpPosition] = useState('');
+  const [empSalary, setEmpSalary] = useState('');
+
+  // Bonus dialog state
+  const [bonusEmployee, setBonusEmployee] = useState<Employee | null>(null);
+  const [showBonusDialog, setShowBonusDialog] = useState(false);
+  const [bonusDesc, setBonusDesc] = useState('');
+  const [bonusAmount, setBonusAmount] = useState('');
+  const [bonusRecurring, setBonusRecurring] = useState(true);
+  const [bonusAppliesTo, setBonusAppliesTo] = useState('');
+
+  // Bonuses for the employee whose bonus dialog is open
+  const bonusesRef = useMemoFirebase(
+    () => firestore && bonusEmployee?.id && activeCompanyId
+      ? query(
+          collection(firestore, `companies/${activeCompanyId}/employees/${bonusEmployee.id}/bonuses`),
+          where('active', '==', true)
+        )
+      : null,
+    [firestore, bonusEmployee?.id, activeCompanyId]
+  );
+  const { data: bonuses } = useCollection<Bonus>(bonusesRef);
+
+  // Quincena confirmation dialog state
+  const [showQuincenaDialog, setShowQuincenaDialog] = useState(false);
+  const [confirmingQuincena, setConfirmingQuincena] = useState(false);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  // Employee CRUD
+  const openAddEmployee = () => {
+    setEditingEmployee(null);
+    setEmpName('');
+    setEmpNumber('');
+    setEmpPosition('');
+    setEmpSalary('');
+    setShowEmployeeDialog(true);
+  };
+
+  const openEditEmployee = (emp: Employee) => {
+    setEditingEmployee(emp);
+    setEmpName(emp.name);
+    setEmpNumber(emp.employeeNumber);
+    setEmpPosition(emp.position || '');
+    setEmpSalary(emp.salaryPerQuincena?.toString() || '');
+    setShowEmployeeDialog(true);
+  };
+
+  const handleSaveEmployee = async () => {
+    if (!firestore || !activeCompanyId || !empName.trim() || !empNumber.trim()) return;
+    const data = {
+      name: empName.trim(),
+      employeeNumber: empNumber.trim(),
+      position: empPosition.trim(),
+      salaryPerQuincena: empSalary ? parseFloat(empSalary) : 0,
+      companyId: activeCompanyId,
+    };
+    try {
+      if (editingEmployee?.id) {
+        await updateDoc(
+          firestoreDoc(firestore, `companies/${activeCompanyId}/employees/${editingEmployee.id}`),
+          data
+        );
+        toast({ title: 'Empleado actualizado.' });
+      } else {
+        await addDoc(
+          collection(firestore, `companies/${activeCompanyId}/employees`),
+          { ...data, active: true, voided: false }
+        );
+        toast({ title: 'Empleado registrado.' });
+      }
+      setShowEmployeeDialog(false);
+    } catch {
+      toast({ title: 'Error al guardar.', variant: 'destructive' });
+    }
+  };
+
+  const handleToggleActive = async (emp: Employee) => {
+    if (!firestore || !activeCompanyId || !emp.id) return;
+    await updateDoc(
+      firestoreDoc(firestore, `companies/${activeCompanyId}/employees/${emp.id}`),
+      { active: !emp.active }
+    );
+  };
+
+  // Bonus management
+  const openBonusDialog = (emp: Employee) => {
+    setBonusEmployee(emp);
+    setBonusDesc('');
+    setBonusAmount('');
+    setBonusRecurring(true);
+    setBonusAppliesTo('');
+    setShowBonusDialog(true);
+  };
+
+  const handleAddBonus = async () => {
+    if (!firestore || !bonusEmployee?.id || !activeCompanyId || !bonusDesc.trim() || !bonusAmount) return;
+    try {
+      await addDoc(
+        collection(firestore, `companies/${activeCompanyId}/employees/${bonusEmployee.id}/bonuses`),
+        {
+          employeeId: bonusEmployee.id,
+          companyId: activeCompanyId,
+          description: bonusDesc.trim(),
+          amount: parseFloat(bonusAmount),
+          isRecurring: bonusRecurring,
+          appliesTo: bonusRecurring ? null : bonusAppliesTo,
+          active: true,
+          createdBy: user!.uid,
+        }
+      );
+      setBonusDesc('');
+      setBonusAmount('');
+      toast({ title: 'Bono registrado.' });
+    } catch {
+      toast({ title: 'Error al guardar bono.', variant: 'destructive' });
+    }
+  };
+
+  const handleDeactivateBonus = async (bonus: Bonus) => {
+    if (!firestore || !bonusEmployee?.id || !activeCompanyId || !bonus.id) return;
+    await updateDoc(
+      firestoreDoc(firestore, `companies/${activeCompanyId}/employees/${bonusEmployee.id}/bonuses/${bonus.id}`),
+      { active: false }
+    );
+  };
+
+  // Quincena confirmation
+  const handleConfirmQuincena = async () => {
+    if (!firestore || !activeCompanyId || !quincenaDate || !user || !employees) return;
+    setConfirmingQuincena(true);
+    try {
+      const activeEmps = employees.filter(e => e.active && !e.voided);
+      const bonusesByEmpId: Record<string, Bonus[]> = {};
+      await Promise.all(
+        activeEmps.map(async emp => {
+          if (!emp.id) return;
+          const snap = await getDocs(
+            query(
+              collection(firestore, `companies/${activeCompanyId}/employees/${emp.id}/bonuses`),
+              where('active', '==', true)
+            )
+          );
+          bonusesByEmpId[emp.id] = snap.docs.map(d => ({ id: d.id, ...d.data() } as Bonus));
+        })
+      );
+      const payroll = calculatePayroll(activeEmps, bonusesByEmpId, quincenaDate);
+      await addDoc(collection(firestore, `companies/${activeCompanyId}/payrollRecords`), {
+        quincenaDate,
+        totalAmount: payroll.totalAmount,
+        companyId: activeCompanyId,
+        generatedBy: user.uid,
+        generatedAt: new Date().toISOString(),
+        breakdown: payroll.breakdown,
+      });
+      toast({ title: `Nómina del ${formatQuincenaLabel(quincenaDate)} registrada.` });
+      setShowQuincenaDialog(false);
+    } catch {
+      toast({ title: 'Error al registrar nómina.', variant: 'destructive' });
+    } finally {
+      setConfirmingQuincena(false);
+    }
+  };
+
+  // ── Render guards ─────────────────────────────────────────────────────────
+
   if (!userLoading && !user) return null;
 
-  if (userLoading || profileLoading) {
+  if (userLoading || profileLoading || companiesLoading) {
     return (
       <AppShell>
-        <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-          <Skeleton className="h-8 w-48 mb-8" />
-          <Skeleton className="h-64 w-full rounded-lg" />
+        <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-32 mb-8" />
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 rounded-lg" />
+            ))}
+          </div>
         </div>
       </AppShell>
     );
@@ -55,15 +297,284 @@ export default function EmpleadosPage() {
     );
   }
 
+  // ── Main admin view ────────────────────────────────────────────────────────
+
   return (
     <AppShell>
-      <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+      <div className="p-6 lg:p-8 max-w-6xl mx-auto">
         <PageHeader
           title="Empleados"
           subtitle="Gestión de nómina por cocina"
+          action={
+            <div className="flex items-center gap-2">
+              <Select value={activeCompanyId} onValueChange={setSelectedCompanyId}>
+                <SelectTrigger className="w-44 h-8 text-sm">
+                  <SelectValue placeholder="Seleccionar cocina" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(companies ?? []).map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button size="sm" className="h-8 text-sm gap-1" onClick={openAddEmployee}>
+                <Plus className="h-3.5 w-3.5" /> Nuevo Empleado
+              </Button>
+            </div>
+          }
         />
-        <p className="text-muted-foreground">Próximamente…</p>
+
+        {/* Quincena banner */}
+        {quincenaDate && !quincenaAlreadyConfirmed && (
+          <Alert className="mb-6 border-primary/50 bg-primary/5">
+            <AlertCircle className="h-4 w-4 text-primary" />
+            <AlertTitle className="text-primary">Día de quincena</AlertTitle>
+            <AlertDescription className="flex items-center justify-between">
+              <span>Hoy corresponde generar la nómina del {formatQuincenaLabel(quincenaDate)}.</span>
+              <Button size="sm" className="ml-4" onClick={() => setShowQuincenaDialog(true)}>
+                <Banknote className="h-4 w-4 mr-1" /> Ver y confirmar
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Employee list */}
+        {employeesLoading && (
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 rounded-lg" />
+            ))}
+          </div>
+        )}
+
+        {!employeesLoading && (!employees || employees.length === 0) && (
+          <Card className="text-center py-12">
+            <CardContent className="text-muted-foreground">
+              No hay empleados registrados para esta cocina.
+            </CardContent>
+          </Card>
+        )}
+
+        {!employeesLoading && employees && employees.length > 0 && (
+          <div className="space-y-3">
+            {employees.map(emp => (
+              <Card
+                key={emp.id}
+                className={`shadow-card hover:shadow-card-hover transition-shadow${!emp.active ? ' opacity-60' : ''}`}
+              >
+                <CardHeader className="pb-1 flex flex-row items-start justify-between">
+                  <div>
+                    <CardTitle className="text-base">{emp.name}</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      #{emp.employeeNumber}{emp.position ? ` · ${emp.position}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={emp.active ? 'default' : 'secondary'}>
+                      {emp.active ? 'Activo' : 'Inactivo'}
+                    </Badge>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditEmployee(emp)}>Editar</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openBonusDialog(emp)}>Bonos</DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => handleToggleActive(emp)}
+                        >
+                          {emp.active ? 'Desactivar' : 'Activar'}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-1">
+                  <p className="text-sm text-muted-foreground">
+                    Salario por quincena:{' '}
+                    <span className="font-mono font-semibold text-foreground">
+                      {emp.salaryPerQuincena != null ? fmt(emp.salaryPerQuincena) : '—'}
+                    </span>
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Add/Edit Employee Dialog */}
+      <Dialog open={showEmployeeDialog} onOpenChange={setShowEmployeeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingEmployee ? 'Editar Empleado' : 'Nuevo Empleado'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Nombre completo</Label>
+              <Input value={empName} onChange={e => setEmpName(e.target.value)} placeholder="Ej: Juan López" />
+            </div>
+            <div>
+              <Label>Número de empleado</Label>
+              <Input value={empNumber} onChange={e => setEmpNumber(e.target.value)} placeholder="Ej: 001" />
+            </div>
+            <div>
+              <Label>Puesto (opcional)</Label>
+              <Input value={empPosition} onChange={e => setEmpPosition(e.target.value)} placeholder="Ej: Cocinero" />
+            </div>
+            <div>
+              <Label>Salario por quincena (MXN)</Label>
+              <Input
+                type="number" min="0" step="0.01"
+                value={empSalary}
+                onChange={e => setEmpSalary(e.target.value)}
+                placeholder="Ej: 5000"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEmployeeDialog(false)}>Cancelar</Button>
+            <Button onClick={handleSaveEmployee} disabled={!empName.trim() || !empNumber.trim()}>
+              {editingEmployee ? 'Guardar cambios' : 'Registrar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bonus Management Dialog */}
+      <Dialog open={showBonusDialog} onOpenChange={setShowBonusDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Bonos — {bonusEmployee?.name}</DialogTitle>
+          </DialogHeader>
+
+          {bonuses && bonuses.length > 0 && (
+            <div className="space-y-2 mb-4">
+              <p className="text-sm font-medium">Bonos activos</p>
+              {bonuses.map(b => (
+                <div key={b.id} className="flex items-center justify-between text-sm border rounded-md px-3 py-2">
+                  <div>
+                    <span className="font-medium">{b.description}</span>
+                    {' · '}
+                    <span className="font-mono">${b.amount.toLocaleString('es-MX')}</span>
+                    {' · '}
+                    <Badge variant={b.isRecurring ? 'default' : 'secondary'} className="text-xs">
+                      {b.isRecurring ? 'Recurrente' : `Una vez · ${b.appliesTo}`}
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="ghost" size="sm"
+                    className="text-destructive h-7 text-xs"
+                    onClick={() => handleDeactivateBonus(b)}
+                  >
+                    Quitar
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-3 border-t pt-4">
+            <p className="text-sm font-medium">Agregar bono</p>
+            <div>
+              <Label>Descripción</Label>
+              <Input value={bonusDesc} onChange={e => setBonusDesc(e.target.value)} placeholder="Ej: Bono puntualidad" />
+            </div>
+            <div>
+              <Label>Monto (MXN)</Label>
+              <Input
+                type="number" min="0" step="0.01"
+                value={bonusAmount}
+                onChange={e => setBonusAmount(e.target.value)}
+                placeholder="Ej: 500"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch checked={bonusRecurring} onCheckedChange={setBonusRecurring} id="recurring-switch" />
+              <Label htmlFor="recurring-switch">Recurrente (cada quincena)</Label>
+            </div>
+            {!bonusRecurring && (
+              <div>
+                <Label>Aplica a quincena (fecha)</Label>
+                <Input type="date" value={bonusAppliesTo} onChange={e => setBonusAppliesTo(e.target.value)} />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBonusDialog(false)}>Cerrar</Button>
+            <Button
+              onClick={handleAddBonus}
+              disabled={!bonusDesc.trim() || !bonusAmount || (!bonusRecurring && !bonusAppliesTo)}
+            >
+              Agregar bono
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quincena Confirmation Dialog */}
+      <Dialog open={showQuincenaDialog} onOpenChange={setShowQuincenaDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nómina — {quincenaDate ? formatQuincenaLabel(quincenaDate) : ''}</DialogTitle>
+          </DialogHeader>
+
+          {employees && quincenaDate && (() => {
+            const activeEmps = employees.filter(e => e.active && !e.voided);
+            const preview = calculatePayroll(activeEmps, {}, quincenaDate);
+            return (
+              <div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left pb-2">Empleado</th>
+                        <th className="text-right pb-2">Salario</th>
+                        <th className="text-right pb-2">Bonos</th>
+                        <th className="text-right pb-2">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preview.breakdown.map(row => (
+                        <tr key={row.employeeId} className="border-b last:border-0">
+                          <td className="py-2">{row.employeeName}</td>
+                          <td className="py-2 text-right font-mono">{fmt(row.salary)}</td>
+                          <td className="py-2 text-right font-mono">
+                            {row.bonuses.length > 0
+                              ? fmt(row.bonuses.reduce((s, b) => s + b.amount, 0))
+                              : '—'}
+                          </td>
+                          <td className="py-2 text-right font-mono font-semibold">{fmt(row.subtotal)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t font-bold">
+                        <td colSpan={3} className="pt-2">Total</td>
+                        <td className="pt-2 text-right font-mono">{fmt(preview.totalAmount)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  * Los bonos individuales se cargarán al confirmar. Este preview muestra salarios base únicamente.
+                </p>
+              </div>
+            );
+          })()}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQuincenaDialog(false)}>Cancelar</Button>
+            <Button onClick={handleConfirmQuincena} disabled={confirmingQuincena}>
+              {confirmingQuincena ? 'Registrando…' : 'Confirmar y Registrar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

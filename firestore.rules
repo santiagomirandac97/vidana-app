@@ -185,5 +185,23 @@ service cloud.firestore {
     match /{path=**}/payrollRecords/{recordId} {
       allow list: if request.auth != null && isUserAdmin(request.auth.uid);
     }
+
+    // — Staff (payroll employees) ————————————————————————————————————————————
+    // Separate collection from companies/{companyId}/employees (cafeteria registros).
+    // Admin-only — payroll data is sensitive.
+
+    match /companies/{companyId}/staff/{staffId} {
+      allow get, list: if request.auth != null && isUserAdmin(request.auth.uid);
+      allow create, update: if request.auth != null && isUserAdmin(request.auth.uid)
+                             && request.resource.data.companyId == companyId;
+      allow delete: if false;
+    }
+
+    match /companies/{companyId}/staff/{staffId}/bonuses/{bonusId} {
+      allow get, list: if request.auth != null && isUserAdmin(request.auth.uid);
+      allow create, update: if request.auth != null && isUserAdmin(request.auth.uid)
+                             && request.resource.data.companyId == companyId;
+      allow delete: if false; // soft-deactivation only — set active: false
+    }
   }
 }

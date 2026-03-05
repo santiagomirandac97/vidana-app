@@ -61,7 +61,7 @@ export default function EmpleadosPage() {
   const employeesRef = useMemoFirebase(
     () => firestore && activeCompanyId
       ? query(
-          collection(firestore, `companies/${activeCompanyId}/employees`),
+          collection(firestore, `companies/${activeCompanyId}/staff`),
           where('voided', '!=', true),
           orderBy('voided'),
           orderBy('name')
@@ -108,7 +108,7 @@ export default function EmpleadosPage() {
   const bonusesRef = useMemoFirebase(
     () => firestore && bonusEmployee?.id && activeCompanyId
       ? query(
-          collection(firestore, `companies/${activeCompanyId}/employees/${bonusEmployee.id}/bonuses`),
+          collection(firestore, `companies/${activeCompanyId}/staff/${bonusEmployee.id}/bonuses`),
           where('active', '==', true)
         )
       : null,
@@ -155,13 +155,13 @@ export default function EmpleadosPage() {
     try {
       if (editingEmployee?.id) {
         await updateDoc(
-          firestoreDoc(firestore, `companies/${activeCompanyId}/employees/${editingEmployee.id}`),
+          firestoreDoc(firestore, `companies/${activeCompanyId}/staff/${editingEmployee.id}`),
           data
         );
         toast({ title: 'Empleado actualizado.' });
       } else {
         await addDoc(
-          collection(firestore, `companies/${activeCompanyId}/employees`),
+          collection(firestore, `companies/${activeCompanyId}/staff`),
           { ...data, active: true, voided: false }
         );
         toast({ title: 'Empleado registrado.' });
@@ -176,7 +176,7 @@ export default function EmpleadosPage() {
     if (!firestore || !activeCompanyId || !emp.id) return;
     try {
       await updateDoc(
-        firestoreDoc(firestore, `companies/${activeCompanyId}/employees/${emp.id}`),
+        firestoreDoc(firestore, `companies/${activeCompanyId}/staff/${emp.id}`),
         { active: !emp.active }
       );
     } catch {
@@ -205,7 +205,7 @@ export default function EmpleadosPage() {
     }
     try {
       await addDoc(
-        collection(firestore, `companies/${activeCompanyId}/employees/${bonusEmployee.id}/bonuses`),
+        collection(firestore, `companies/${activeCompanyId}/staff/${bonusEmployee.id}/bonuses`),
         {
           employeeId: bonusEmployee.id,
           companyId: activeCompanyId,
@@ -229,7 +229,7 @@ export default function EmpleadosPage() {
     if (!firestore || !bonusEmployee?.id || !activeCompanyId || !bonus.id) return;
     try {
       await updateDoc(
-        firestoreDoc(firestore, `companies/${activeCompanyId}/employees/${bonusEmployee.id}/bonuses/${bonus.id}`),
+        firestoreDoc(firestore, `companies/${activeCompanyId}/staff/${bonusEmployee.id}/bonuses/${bonus.id}`),
         { active: false }
       );
     } catch {
@@ -247,7 +247,7 @@ export default function EmpleadosPage() {
         if (!emp.id) return;
         const snap = await getDocs(
           query(
-            collection(firestore, `companies/${activeCompanyId}/employees/${emp.id}/bonuses`),
+            collection(firestore, `companies/${activeCompanyId}/staff/${emp.id}/bonuses`),
             where('active', '==', true)
           )
         );

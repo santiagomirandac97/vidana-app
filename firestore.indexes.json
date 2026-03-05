@@ -83,6 +83,14 @@
         { "fieldPath": "voided", "order": "ASCENDING" },
         { "fieldPath": "name",   "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "staff",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "voided", "order": "ASCENDING" },
+        { "fieldPath": "name",   "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

@@ -12,7 +12,7 @@ import { Logo } from '@/components/logo';
 import { SidebarNav, type NavGroup } from './sidebar-nav';
 import {
   ChevronLeft, ChevronRight, LogOut,
-  ClipboardList, Monitor, ShoppingCart, ChefHat,
+  ClipboardList, ShoppingCart, ChefHat,
   Package, BookOpen, Settings,
   BarChart2, TrendingDown, Receipt, TrendingUp,
   SmilePlus, Users,
@@ -24,8 +24,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Operaciones',
     items: [
       { href: '/main',        label: 'Registros',      icon: ClipboardList },
-      { href: '/kiosk',       label: 'Kiosk Televisa', icon: Monitor },
-      { href: '/pos-inditex', label: 'POS Inditex',    icon: ShoppingCart },
+      { href: '/pos', label: 'POS', icon: ShoppingCart },
       { href: '/command',     label: 'Comanda',         icon: ChefHat },
     ],
   },

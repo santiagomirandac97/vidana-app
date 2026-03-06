@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, Edit } from 'lucide-react';
@@ -30,6 +31,7 @@ const companySchema = z.object({
   restockLeadDays: z.coerce.number().min(1).max(30).optional().default(7),
   targetFoodCostPct: z.coerce.number().min(1).max(100).optional().default(35),
   billingEmail: z.string().email({ message: "Correo inválido." }).optional().or(z.literal('')),
+  requiresEmployeeSelection: z.boolean().optional().default(false),
 });
 type CompanyFormData = z.infer<typeof companySchema>;
 
@@ -52,7 +54,7 @@ export const EmpresasTab: FC<{companies: Company[] | null, companiesLoading: boo
 
     const form = useForm<CompanyFormData>({
         resolver: zodResolver(companySchema),
-        defaultValues: { name: '', mealPrice: 0, dailyTarget: 0, targetDays: [1, 2, 3, 4], billingNote: '', stockLookbackDays: 30, restockLeadDays: 7, targetFoodCostPct: 35, billingEmail: '' },
+        defaultValues: { name: '', mealPrice: 0, dailyTarget: 0, targetDays: [1, 2, 3, 4], billingNote: '', stockLookbackDays: 30, restockLeadDays: 7, targetFoodCostPct: 35, billingEmail: '', requiresEmployeeSelection: false },
     });
 
     const onSubmit: SubmitHandler<CompanyFormData> = async (data) => {
@@ -64,6 +66,7 @@ export const EmpresasTab: FC<{companies: Company[] | null, companiesLoading: boo
             dailyTarget: data.dailyTarget,
             targetDays: data.targetDays,
             billingNote: data.billingNote,
+            requiresEmployeeSelection: data.requiresEmployeeSelection ?? false,
         };
 
         const companiesCollection = collection(firestore, 'companies');
@@ -134,6 +137,21 @@ export const EmpresasTab: FC<{companies: Company[] | null, companiesLoading: boo
                                 <FormField control={form.control} name="restockLeadDays" render={({ field }) => (<FormItem><FormLabel>Anticipo de Reabasto (días)</FormLabel><FormControl><Input type="number" min={1} max={30} {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="targetFoodCostPct" render={({ field }) => (<FormItem><FormLabel>% Costo Alimentos Objetivo (IA)</FormLabel><FormControl><Input type="number" min={1} max={100} {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="billingEmail" render={({ field }) => (<FormItem><FormLabel>Correo de Facturación</FormLabel><FormControl><Input type="email" placeholder="contacto@empresa.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField
+                                  control={form.control}
+                                  name="requiresEmployeeSelection"
+                                  render={({ field }) => (
+                                    <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                                      <div>
+                                        <FormLabel>Requiere selección de empleado</FormLabel>
+                                        <p className="text-xs text-muted-foreground">Activa el modo Kiosk (ej. Televisa)</p>
+                                      </div>
+                                      <FormControl>
+                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
                                 <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creando...</>) : (<><PlusCircle className="mr-2 h-4 w-4" /> Crear Empresa</>)}</Button>
                             </form>
                         </Form>
@@ -203,6 +221,7 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
             restockLeadDays: company.restockLeadDays || 7,
             targetFoodCostPct: company.targetFoodCostPct || 35,
             billingEmail: company.billingEmail || '',
+            requiresEmployeeSelection: company.requiresEmployeeSelection ?? false,
         },
     });
 
@@ -217,6 +236,7 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
             restockLeadDays: company.restockLeadDays || 7,
             targetFoodCostPct: company.targetFoodCostPct || 35,
             billingEmail: company.billingEmail || '',
+            requiresEmployeeSelection: company.requiresEmployeeSelection ?? false,
         });
     }, [company, form]);
 
@@ -352,6 +372,21 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
                                     <FormLabel>Correo de Facturación</FormLabel>
                                     <FormControl><Input type="email" placeholder="contacto@empresa.com" {...field} /></FormControl>
                                     <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="requiresEmployeeSelection"
+                            render={({ field }) => (
+                                <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                                    <div>
+                                        <FormLabel>Requiere selección de empleado</FormLabel>
+                                        <p className="text-xs text-muted-foreground">Activa el modo Kiosk (ej. Televisa)</p>
+                                    </div>
+                                    <FormControl>
+                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                    </FormControl>
                                 </FormItem>
                             )}
                         />

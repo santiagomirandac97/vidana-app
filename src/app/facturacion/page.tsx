@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   Clock,
   Send,
+  SendHorizonal,
 } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { SectionLabel } from '@/components/ui/section-label';
@@ -111,6 +112,7 @@ export default function FacturacionPage() {
 
   const [selectedMonth, setSelectedMonth] = useState<string>(monthOptions[0].value);
   const [sendingCompanyId, setSendingCompanyId] = useState<string | null>(null);
+  const [sendingAll, setSendingAll] = useState(false);
 
   // Use Mexico City timezone so boundaries match how consumption timestamps are
   // recorded (toZonedTime ensures midnight MX = correct UTC offset).
@@ -161,38 +163,73 @@ export default function FacturacionPage() {
     downloadBlob(blob, `factura-${company.name.toLowerCase().replace(/\s+/g, '-')}-${selectedMonth}.xlsx`);
   };
 
+  const sendInvoiceForCompany = async (company: Company): Promise<void> => {
+    if (!company.billingEmail || !firestore || !app) return;
+    const consumptions = byCompany[company.id] ?? [];
+    if (consumptions.length === 0) return;
+    const pdfBlob = generateInvoicePDF({ company, consumptions, month: selectedMonth });
+    const pdfBase64 = await blobToBase64(pdfBlob);
+    const functions = getFunctions(app);
+    const sendInvoice = httpsCallable(functions, 'sendInvoiceEmail');
+    await sendInvoice({
+      companyId: company.id,
+      companyName: company.name,
+      billingEmail: company.billingEmail,
+      month: selectedMonth,
+      totalMeals: consumptions.length,
+      totalAmount: calcRevenue(company, consumptions, selectedMonth),
+      pdfBase64,
+    });
+    // Auto-mark enviado after successful send
+    await updateDoc(doc(firestore, `companies/${company.id}`), {
+      [`billingStatus.${selectedMonth}`]: 'enviado',
+    });
+  };
+
   const handleSendEmail = async (company: Company) => {
     if (!company.billingEmail) {
-      toast({
-        title: 'Esta empresa no tiene correo de facturación configurado.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Esta empresa no tiene correo de facturación configurado.', variant: 'destructive' });
       return;
     }
     if (!firestore || !app) return;
     setSendingCompanyId(company.id);
     try {
-      const consumptions = byCompany[company.id] ?? [];
-      const pdfBlob = generateInvoicePDF({ company, consumptions, month: selectedMonth });
-      const pdfBase64 = await blobToBase64(pdfBlob);
-
-      const functions = getFunctions(app);
-      const sendInvoice = httpsCallable(functions, 'sendInvoiceEmail');
-      await sendInvoice({
-        companyId: company.id,
-        companyName: company.name,
-        billingEmail: company.billingEmail,
-        month: selectedMonth,
-        totalMeals: consumptions.length,
-        totalAmount: calcRevenue(company, consumptions, selectedMonth),
-        pdfBase64,
-      });
+      await sendInvoiceForCompany(company);
       toast({ title: `Factura enviada a ${company.billingEmail}` });
     } catch (e: unknown) {
       toast({ title: `Error al enviar: ${formatFirestoreError(e)}`, variant: 'destructive' });
     } finally {
       setSendingCompanyId(null);
     }
+  };
+
+  const handleSendAll = async () => {
+    if (!firestore || !app) return;
+    const eligible = (companies ?? []).filter(
+      co => co.billingEmail && (byCompany[co.id]?.length ?? 0) > 0
+    );
+    if (eligible.length === 0) {
+      toast({ title: 'No hay empresas con correo y comidas registradas.', variant: 'destructive' });
+      return;
+    }
+    setSendingAll(true);
+    let sent = 0;
+    let failed = 0;
+    for (const co of eligible) {
+      try {
+        await sendInvoiceForCompany(co);
+        sent++;
+      } catch {
+        failed++;
+      }
+    }
+    setSendingAll(false);
+    toast({
+      title: failed === 0
+        ? `${sent} factura${sent !== 1 ? 's' : ''} enviada${sent !== 1 ? 's' : ''}`
+        : `${sent} enviadas, ${failed} con error`,
+      variant: failed === 0 ? 'default' : 'destructive',
+    });
   };
 
   const handleStatusChange = async (
@@ -279,12 +316,26 @@ export default function FacturacionPage() {
           title="Facturación"
           subtitle={selectedMonthLabel}
           action={
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-44 h-8 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {monthOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-44 h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSendAll}
+                disabled={sendingAll}
+                title="Enviar facturas a todas las empresas con correo registrado"
+              >
+                {sendingAll
+                  ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                  : <SendHorizonal className="h-4 w-4 mr-1.5" />}
+                Enviar Todas
+              </Button>
+            </div>
           }
         />
 
@@ -321,6 +372,11 @@ export default function FacturacionPage() {
                       <CardDescription className="text-xs mt-0.5">
                         {company.billingEmail ?? 'Sin correo configurado'}
                       </CardDescription>
+                      {company.billingNote && (
+                        <p className="text-xs text-muted-foreground mt-1 italic leading-snug">
+                          {company.billingNote}
+                        </p>
+                      )}
                     </div>
                     {/* Status pill as dropdown trigger */}
                     <Select

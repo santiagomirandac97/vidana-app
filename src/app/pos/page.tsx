@@ -36,6 +36,8 @@ export default function PosPage() {
     );
   }
 
+  if (!user) return null;
+
   return <PosDashboard />;
 }
 
@@ -81,9 +83,10 @@ const PosDashboard: FC = () => {
   const { data: employees } = useCollection<Employee>(employeesRef);
 
   // Today's consumptions for history panel + order number
+  const todayDateKey = new Date().toDateString(); // e.g. "Mon Mar 06 2026" — stable within a day
   const todayStart = useMemo(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString();
-  }, []);
+  }, [todayDateKey]);
 
   const consumptionsRef = useMemoFirebase(
     () => firestore && selectedCompanyId

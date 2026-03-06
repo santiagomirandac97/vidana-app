@@ -43,6 +43,11 @@ export default function CostosPage() {
 
   const [filterCompanyId, setFilterCompanyId] = useState<string>('all');
 
+  const selectedCompanyThreshold = useMemo(() => {
+    if (filterCompanyId === 'all') return 35;
+    return companies?.find(c => c.id === filterCompanyId)?.targetFoodCostPct ?? 35;
+  }, [filterCompanyId, companies]);
+
   // Month bounds — recomputed each render so they stay current across month boundaries
   const now = toZonedTime(new Date(), timeZone);
   const monthStart = useMemo(() => startOfMonth(now).toISOString(), [now.getMonth(), now.getFullYear()]);
@@ -213,7 +218,7 @@ export default function CostosPage() {
         c.companyId === company.id && !c.voided && c.timestamp >= monthStart
       );
       const rev = computeRevenue(cons, company, startOfMonth(now), now);
-      const food = (allPurchaseOrders || [])
+      const rawFood = (allPurchaseOrders || [])
         .filter(po => po.companyId === company.id && po.receivedAt && po.receivedAt >= monthStart)
         .reduce((s, po) => s + (po.totalCost ?? 0), 0);
       const waste = (allMerma || [])
@@ -226,7 +231,13 @@ export default function CostosPage() {
         .filter(lc => lc.companyId === company.id && lc.weekStartDate >= monthStart.slice(0, 10))
         .reduce((s, lc) => s + lc.amount, 0);
       const meals = cons.length;
-      return { company, rev, food, waste, labor, meals, margin: rev - food - waste - labor, costPerMeal: meals > 0 ? (food + labor + waste) / meals : 0 };
+      // Use estimatedFoodCostPerMeal as fallback when no POs have been received
+      const estimatedFood = (company.estimatedFoodCostPerMeal ?? 0) * meals;
+      const food = rawFood > 0 ? rawFood : estimatedFood;
+      const isEstimated = rawFood === 0 && estimatedFood > 0;
+      const threshold = company.targetFoodCostPct ?? 35;
+      const foodCostPct = rev > 0 ? (food / rev) * 100 : 0;
+      return { company, rev, food, isEstimated, waste, labor, meals, margin: rev - food - waste - labor, costPerMeal: meals > 0 ? (food + labor + waste) / meals : 0, foodCostPct, threshold };
     });
   }, [companies, allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, allPayrollRecords, monthStart, now]);
 
@@ -327,7 +338,7 @@ export default function CostosPage() {
             label="% Costo Alim."
             value={`${kpis.foodCostPct.toFixed(1)}%`}
             icon={<TrendingUp className="h-4 w-4" />}
-            variant={kpis.foodCostPct > 35 ? 'destructive' : 'success'}
+            variant={kpis.foodCostPct > selectedCompanyThreshold ? 'destructive' : 'success'}
             delta={{ current: kpis.foodCostPct, previous: prev.foodCostPct, positiveDirection: 'down' }}
             sparklineData={sparkFoodCostPct}
           />
@@ -383,7 +394,7 @@ export default function CostosPage() {
         {/* ── Per Kitchen Cards ── */}
         <h2 className="text-lg font-semibold mb-3">Por Cocina</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {perKitchenStats.map(({ company, rev, food, waste, labor, meals, margin, costPerMeal }) => (
+          {perKitchenStats.map(({ company, rev, food, isEstimated, waste, labor, meals, margin, costPerMeal, foodCostPct, threshold }) => (
             <Card key={company.id} className={`shadow-card hover:shadow-card-hover transition-shadow${margin < 0 ? ' border-red-200 dark:border-red-800' : ''}`}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">{company.name}</CardTitle>
@@ -391,7 +402,16 @@ export default function CostosPage() {
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Ingresos</span><span className="font-semibold font-mono text-green-600">{fmt(rev)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Alimentos</span><span className="font-mono">{fmt(food)}</span></div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Alimentos{isEstimated && <span className="text-amber-500 text-[10px] ml-1">(est.)</span>}</span>
+                  <span className="font-mono">{fmt(food)}</span>
+                </div>
+                {rev > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">% Costo Alim.</span>
+                    <span className={`font-mono font-semibold ${foodCostPct > threshold ? 'text-red-600' : 'text-green-600'}`}>{foodCostPct.toFixed(1)}%</span>
+                  </div>
+                )}
                 <div className="flex justify-between"><span className="text-muted-foreground">Labor</span><span className="font-mono">{fmt(labor)}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Merma</span><span className="font-mono text-red-600">{fmt(waste)}</span></div>
                 <div className="flex justify-between border-t pt-2"><span className="font-semibold">Margen</span><span className={`font-bold font-mono ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(margin)}</span></div>

@@ -12,7 +12,8 @@ export type Company = {
   stockLookbackDays?: number;   // default 30 — how many days of movements to analyse
   restockLeadDays?: number;     // default 7  — pre-fill PO for anything running out within N days
   // AI planning
-  targetFoodCostPct?: number;   // default 35 — food cost % ceiling for AI menu suggestion
+  targetFoodCostPct?: number;        // default 35 — food cost % ceiling for AI menu suggestion
+  estimatedFoodCostPerMeal?: number; // MXN per meal — fallback when purchase orders aren't used
   // Billing
   billingEmail?: string;        // invoice recipient email
   billingStatus?: Record<string, 'pendiente' | 'enviado' | 'pagado'>; // key = 'yyyy-MM'

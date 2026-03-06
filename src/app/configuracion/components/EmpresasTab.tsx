@@ -30,6 +30,7 @@ const companySchema = z.object({
   stockLookbackDays: z.coerce.number().min(7).max(90).optional().default(30),
   restockLeadDays: z.coerce.number().min(1).max(30).optional().default(7),
   targetFoodCostPct: z.coerce.number().min(1).max(100).optional().default(35),
+  estimatedFoodCostPerMeal: z.coerce.number().min(0).optional().default(0),
   billingEmail: z.string().email({ message: "Correo inválido." }).optional().or(z.literal('')),
   requiresEmployeeSelection: z.boolean().optional().default(false),
 });
@@ -54,7 +55,7 @@ export const EmpresasTab: FC<{companies: Company[] | null, companiesLoading: boo
 
     const form = useForm<CompanyFormData>({
         resolver: zodResolver(companySchema),
-        defaultValues: { name: '', mealPrice: 0, dailyTarget: 0, targetDays: [1, 2, 3, 4], billingNote: '', stockLookbackDays: 30, restockLeadDays: 7, targetFoodCostPct: 35, billingEmail: '', requiresEmployeeSelection: false },
+        defaultValues: { name: '', mealPrice: 0, dailyTarget: 0, targetDays: [1, 2, 3, 4], billingNote: '', stockLookbackDays: 30, restockLeadDays: 7, targetFoodCostPct: 35, estimatedFoodCostPerMeal: 0, billingEmail: '', requiresEmployeeSelection: false },
     });
 
     const onSubmit: SubmitHandler<CompanyFormData> = async (data) => {
@@ -67,6 +68,11 @@ export const EmpresasTab: FC<{companies: Company[] | null, companiesLoading: boo
             targetDays: data.targetDays,
             billingNote: data.billingNote,
             requiresEmployeeSelection: data.requiresEmployeeSelection ?? false,
+            targetFoodCostPct: data.targetFoodCostPct ?? 35,
+            stockLookbackDays: data.stockLookbackDays ?? 30,
+            restockLeadDays: data.restockLeadDays ?? 7,
+            billingEmail: data.billingEmail || '',
+            estimatedFoodCostPerMeal: data.estimatedFoodCostPerMeal ?? 0,
         };
 
         const companiesCollection = collection(firestore, 'companies');
@@ -136,6 +142,7 @@ export const EmpresasTab: FC<{companies: Company[] | null, companiesLoading: boo
                                 <FormField control={form.control} name="stockLookbackDays" render={({ field }) => (<FormItem><FormLabel>Historial Reabasto (días)</FormLabel><FormControl><Input type="number" min={7} max={90} {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="restockLeadDays" render={({ field }) => (<FormItem><FormLabel>Anticipo de Reabasto (días)</FormLabel><FormControl><Input type="number" min={1} max={30} {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="targetFoodCostPct" render={({ field }) => (<FormItem><FormLabel>% Costo Alimentos Objetivo (IA)</FormLabel><FormControl><Input type="number" min={1} max={100} {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="estimatedFoodCostPerMeal" render={({ field }) => (<FormItem><FormLabel>Costo Estimado por Comida (MXN)</FormLabel><FormControl><Input type="number" step="0.01" min={0} placeholder="0.00" {...field} /></FormControl><p className="text-xs text-muted-foreground">Usa este valor si no se registran órdenes de compra.</p><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="billingEmail" render={({ field }) => (<FormItem><FormLabel>Correo de Facturación</FormLabel><FormControl><Input type="email" placeholder="contacto@empresa.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField
                                   control={form.control}
@@ -220,6 +227,7 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
             stockLookbackDays: company.stockLookbackDays || 30,
             restockLeadDays: company.restockLeadDays || 7,
             targetFoodCostPct: company.targetFoodCostPct || 35,
+            estimatedFoodCostPerMeal: company.estimatedFoodCostPerMeal || 0,
             billingEmail: company.billingEmail || '',
             requiresEmployeeSelection: company.requiresEmployeeSelection ?? false,
         },
@@ -235,6 +243,7 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
             stockLookbackDays: company.stockLookbackDays || 30,
             restockLeadDays: company.restockLeadDays || 7,
             targetFoodCostPct: company.targetFoodCostPct || 35,
+            estimatedFoodCostPerMeal: company.estimatedFoodCostPerMeal || 0,
             billingEmail: company.billingEmail || '',
             requiresEmployeeSelection: company.requiresEmployeeSelection ?? false,
         });
@@ -360,6 +369,18 @@ const EditCompanyDialog: FC<EditCompanyDialogProps> = ({ company, isOpen, onClos
                                 <FormItem>
                                     <FormLabel>% Costo Alimentos Objetivo (IA)</FormLabel>
                                     <FormControl><Input type="number" min={1} max={100} {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="estimatedFoodCostPerMeal"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Costo Estimado por Comida (MXN)</FormLabel>
+                                    <FormControl><Input type="number" step="0.01" min={0} placeholder="0.00" {...field} /></FormControl>
+                                    <p className="text-xs text-muted-foreground">Usa este valor si no se registran órdenes de compra.</p>
                                     <FormMessage />
                                 </FormItem>
                             )}

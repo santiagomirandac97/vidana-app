@@ -16,6 +16,7 @@ export type Company = {
   // Billing
   billingEmail?: string;        // invoice recipient email
   billingStatus?: Record<string, 'pendiente' | 'enviado' | 'pagado'>; // key = 'yyyy-MM'
+  requiresEmployeeSelection?: boolean;  // true = Televisa mode
 };
 
 export interface Employee {
@@ -50,6 +51,9 @@ export interface Consumption {
   items?: OrderItem[];
   totalAmount?: number;
   status?: 'pending' | 'completed';
+  orderNumber?: number;
+  paymentMethod?: 'cash' | 'card' | 'transfer';
+  customerNote?: string;
 }
 
 export interface UserProfile {

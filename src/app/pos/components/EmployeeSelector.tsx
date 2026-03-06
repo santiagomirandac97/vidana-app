@@ -74,7 +74,7 @@ export const EmployeeSelector: FC<EmployeeSelectorProps> = ({
             <div className="p-1">
               {filtered.map(emp => (
                 <button
-                  key={emp.id}
+                  key={emp.employeeNumber}
                   onClick={() => { onSelect(emp); setQuery(''); }}
                   className={cn(
                     'w-full text-left px-3 py-2 rounded hover:bg-muted transition-colors flex items-center justify-between'

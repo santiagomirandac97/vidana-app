@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FC } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,13 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
 }) => {
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [note, setNote] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) {
+      setMethod('cash');
+      setNote('');
+    }
+  }, [isOpen]);
 
   const handleConfirm = () => {
     onConfirm(method, note);

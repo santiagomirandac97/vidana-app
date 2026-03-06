@@ -5,6 +5,7 @@ import { type Consumption, type Company } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Printer } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ReceiptDialogProps {
   isOpen: boolean;
@@ -21,12 +22,21 @@ const METHOD_LABELS: Record<string, string> = {
 
 export const ReceiptDialog: FC<ReceiptDialogProps> = ({ isOpen, onClose, consumption, company }) => {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const handlePrint = () => {
     const el = receiptRef.current;
     if (!el) return;
     const win = window.open('', '_blank', 'height=600,width=420');
-    win?.document.write(`<html><head><title>Recibo #${consumption?.orderNumber}</title>
+    if (!win) {
+      toast({
+        variant: 'destructive',
+        title: 'Ventana bloqueada',
+        description: 'Permite ventanas emergentes en tu navegador para imprimir el recibo.',
+      });
+      return;
+    }
+    win.document.write(`<html><head><title>Recibo #${consumption?.orderNumber}</title>
       <style>
         body { font-family: monospace; width: 300px; margin: 0 auto; padding: 16px; font-size: 13px; }
         .center { text-align: center; }
@@ -36,10 +46,10 @@ export const ReceiptDialog: FC<ReceiptDialogProps> = ({ isOpen, onClose, consump
         .total { font-size: 16px; font-weight: bold; }
         @media print { @page { size: 80mm; margin: 0; } }
       </style></head><body>`);
-    win?.document.write(el.innerHTML);
-    win?.document.write('</body></html>');
-    win?.document.close();
-    setTimeout(() => { win?.print(); win?.close(); }, 250);
+    win.document.write(el.innerHTML);
+    win.document.write('</body></html>');
+    win.document.close();
+    setTimeout(() => { win.print(); win.close(); }, 250);
   };
 
   if (!consumption || !company) return null;

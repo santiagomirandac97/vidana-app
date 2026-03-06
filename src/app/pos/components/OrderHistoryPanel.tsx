@@ -110,7 +110,7 @@ export const OrderHistoryPanel: FC<OrderHistoryPanelProps> = ({ consumptions, co
               <div className="space-y-1 max-h-60 overflow-y-auto">
                 {sorted.map(c => (
                   <div
-                    key={c.id}
+                    key={c.id ?? c.timestamp}
                     className={cn(
                       'flex items-center justify-between text-sm px-2 py-1.5 rounded',
                       c.voided ? 'opacity-40 line-through' : 'hover:bg-muted/30'

@@ -7,7 +7,8 @@ import { collection, query, orderBy, where, doc } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { type Company, type Employee, type MenuItem, type OrderItem, type Consumption, type UserProfile } from '@/lib/types';
 import { AppShell, PageHeader } from '@/components/layout';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Calculator } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { PosCompanySelector } from './components/PosCompanySelector';
 import { MenuGrid } from './components/MenuGrid';
@@ -16,6 +17,7 @@ import { EmployeeSelector } from './components/EmployeeSelector';
 import { PaymentDialog } from './components/PaymentDialog';
 import { ReceiptDialog } from './components/ReceiptDialog';
 import { OrderHistoryPanel } from './components/OrderHistoryPanel';
+import { CashCloseDialog } from './components/CashCloseDialog';
 import { calculateNextOrderNumber } from '@/lib/pos-utils';
 
 const LS_KEY = 'pos_selectedCompanyId';
@@ -115,6 +117,7 @@ const PosDashboard: FC = () => {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<Consumption | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [cashCloseOpen, setCashCloseOpen] = useState(false);
 
   const selectedCompany = useMemo(
     () => companies?.find(c => c.id === selectedCompanyId) ?? null,
@@ -201,11 +204,24 @@ const PosDashboard: FC = () => {
           title="POS"
           subtitle={selectedCompany?.name}
           action={
-            <PosCompanySelector
-              companies={companies ?? []}
-              selectedId={selectedCompanyId}
-              onChange={handleCompanyChange}
-            />
+            <div className="flex items-center gap-2">
+              <PosCompanySelector
+                companies={companies ?? []}
+                selectedId={selectedCompanyId}
+                onChange={handleCompanyChange}
+              />
+              {selectedCompanyId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCashCloseOpen(true)}
+                  title="Corte de Caja"
+                >
+                  <Calculator className="h-4 w-4 mr-1.5" />
+                  Corte
+                </Button>
+              )}
+            </div>
           }
         />
 
@@ -262,6 +278,12 @@ const PosDashboard: FC = () => {
         isOpen={receiptOpen}
         onClose={() => setReceiptOpen(false)}
         consumption={receiptData}
+        company={selectedCompany}
+      />
+      <CashCloseDialog
+        isOpen={cashCloseOpen}
+        onClose={() => setCashCloseOpen(false)}
+        consumptions={todaysConsumptions ?? []}
         company={selectedCompany}
       />
     </AppShell>

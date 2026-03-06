@@ -54,6 +54,7 @@ export interface Consumption {
   orderNumber?: number;
   paymentMethod?: 'cash' | 'card' | 'transfer';
   customerNote?: string;
+  completedAt?: string; // ISO-8601 — set when kitchen marks the order complete
 }
 
 export interface UserProfile {

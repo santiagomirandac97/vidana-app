@@ -1,13 +1,12 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, type FC } from 'react';
+import { useState, useEffect, useRef, useMemo, type FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, where, doc, updateDoc, orderBy, limit } from 'firebase/firestore';
 import { type Consumption, type UserProfile, type Company } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -22,11 +21,33 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ChefHat, Clock, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Loader2, ChefHat, ChevronDown, Bell, BellOff } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { getTodayInMexicoCity } from '@/lib/utils';
 import { fromZonedTime } from 'date-fns-tz';
 import { APP_TIMEZONE } from '@/lib/constants';
+import { PendingOrderCard, CompletedOrderRow } from './components';
+
+// ─── Audio ────────────────────────────────────────────────────────────────────
+
+function playOrderChime() {
+  try {
+    const ctx = new window.AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.6);
+  } catch {
+    // Browser may block AudioContext before user interaction — silently ignore
+  }
+}
 
 // ─── Auth guard ───────────────────────────────────────────────────────────────
 
@@ -148,12 +169,38 @@ const CommandDashboard: FC<CommandDashboardProps> = ({ isAdmin, defaultCompanyId
   );
   const { data: completedOrders, isLoading: completedLoading } = useCollection<Consumption>(completedQuery);
 
+  // ── Audio alert for new orders ─────────────────────────────────────────────
+  const [muted, setMuted] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('comanda_muted') === 'true';
+  });
+
+  const toggleMute = () => {
+    setMuted(prev => {
+      const next = !prev;
+      localStorage.setItem('comanda_muted', String(next));
+      return next;
+    });
+  };
+
+  // Use -1 as sentinel so the initial population never triggers a chime
+  const prevPendingCount = useRef<number>(-1);
+
+  useEffect(() => {
+    const current = pendingOrders?.length ?? 0;
+    if (prevPendingCount.current !== -1 && current > prevPendingCount.current && !muted) {
+      playOrderChime();
+    }
+    prevPendingCount.current = current;
+  }, [pendingOrders, muted]);
+
+  // ── Mark complete ──────────────────────────────────────────────────────────
   const handleComplete = async (consumptionId: string) => {
     if (!firestore || !selectedCompanyId || !consumptionId) return;
     try {
       await updateDoc(
         doc(firestore, `companies/${selectedCompanyId}/consumptions/${consumptionId}`),
-        { status: 'completed' }
+        { status: 'completed', completedAt: new Date().toISOString() }
       );
       toast({ title: 'Orden completada', description: 'La orden fue marcada como completada.' });
     } catch (error: any) {
@@ -162,7 +209,6 @@ const CommandDashboard: FC<CommandDashboardProps> = ({ isAdmin, defaultCompanyId
   };
 
   const pendingCount = pendingOrders?.length ?? 0;
-
   const [completedOpen, setCompletedOpen] = useState(true);
 
   return (
@@ -191,7 +237,7 @@ const CommandDashboard: FC<CommandDashboardProps> = ({ isAdmin, defaultCompanyId
           </div>
         )}
 
-        {/* Header row with pending count */}
+        {/* Header row: pending count + mute toggle */}
         <div className="flex items-center gap-3 mb-6">
           <Badge
             variant={pendingCount > 0 ? 'destructive' : 'secondary'}
@@ -199,7 +245,16 @@ const CommandDashboard: FC<CommandDashboardProps> = ({ isAdmin, defaultCompanyId
           >
             {pendingCount} Pendiente{pendingCount !== 1 ? 's' : ''}
           </Badge>
-          <h2 className="text-xl font-semibold">Comanda en Vivo</h2>
+          <h2 className="text-xl font-semibold flex-1">Comanda en Vivo</h2>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleMute}
+            title={muted ? 'Activar sonido' : 'Silenciar'}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {muted ? <BellOff className="h-5 w-5" /> : <Bell className="h-5 w-5" />}
+          </Button>
         </div>
 
         {/* ── SECTION A: Pending orders ── */}
@@ -273,113 +328,3 @@ const CommandDashboard: FC<CommandDashboardProps> = ({ isAdmin, defaultCompanyId
   );
 };
 
-// ─── Pending order card ────────────────────────────────────────────────────────
-
-interface PendingOrderCardProps {
-  order: Consumption;
-  onComplete: () => void;
-}
-
-const PendingOrderCard: FC<PendingOrderCardProps> = ({ order, onComplete }) => {
-  const [elapsedMin, setElapsedMin] = useState<number>(0);
-  const [completing, setCompleting] = useState(false);
-
-  useEffect(() => {
-    const compute = () => {
-      const diff = Date.now() - new Date(order.timestamp).getTime();
-      setElapsedMin(Math.floor(diff / 60000));
-    };
-    compute();
-    const interval = setInterval(compute, 30000);
-    return () => clearInterval(interval);
-  }, [order.timestamp]);
-
-  const hasItems = order.items && order.items.length > 0;
-
-  const handleClick = async () => {
-    setCompleting(true);
-    try {
-      await onComplete();
-    } finally {
-      setCompleting(false);
-    }
-  };
-
-  return (
-    <Card className="shadow-card hover:shadow-card-hover transition-shadow flex flex-col">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg leading-tight">{order.name}</CardTitle>
-        <p className="text-sm text-muted-foreground font-mono">#{order.employeeNumber}</p>
-      </CardHeader>
-      <CardContent className="flex flex-col flex-1 gap-3">
-        {/* Items list */}
-        {hasItems ? (
-          <ul className="space-y-1 flex-1">
-            {(order.items ?? []).map((item) => (
-              <li
-                key={item.itemId}
-                className="flex justify-between items-baseline text-sm"
-              >
-                <span className="font-medium">{item.name}</span>
-                <span className="text-muted-foreground font-mono text-xs">x{item.quantity}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground italic flex-1">
-            Consumo sin detalle de ítem
-          </p>
-        )}
-
-        {/* Time elapsed */}
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Clock className="h-3.5 w-3.5" />
-          <span>hace {elapsedMin} min</span>
-        </div>
-
-        {/* Complete button */}
-        <Button
-          size="sm"
-          className="w-full bg-green-600 hover:bg-green-700 text-white"
-          onClick={handleClick}
-          disabled={completing}
-        >
-          {completing ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          ) : (
-            <CheckCircle2 className="h-4 w-4 mr-2" />
-          )}
-          Completar
-        </Button>
-      </CardContent>
-    </Card>
-  );
-};
-
-// ─── Completed order row ──────────────────────────────────────────────────────
-
-interface CompletedOrderRowProps {
-  order: Consumption;
-}
-
-const CompletedOrderRow: FC<CompletedOrderRowProps> = ({ order }) => {
-  const itemsCount = order.items?.reduce((sum, i) => sum + i.quantity, 0) ?? 0;
-  const timeStr = new Date(order.timestamp).toLocaleTimeString('es-MX', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: APP_TIMEZONE,
-  });
-
-  return (
-    <div className="flex items-center justify-between px-4 py-2.5 text-sm bg-background hover:bg-muted/40 transition-colors">
-      <div className="flex items-center gap-3 min-w-0">
-        <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-        <span className="font-medium truncate">{order.name}</span>
-        <span className="text-muted-foreground text-xs font-mono shrink-0">
-          {itemsCount} ítem{itemsCount !== 1 ? 's' : ''}
-        </span>
-      </div>
-      <span className="text-muted-foreground font-mono text-xs shrink-0 ml-3">{timeStr}</span>
-    </div>
-  );
-};

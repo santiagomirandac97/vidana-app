@@ -32,6 +32,8 @@ export interface Employee {
   salaryPerQuincena?: number;  // fixed bi-weekly salary MXN
   paymentAmount?: number;      // kept for backwards compat
   voided?: boolean;
+  startDate?: string;          // yyyy-MM-dd — set on creation
+  endDate?: string;            // yyyy-MM-dd — set on deactivation
 }
 
 export interface OrderItem {
@@ -209,24 +211,6 @@ export interface Bonus {
   appliesTo?: string;         // 'yyyy-MM-dd' — only for one-time bonuses
   active: boolean;
   createdBy: string;
-}
-
-export interface PayrollRecord {
-  id?: string;
-  companyId: string;
-  quincenaDate: string;       // 'yyyy-MM-dd' — the 15th or 30th
-  totalAmount: number;
-  generatedBy: string;        // admin uid
-  generatedAt: string;        // ISO-8601
-  breakdown: PayrollBreakdownItem[];
-}
-
-export interface PayrollBreakdownItem {
-  employeeId: string;
-  employeeName: string;
-  salary: number;
-  bonuses: { description: string; amount: number; isRecurring: boolean }[];
-  subtotal: number;
 }
 
 // ─── Surveys ─────────────────────────────────────────────────────────────────

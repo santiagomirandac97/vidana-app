@@ -4,6 +4,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getFirestore, initializeFirestore, memoryLocalCache, Firestore, DocumentReference, Query } from 'firebase/firestore';
 import { getAuth, Auth, browserSessionPersistence, inMemoryPersistence, setPersistence } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 import { useMemo } from 'react';
 import { useCollection as useCollectionHook } from './firestore/use-collection';
 import { useDoc as useDocHook } from './firestore/use-doc';
@@ -42,7 +43,8 @@ export function initializeFirebase() {
         ? initializeFirestore(app, { localCache: memoryLocalCache() })
         : getFirestore(app);
     const auth = getAuthInstance(app);
-    return { app, auth, firestore };
+    const storage = getStorage(app);
+    return { app, auth, firestore, storage };
 }
 
 export function useMemoFirebase<T extends Query | DocumentReference>(queryFactory: () => T | null, deps: any[]): (T & { __memo?: boolean }) | null {
@@ -72,5 +74,6 @@ export {
   useFirebaseApp,
   useFirestore,
   useAuth,
-  useFirebase
+  useFirebase,
+  useStorage
 };

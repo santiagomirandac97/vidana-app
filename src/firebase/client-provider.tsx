@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Auth } from 'firebase/auth';
 import { Firestore } from 'firebase/firestore';
+import { FirebaseStorage } from 'firebase/storage';
 import { initializeFirebase, FirebaseProvider } from '@/firebase';
 import { Loader2 } from 'lucide-react';
 
@@ -17,11 +18,12 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
     app: FirebaseApp;
     auth: Auth;
     firestore: Firestore;
+    storage: FirebaseStorage;
   } | null>(null);
 
   useEffect(() => {
-    const { app, auth, firestore } = initializeFirebase();
-    setInstances({ app, auth, firestore });
+    const { app, auth, firestore, storage } = initializeFirebase();
+    setInstances({ app, auth, firestore, storage });
   }, []);
 
   if (!instances) {
@@ -38,6 +40,7 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
       app={instances.app}
       auth={instances.auth}
       firestore={instances.firestore}
+      storage={instances.storage}
     >
       {children}
     </FirebaseProvider>

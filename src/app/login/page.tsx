@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn, Mail, Lock } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { checkAndCreateUserProfile } from '@/lib/auth-helpers';
 
@@ -228,87 +227,98 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      {/* Left panel — brand (desktop only) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-primary flex-col items-center justify-center p-12 relative overflow-hidden">
-        {/* Subtle grid pattern */}
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage: 'linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)',
-            backgroundSize: '40px 40px',
-          }}
-        />
-        <div className="relative z-10 text-white text-center">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
+      {/* Full-bleed gradient background */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(135deg, hsl(224, 76%, 48%) 0%, hsl(230, 72%, 32%) 50%, hsl(235, 80%, 18%) 100%)',
+        }}
+      />
+      {/* Radial glow accent — top right */}
+      <div
+        className="absolute -top-32 -right-32 h-[600px] w-[600px] rounded-full opacity-30"
+        style={{
+          background: 'radial-gradient(circle, hsl(210, 100%, 70%) 0%, transparent 70%)',
+        }}
+      />
+      {/* Secondary glow — bottom left */}
+      <div
+        className="absolute -bottom-48 -left-48 h-[500px] w-[500px] rounded-full opacity-15"
+        style={{
+          background: 'radial-gradient(circle, hsl(250, 80%, 65%) 0%, transparent 70%)',
+        }}
+      />
+
+      {/* Card */}
+      <div className="relative z-10 w-full max-w-[420px] rounded-2xl bg-white p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] sm:p-10">
+        {/* Logo */}
+        <div className="mb-8 flex justify-center">
           <Logo />
-          <p className="text-lg font-medium opacity-90 mt-8">Gestión de comedores empresariales</p>
-          <p className="text-sm opacity-60 mt-2">Vidana · México</p>
+        </div>
+
+        <h2 className="text-center text-2xl font-semibold tracking-tight text-gray-900 mb-1">Iniciar sesión</h2>
+        <p className="text-center text-sm text-gray-500 mb-8">Ingresa tus credenciales para continuar</p>
+
+        <div className="space-y-4">
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="pl-10 h-12 text-base bg-gray-50 border-gray-200 focus:bg-white"
+              disabled={isLoading || isGoogleLoading}
+            />
+          </div>
+
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Input
+              type="password"
+              placeholder="Contraseña"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="pl-10 h-12 text-base bg-gray-50 border-gray-200 focus:bg-white"
+              onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+              disabled={isLoading || isGoogleLoading}
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <PasswordResetDialog />
+          </div>
+
+          {error && <p className="text-sm text-red-500 px-1">{error}</p>}
+
+          <Button onClick={handleLogin} className="w-full h-12 text-base" disabled={isLoading || isGoogleLoading}>
+            {isLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/> Verificando...</> : <><LogIn className="mr-2 h-5 w-5"/> Entrar</>}
+          </Button>
+
+          <div className="relative flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200" />
+            </div>
+            <span className="relative bg-white px-3 text-xs uppercase text-gray-400">O continúa con</span>
+          </div>
+
+          <Button onClick={handleGoogleSignIn} variant="outline" className="w-full h-12 text-base border-gray-200 hover:bg-gray-50" disabled={isLoading || isGoogleLoading}>
+            {isGoogleLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/> Verificando...</> : <><GoogleIcon className="mr-2 h-5 w-5"/> Google</>}
+          </Button>
+
+          <div className="pt-2 text-center text-sm text-gray-500">
+            ¿No tienes cuenta?{' '}
+            <Link href="/signup" className="font-medium text-primary hover:underline">
+              Regístrate
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Right panel — form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-background">
-        <div className="w-full max-w-sm">
-          {/* Logo visible on mobile only */}
-          <div className="lg:hidden mb-8 flex justify-center">
-            <Logo />
-          </div>
-          <h2 className="text-2xl font-semibold tracking-tight mb-1">Iniciar sesión</h2>
-          <p className="text-sm text-muted-foreground mb-8">Ingresa tus credenciales para continuar</p>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 h-12 text-lg"
-                  disabled={isLoading || isGoogleLoading}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <Input
-                  type="password"
-                  placeholder="Contraseña"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 h-12 text-lg"
-                  onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                  disabled={isLoading || isGoogleLoading}
-                />
-              </div>
-              <PasswordResetDialog />
-            </div>
-
-            {error && <p className="text-sm text-red-500 px-1">{error}</p>}
-            <Button onClick={handleLogin} className="w-full h-12 text-lg" disabled={isLoading || isGoogleLoading}>
-              {isLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/> Verificando...</> : <><LogIn className="mr-2 h-5 w-5"/> Entrar</>}
-            </Button>
-
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">O continúa con</span>
-            </div>
-
-            <Button onClick={handleGoogleSignIn} variant="outline" className="w-full h-12 text-lg" disabled={isLoading || isGoogleLoading}>
-              {isGoogleLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/> Verificando...</> : <><GoogleIcon className="mr-2 h-5 w-5"/> Google</>}
-            </Button>
-
-            <Separator className="my-4" />
-            <div className="text-center text-sm">
-              ¿No tienes cuenta?{' '}
-              <Link href="/signup" className="font-medium text-primary hover:underline">
-                Regístrate
-              </Link>
-            </div>
-          </div>
-        </div>
+      {/* Footer tagline */}
+      <div className="absolute bottom-6 left-0 right-0 text-center">
+        <p className="text-sm text-white/50">Gestión de comedores empresariales · Vidana</p>
       </div>
     </div>
   );

@@ -64,6 +64,8 @@ export interface UserProfile {
     email: string;
     role: 'admin' | 'user';
     companyId?: string;
+    photoURL?: string;
+    phone?: string;
 }
 
 export interface AppConfiguration {

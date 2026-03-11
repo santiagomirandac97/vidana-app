@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -221,14 +221,14 @@ export function OrdenesTab({
 
   const watchedItems = watch('items');
 
-  const totalCost = useMemo(
-    () => watchedItems.reduce((acc, item) => acc + (item.quantity || 0) * (item.unitCost || 0), 0),
-    [watchedItems]
-  );
+  // Compute inline — useMemo with watch() can miss updates due to reference equality
+  const totalCost = watchedItems.reduce((acc, item) => acc + (Number(item.quantity) || 0) * (Number(item.unitCost) || 0), 0);
 
   const onCreateOrder = async (values: PurchaseOrderFormValues) => {
     if (!firestore) return;
     const colRef = collection(firestore, `companies/${companyId}/purchaseOrders`);
+    // Compute from validated values to guarantee correct number types
+    const computedTotal = values.items.reduce((acc, item) => acc + item.quantity * item.unitCost, 0);
     const order: Omit<PurchaseOrder, 'id'> = {
       supplierId: values.supplierId,
       supplierName: values.supplierName,
@@ -240,7 +240,7 @@ export function OrdenesTab({
         received: false,
       })),
       status: 'borrador',
-      totalCost,
+      totalCost: computedTotal,
       createdAt: new Date().toISOString(),
       createdBy: userId,
       companyId,

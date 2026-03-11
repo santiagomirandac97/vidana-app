@@ -10,12 +10,13 @@ import { useCollection as useCollectionHook } from './firestore/use-collection';
 import { useDoc as useDocHook } from './firestore/use-doc';
 import { firebaseConfig } from './config';
 import { useUser as useUserHook } from './auth/use-user';
-import { 
+import {
   FirebaseProvider,
   useFirebaseApp,
   useFirestore,
   useAuth,
-  useFirebase
+  useFirebase,
+  useStorage
 } from './provider';
 import { FirebaseClientProvider } from './client-provider';
 

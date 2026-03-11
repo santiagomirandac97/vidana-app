@@ -7,8 +7,10 @@ import { useFirebase, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { type UserProfile } from '@/lib/types';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
+import Link from 'next/link';
 import { SidebarNav, type NavGroup } from './sidebar-nav';
 import {
   ChevronLeft, ChevronRight, LogOut,
@@ -118,12 +120,26 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
 
         {/* Footer */}
         <div className={cn(
-          'shrink-0 border-t border-sidebar-border p-3',
-          collapsed ? 'flex justify-center' : ''
+          'shrink-0 border-t border-sidebar-border p-3 space-y-2',
+          collapsed ? 'flex flex-col items-center' : ''
         )}>
-          {!collapsed && (
-            <p className="text-xs font-medium text-foreground truncate mb-2 px-1">{firstName}</p>
-          )}
+          <Link
+            href="/perfil"
+            className={cn(
+              'flex items-center gap-2 rounded-md px-1 py-1.5 hover:bg-sidebar-accent transition-colors',
+              collapsed ? 'justify-center px-0' : ''
+            )}
+          >
+            <Avatar className="h-7 w-7 shrink-0">
+              <AvatarImage src={userProfile?.photoURL} alt={firstName} />
+              <AvatarFallback className="text-[10px] font-medium bg-primary/10 text-primary">
+                {firstName?.charAt(0)?.toUpperCase() ?? '?'}
+              </AvatarFallback>
+            </Avatar>
+            {!collapsed && (
+              <span className="text-xs font-medium text-foreground truncate">{firstName}</span>
+            )}
+          </Link>
           <Button
             variant="ghost"
             size={collapsed ? 'icon' : 'sm'}

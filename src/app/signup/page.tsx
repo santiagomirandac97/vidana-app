@@ -395,7 +395,7 @@ function SignupForm() {
 
       {/* Footer tagline */}
       <div className="absolute bottom-6 left-0 right-0 text-center">
-        <p className="text-sm text-white/50">Gestión de comedores empresariales · Vidana</p>
+        <p className="text-sm text-white/50">© 2022–2026 Vidana. Todos los derechos reservados.</p>
       </div>
     </div>
   );

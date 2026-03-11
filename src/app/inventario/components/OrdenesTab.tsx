@@ -271,7 +271,10 @@ export function OrdenesTab({
             firestore,
             `companies/${companyId}/ingredients/${item.ingredientId}`
           );
-          await updateDocumentNonBlocking(ingredientDocRef, { currentStock: newStock });
+          await updateDocumentNonBlocking(ingredientDocRef, {
+            currentStock: newStock,
+            costPerUnit: item.unitCost,
+          });
 
           const movementsColRef = collection(
             firestore,

@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { doc, collection, query, where, orderBy, addDoc, updateDoc, getDocs, setDoc, doc as firestoreDoc } from 'firebase/firestore';
-import { type UserProfile, type Employee, type Company, type Bonus, type PayrollRecord } from '@/lib/types';
+import { doc, collection, query, where, orderBy, addDoc, updateDoc, deleteField, doc as firestoreDoc } from 'firebase/firestore';
+import { type UserProfile, type Employee, type Company, type Bonus } from '@/lib/types';
 import { AppShell, PageHeader } from '@/components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,14 +15,9 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ShieldAlert, Plus, MoreVertical, AlertCircle, Banknote } from 'lucide-react';
+import { ShieldAlert, Plus, MoreVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { toZonedTime } from 'date-fns-tz';
-import { getQuincenaDateIfDue, formatQuincenaLabel } from '@/lib/quincena-utils';
-import { calculatePayroll } from '@/lib/payroll-utils';
-import { APP_TIMEZONE } from '@/lib/constants';
 
 const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -71,23 +66,6 @@ export default function EmpleadosPage() {
   );
   const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesRef);
 
-  // Quincena detection
-  const now = toZonedTime(new Date(), APP_TIMEZONE);
-  const quincenaDate = getQuincenaDateIfDue(now);
-
-  // Check if payroll already confirmed for this quincena + company
-  const existingPayrollRef = useMemoFirebase(
-    () => firestore && isAdmin && quincenaDate && activeCompanyId
-      ? query(
-          collection(firestore, `companies/${activeCompanyId}/payrollRecords`),
-          where('quincenaDate', '==', quincenaDate)
-        )
-      : null,
-    [firestore, isAdmin, quincenaDate, activeCompanyId]
-  );
-  const { data: existingPayroll } = useCollection<PayrollRecord>(existingPayrollRef);
-  const quincenaAlreadyConfirmed = (existingPayroll?.length ?? 0) > 0;
-
   // Employee dialog state
   const [showEmployeeDialog, setShowEmployeeDialog] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -115,12 +93,6 @@ export default function EmpleadosPage() {
     [firestore, bonusEmployee?.id, activeCompanyId]
   );
   const { data: bonuses } = useCollection<Bonus>(bonusesRef);
-
-  // Quincena confirmation dialog state
-  const [showQuincenaDialog, setShowQuincenaDialog] = useState(false);
-  const [confirmingQuincena, setConfirmingQuincena] = useState(false);
-  const [previewBonuses, setPreviewBonuses] = useState<Record<string, Bonus[]>>({});
-  const [previewLoading, setPreviewLoading] = useState(false);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -162,7 +134,7 @@ export default function EmpleadosPage() {
       } else {
         await addDoc(
           collection(firestore, `companies/${activeCompanyId}/staff`),
-          { ...data, active: true, voided: false }
+          { ...data, active: true, voided: false, startDate: new Date().toISOString().slice(0, 10) }
         );
         toast({ title: 'Empleado registrado.' });
       }
@@ -175,10 +147,19 @@ export default function EmpleadosPage() {
   const handleToggleActive = async (emp: Employee) => {
     if (!firestore || !activeCompanyId || !emp.id) return;
     try {
-      await updateDoc(
-        firestoreDoc(firestore, `companies/${activeCompanyId}/staff/${emp.id}`),
-        { active: !emp.active }
-      );
+      if (emp.active) {
+        // Deactivating — set endDate
+        await updateDoc(
+          firestoreDoc(firestore, `companies/${activeCompanyId}/staff/${emp.id}`),
+          { active: false, endDate: new Date().toISOString().slice(0, 10) }
+        );
+      } else {
+        // Reactivating — remove endDate
+        await updateDoc(
+          firestoreDoc(firestore, `companies/${activeCompanyId}/staff/${emp.id}`),
+          { active: true, endDate: deleteField() }
+        );
+      }
     } catch {
       toast({ title: 'Error al cambiar estado.', variant: 'destructive' });
     }
@@ -234,69 +215,6 @@ export default function EmpleadosPage() {
       );
     } catch {
       toast({ title: 'Error al quitar bono.', variant: 'destructive' });
-    }
-  };
-
-  // Quincena confirmation
-  const fetchBonusesForPreview = async (): Promise<Record<string, Bonus[]>> => {
-    if (!firestore || !activeCompanyId || !employees) return {};
-    const activeEmps = employees.filter(e => e.active && !e.voided);
-    const bonusesByEmpId: Record<string, Bonus[]> = {};
-    await Promise.all(
-      activeEmps.map(async emp => {
-        if (!emp.id) return;
-        const snap = await getDocs(
-          query(
-            collection(firestore, `companies/${activeCompanyId}/staff/${emp.id}/bonuses`),
-            where('active', '==', true)
-          )
-        );
-        bonusesByEmpId[emp.id] = snap.docs.map(d => ({ id: d.id, ...d.data() } as Bonus));
-      })
-    );
-    return bonusesByEmpId;
-  };
-
-  const openQuincenaDialog = async () => {
-    setPreviewLoading(true);
-    setShowQuincenaDialog(true);
-    try {
-      const bonuses = await fetchBonusesForPreview();
-      setPreviewBonuses(bonuses);
-    } catch {
-      toast({ title: 'Error al cargar bonos.', variant: 'destructive' });
-      setShowQuincenaDialog(false);
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  const handleConfirmQuincena = async () => {
-    if (!firestore || !activeCompanyId || !quincenaDate || !user || !employees) return;
-    setConfirmingQuincena(true);
-    try {
-      const activeEmps = employees.filter(e => e.active && !e.voided);
-      const payroll = calculatePayroll(activeEmps, previewBonuses, quincenaDate);
-      // Deterministic document ID prevents duplicate records if two admin sessions confirm simultaneously.
-      // The Firestore rule (allow update: if false) will reject any second write as an update.
-      const payrollDocRef = firestoreDoc(
-        firestore,
-        `companies/${activeCompanyId}/payrollRecords/${activeCompanyId}_${quincenaDate}`
-      );
-      await setDoc(payrollDocRef, {
-        quincenaDate,
-        totalAmount: payroll.totalAmount,
-        companyId: activeCompanyId,
-        generatedBy: user.uid,
-        generatedAt: new Date().toISOString(),
-        breakdown: payroll.breakdown,
-      });
-      toast({ title: `Nómina del ${formatQuincenaLabel(quincenaDate)} registrada.` });
-      setShowQuincenaDialog(false);
-    } catch {
-      toast({ title: 'Error al registrar nómina.', variant: 'destructive' });
-    } finally {
-      setConfirmingQuincena(false);
     }
   };
 
@@ -366,20 +284,6 @@ export default function EmpleadosPage() {
             </div>
           }
         />
-
-        {/* Quincena banner */}
-        {quincenaDate && !quincenaAlreadyConfirmed && (
-          <Alert className="mb-6 border-primary/50 bg-primary/5">
-            <AlertCircle className="h-4 w-4 text-primary" />
-            <AlertTitle className="text-primary">Día de quincena</AlertTitle>
-            <AlertDescription className="flex items-center justify-between">
-              <span>Hoy corresponde generar la nómina del {formatQuincenaLabel(quincenaDate)}.</span>
-              <Button size="sm" className="ml-4" onClick={openQuincenaDialog}>
-                <Banknote className="h-4 w-4 mr-1" /> Ver y confirmar
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
 
         {/* Employee list */}
         {employeesLoading && (
@@ -556,63 +460,6 @@ export default function EmpleadosPage() {
               disabled={!bonusDesc.trim() || !bonusAmount || (!bonusRecurring && !bonusAppliesTo)}
             >
               Agregar bono
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Quincena Confirmation Dialog */}
-      <Dialog open={showQuincenaDialog} onOpenChange={setShowQuincenaDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Nómina — {quincenaDate ? formatQuincenaLabel(quincenaDate) : ''}</DialogTitle>
-          </DialogHeader>
-
-          {previewLoading && <Skeleton className="h-32 w-full rounded-md" />}
-
-          {!previewLoading && employees && quincenaDate && (() => {
-            const activeEmps = employees.filter(e => e.active && !e.voided);
-            const preview = calculatePayroll(activeEmps, previewBonuses, quincenaDate);
-            return (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left pb-2">Empleado</th>
-                      <th className="text-right pb-2">Salario</th>
-                      <th className="text-right pb-2">Bonos</th>
-                      <th className="text-right pb-2">Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.breakdown.map(row => (
-                      <tr key={row.employeeId} className="border-b last:border-0">
-                        <td className="py-2">{row.employeeName}</td>
-                        <td className="py-2 text-right font-mono">{fmt(row.salary)}</td>
-                        <td className="py-2 text-right font-mono">
-                          {row.bonuses.length > 0
-                            ? fmt(row.bonuses.reduce((s, b) => s + b.amount, 0))
-                            : '—'}
-                        </td>
-                        <td className="py-2 text-right font-mono font-semibold">{fmt(row.subtotal)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t font-bold">
-                      <td colSpan={3} className="pt-2">Total</td>
-                      <td className="pt-2 text-right font-mono">{fmt(preview.totalAmount)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            );
-          })()}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowQuincenaDialog(false)}>Cancelar</Button>
-            <Button onClick={handleConfirmQuincena} disabled={confirmingQuincena || previewLoading}>
-              {confirmingQuincena ? 'Registrando…' : 'Confirmar y Registrar'}
             </Button>
           </DialogFooter>
         </DialogContent>

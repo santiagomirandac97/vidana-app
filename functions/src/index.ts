@@ -105,10 +105,9 @@ function buildPasswordResetEmailHtml(resetUrl: string): string {
         <tr><td style="background:linear-gradient(135deg,#2563eb 0%,#3730a3 100%);height:8px;border-radius:12px 12px 0 0;"></td></tr>
         <!-- Card -->
         <tr><td style="background-color:#ffffff;padding:40px 32px 32px;border-radius:0 0 12px 12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-          <!-- Logo text -->
+          <!-- Logo -->
           <div style="text-align:center;margin-bottom:32px;">
-            <span style="font-size:24px;font-weight:700;color:#1e3a5f;letter-spacing:-0.5px;">vidana</span>
-            <span style="font-size:24px;color:#6bb536;">&#x1F33F;</span>
+            <img src="https://vidana.com.mx/logos/logo.png" alt="Vidana" width="160" height="53" style="display:inline-block;width:160px;height:auto;" />
           </div>
           <!-- Heading -->
           <h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#111827;text-align:center;">Restablecer contraseña</h1>
@@ -145,6 +144,7 @@ function buildPasswordResetEmailHtml(resetUrl: string): string {
 export const sendPasswordReset = onCall(
   { secrets: [resendApiKey] },
   async (request) => {
+    console.log('[sendPasswordReset] Function invoked');
     const { email } = request.data as { email?: string };
 
     if (!email || typeof email !== 'string') {
@@ -152,6 +152,7 @@ export const sendPasswordReset = onCall(
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    console.log('[sendPasswordReset] Email:', normalizedEmail);
 
     // Rate limit: 1 request per 60 seconds per email
     const db = getFirestore();
@@ -161,6 +162,7 @@ export const sendPasswordReset = onCall(
     if (rateLimitDoc.exists) {
       const lastRequest = rateLimitDoc.data()?.timestamp?.toDate();
       if (lastRequest && Date.now() - lastRequest.getTime() < 60_000) {
+        console.log('[sendPasswordReset] Rate limited');
         throw new HttpsError(
           'resource-exhausted',
           'Ya se envió un correo recientemente. Espera un minuto antes de intentar de nuevo.'
@@ -169,15 +171,17 @@ export const sendPasswordReset = onCall(
     }
 
     // Generate the reset link via Firebase Admin
+    console.log('[sendPasswordReset] Generating reset link...');
     const auth = getAuth();
     let firebaseResetLink: string;
     try {
       firebaseResetLink = await auth.generatePasswordResetLink(normalizedEmail, {
         url: `${APP_URL}/login`,
       });
+      console.log('[sendPasswordReset] Reset link generated successfully');
     } catch (err: any) {
       // Don't reveal whether the email exists or not
-      console.error('generatePasswordResetLink error:', err.code, err.message);
+      console.error('[sendPasswordReset] generatePasswordResetLink error:', err.code, err.message);
       // Still return success to prevent email enumeration
       return { success: true };
     }
@@ -187,11 +191,12 @@ export const sendPasswordReset = onCall(
     const oobCode = url.searchParams.get('oobCode');
 
     if (!oobCode) {
-      console.error('No oobCode found in Firebase reset link:', firebaseResetLink);
+      console.error('[sendPasswordReset] No oobCode found in link:', firebaseResetLink);
       throw new HttpsError('internal', 'Error al generar el enlace de restablecimiento.');
     }
 
     const resetUrl = `${APP_URL}/reset-password?oobCode=${oobCode}`;
+    console.log('[sendPasswordReset] Sending email via Resend...');
 
     // Send branded email via Resend
     const resend = new Resend(resendApiKey.value());
@@ -203,9 +208,11 @@ export const sendPasswordReset = onCall(
     });
 
     if (error) {
-      console.error('Resend error:', error);
+      console.error('[sendPasswordReset] Resend error:', JSON.stringify(error));
       throw new HttpsError('internal', 'Error al enviar el correo. Intenta de nuevo.');
     }
+
+    console.log('[sendPasswordReset] Email sent successfully');
 
     // Update rate limit
     await rateLimitRef.set({ timestamp: FieldValue.serverTimestamp() });

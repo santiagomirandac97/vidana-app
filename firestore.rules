@@ -174,18 +174,6 @@ service cloud.firestore {
       allow delete: if false; // soft-deactivation only — set active: false instead of deleting
     }
 
-    // Payroll records — admin-only read (payroll data is sensitive)
-    match /companies/{companyId}/payrollRecords/{recordId} {
-      allow get, list: if request.auth != null && isUserAdmin(request.auth.uid);
-      allow create: if request.auth != null && isUserAdmin(request.auth.uid);
-      allow update, delete: if false;
-    }
-
-    // CollectionGroup rule for payrollRecords (cross-company admin queries)
-    match /{path=**}/payrollRecords/{recordId} {
-      allow list: if request.auth != null && isUserAdmin(request.auth.uid);
-    }
-
     // — Staff (payroll employees) ————————————————————————————————————————————
     // Separate collection from companies/{companyId}/employees (cafeteria registros).
     // Admin-only — payroll data is sensitive.

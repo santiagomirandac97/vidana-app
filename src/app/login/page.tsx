@@ -4,8 +4,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser, useFirestore } from '@/firebase';
-import { signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, sendPasswordResetEmail, type ActionCodeSettings } from 'firebase/auth';
+import { useAuth, useUser, useFirestore, useFirebase } from '@/firebase';
+import { signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/logo';
@@ -27,7 +28,7 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 function PasswordResetDialog() {
-    const auth = useAuth();
+    const { app } = useFirebase();
     const { toast } = useToast();
     const [email, setEmail] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -38,26 +39,25 @@ function PasswordResetDialog() {
             toast({ variant: 'destructive', title: 'Error', description: 'Por favor, ingrese su email.' });
             return;
         }
-        if (!auth) {
+        if (!app) {
             toast({ variant: 'destructive', title: 'Error', description: 'Servicio no disponible.' });
             return;
         }
 
         setIsSending(true);
 
-        const actionCodeSettings: ActionCodeSettings = {
-            url: `${window.location.origin}/login`,
-            handleCodeInApp: true,
-        };
-
         try {
-            await sendPasswordResetEmail(auth, email, actionCodeSettings);
+            const functions = getFunctions(app);
+            const sendReset = httpsCallable(functions, 'sendPasswordReset');
+            await sendReset({ email: email.trim().toLowerCase() });
             toast({ title: 'Correo Enviado', description: 'Revise su bandeja de entrada para restablecer su contraseña.' });
             setIsOpen(false);
-        } catch (error: any) {
+            setEmail('');
+        } catch (error: unknown) {
             let friendlyMessage = 'Ocurrió un error al enviar el correo.';
-            if (error.code === 'auth/user-not-found') {
-                friendlyMessage = 'No se encontró ninguna cuenta con ese email.';
+            const fbError = error as { code?: string; message?: string };
+            if (fbError.message?.includes('resource-exhausted')) {
+                friendlyMessage = 'Ya se envió un correo recientemente. Espera un minuto.';
             }
             toast({ variant: 'destructive', title: 'Error', description: friendlyMessage });
         } finally {

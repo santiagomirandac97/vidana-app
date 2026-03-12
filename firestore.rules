@@ -91,6 +91,14 @@ service cloud.firestore {
       allow list: if request.auth != null && isUserAdmin(request.auth.uid);
     }
 
+    match /{path=**}/staff/{staffId} {
+      allow list: if request.auth != null && isUserAdmin(request.auth.uid);
+    }
+
+    match /{path=**}/bonuses/{bonusId} {
+      allow list: if request.auth != null && isUserAdmin(request.auth.uid);
+    }
+
     // — Invites ———————————————————————————————————————————————————————————————————————
 
     match /invites/{inviteId} {

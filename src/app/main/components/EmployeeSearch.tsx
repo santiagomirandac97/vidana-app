@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, type KeyboardEvent, type FC } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, type KeyboardEvent, type FC } from 'react';
 import {
   AlertCircle,
   CheckCircle,
@@ -11,14 +11,15 @@ import {
   Users,
   XCircle,
   Printer,
+  Nfc,
 } from 'lucide-react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, updateDoc, doc } from 'firebase/firestore';
 import { formatInTimeZone } from 'date-fns-tz';
 import { APP_TIMEZONE } from '@/lib/constants';
 
-import { type Company, type Employee, type Consumption } from '@/lib/types';
+import { type Company, type Employee, type Consumption, type RfidDevice } from '@/lib/types';
 import { cn, getTodayInMexicoCity, formatTimestamp } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +47,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+interface TapLogEntry {
+  cardNumber: string;
+  employeeName?: string;
+  timestamp: string;
+  result: 'registered' | 'already-eaten' | 'unknown-card';
+}
+
 interface EmployeeSearchProps {
   companyId: string;
   company: Company;
@@ -64,6 +72,13 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'warning' | 'error'; message: string } | null>(null);
   const [isQuickAddOpen, setQuickAddOpen] = useState(false);
   const [pendingEmployee, setPendingEmployee] = useState<{ number: string; name: string } | null>(null);
+
+  // ─── Tap tab state ────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState('number');
+  const [deviceConnected, setDeviceConnected] = useState(false);
+  const [tapLog, setTapLog] = useState<TapLogEntry[]>([]);
+  const [simulateCardInput, setSimulateCardInput] = useState('');
+  const [showSimulateInput, setShowSimulateInput] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -103,6 +118,115 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
   );
   const { data: recentConsumptions } = useCollection<Consumption>(recentConsumptionsQuery);
 
+  // ─── RFID Device query ───────────────────────────────────────────────────────
+  const rfidDeviceQuery = useMemoFirebase(
+    () =>
+      firestore && companyId
+        ? query(
+            collection(firestore, `companies/${companyId}/rfidDevices`),
+            where('active', '==', true),
+            limit(1)
+          )
+        : null,
+    [firestore, companyId]
+  );
+  const { data: rfidDevices } = useCollection<RfidDevice>(rfidDeviceQuery);
+  const rfidDevice = rfidDevices?.[0] ?? null;
+
+  // ─── Stable ref for registerConsumption (used by handleCardTap) ─────────────
+  const registerConsumptionRef = useRef<(employee: Employee) => void>(() => {});
+
+  // ─── Tap processing ────────────────────────────────────────────────────────────
+  const handleCardTap = useCallback(
+    (cardNumber: string) => {
+      // 1. Find employee by cardNumber
+      const employee = employees?.find((e) => e.cardNumber === cardNumber && e.active);
+      if (!employee) {
+        setTapLog((prev) => [
+          {
+            cardNumber,
+            timestamp: new Date().toISOString(),
+            result: 'unknown-card' as const,
+          },
+          ...prev,
+        ].slice(0, 5));
+        return;
+      }
+      // 2. Check if already eaten today
+      const alreadyAte = todaysConsumptions?.some(
+        (c) => c.employeeId === employee.id && !c.voided
+      );
+      if (alreadyAte) {
+        setTapLog((prev) => [
+          {
+            cardNumber,
+            employeeName: employee.name,
+            timestamp: new Date().toISOString(),
+            result: 'already-eaten' as const,
+          },
+          ...prev,
+        ].slice(0, 5));
+        return;
+      }
+      // 3. Register consumption — reuse existing flow via stable ref
+      setTapLog((prev) => [
+        {
+          cardNumber,
+          employeeName: employee.name,
+          timestamp: new Date().toISOString(),
+          result: 'registered' as const,
+        },
+        ...prev,
+      ].slice(0, 5));
+      registerConsumptionRef.current(employee);
+    },
+    [employees, todaysConsumptions]
+  );
+
+  // ─── Device connectivity polling ──────────────────────────────────────────────
+  useEffect(() => {
+    if (activeTab !== 'tap' || !rfidDevice) {
+      setDeviceConnected(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const ping = async () => {
+      try {
+        await fetch(`http://${rfidDevice.ipAddress}/`, {
+          mode: 'no-cors',
+          signal: AbortSignal.timeout(3000),
+        });
+        if (!cancelled) {
+          setDeviceConnected(true);
+          // Update lastSeen in Firestore
+          if (firestore && companyId && rfidDevice.id) {
+            updateDoc(
+              doc(firestore, `companies/${companyId}/rfidDevices/${rfidDevice.id}`),
+              { lastSeen: new Date().toISOString() }
+            ).catch(() => {});
+          }
+        }
+      } catch {
+        if (!cancelled) setDeviceConnected(false);
+      }
+
+      // TODO: Poll IDEMIA transaction log API for new card taps
+      // The actual API endpoint and response format are TBD.
+      // When implemented, parse new transactions since last poll,
+      // extract card UIDs, and call handleCardTap(cardUid) for each.
+    };
+
+    ping(); // initial ping
+    const intervalId = setInterval(ping, 3000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [activeTab, rfidDevice, firestore, companyId, handleCardTap]);
+
   useEffect(() => {
     if (companyId) {
       inputRef.current?.focus();
@@ -128,7 +252,6 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
 
   const proceedWithConsumption = (employee: Employee) => {
     if (!firestore || !companyId || isProcessing) return;
-    if (isProcessing) return;
     setIsProcessing(true);
 
     const newConsumptionData: Omit<Consumption, 'id'> = {
@@ -185,6 +308,9 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
       proceedWithConsumption(employee);
     }
   };
+
+  // Keep ref in sync so handleCardTap always calls the latest version
+  registerConsumptionRef.current = registerConsumption;
 
   const handlePaymentCollected = () => {
     if (paymentDue) {
@@ -285,10 +411,24 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="number">
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="number">Por Número</TabsTrigger>
               <TabsTrigger value="name">Por Nombre</TabsTrigger>
+              <TabsTrigger value="tap" className="flex items-center gap-1.5">
+                <Nfc className="h-4 w-4" />
+                Tap
+                <span
+                  className={cn(
+                    'h-2 w-2 rounded-full',
+                    activeTab === 'tap' && rfidDevice
+                      ? deviceConnected
+                        ? 'bg-green-500'
+                        : 'bg-red-500'
+                      : 'bg-gray-400'
+                  )}
+                />
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="number" className="pt-6">
               <div className="flex gap-4">
@@ -364,6 +504,158 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
                   </div>
                 </ScrollArea>
               )}
+            </TabsContent>
+            <TabsContent value="tap" className="pt-6">
+              <div className="flex flex-col items-center justify-center space-y-6 py-4">
+                {/* Connection status header */}
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  {!rfidDevice ? (
+                    <span className="text-muted-foreground">
+                      No hay dispositivo configurado para esta empresa
+                    </span>
+                  ) : deviceConnected ? (
+                    <>
+                      <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                      <span className="text-green-700 dark:text-green-400">
+                        Conectado a {rfidDevice.name}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                      <span className="text-red-700 dark:text-red-400">Sin conexión</span>
+                    </>
+                  )}
+                </div>
+
+                {/* Animated NFC icon */}
+                <div
+                  className={cn(
+                    'rounded-full bg-gray-100 dark:bg-gray-800 p-6',
+                    deviceConnected && 'animate-pulse'
+                  )}
+                >
+                  <Nfc
+                    className={cn(
+                      'h-16 w-16',
+                      deviceConnected
+                        ? 'text-green-500'
+                        : 'text-gray-400 dark:text-gray-500'
+                    )}
+                  />
+                </div>
+
+                {/* Status text */}
+                <p
+                  className={cn(
+                    'text-lg font-medium',
+                    deviceConnected
+                      ? 'text-green-700 dark:text-green-400'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  {!rfidDevice
+                    ? ''
+                    : deviceConnected
+                    ? 'Esperando tarjeta...'
+                    : 'Desconectado'}
+                </p>
+
+                {/* Simulate Tap button (development only) */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="w-full max-w-xs space-y-2">
+                    {!showSimulateInput ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={() => setShowSimulateInput(true)}
+                      >
+                        Simular Tap
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Input
+                          value={simulateCardInput}
+                          onChange={(e) => setSimulateCardInput(e.target.value)}
+                          placeholder="Número de tarjeta"
+                          className="h-8 text-sm font-mono"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && simulateCardInput.trim()) {
+                              handleCardTap(simulateCardInput.trim());
+                              setSimulateCardInput('');
+                            }
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          className="h-8"
+                          disabled={!simulateCardInput.trim()}
+                          onClick={() => {
+                            handleCardTap(simulateCardInput.trim());
+                            setSimulateCardInput('');
+                          }}
+                        >
+                          Tap
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8"
+                          onClick={() => {
+                            setShowSimulateInput(false);
+                            setSimulateCardInput('');
+                          }}
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Recent tap log */}
+                {tapLog.length > 0 && (
+                  <div className="w-full mt-4 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Últimos taps
+                    </p>
+                    <div className="space-y-1.5">
+                      {tapLog.map((entry, idx) => (
+                        <div
+                          key={`${entry.timestamp}-${idx}`}
+                          className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {entry.employeeName ?? `Tarjeta ${entry.cardNumber}`}
+                            </span>
+                            <span className="text-xs text-muted-foreground font-mono">
+                              {formatTimestamp(entry.timestamp)}
+                            </span>
+                          </div>
+                          <span
+                            className={cn(
+                              'text-xs font-medium px-2 py-0.5 rounded-full',
+                              entry.result === 'registered' &&
+                                'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+                              entry.result === 'already-eaten' &&
+                                'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+                              entry.result === 'unknown-card' &&
+                                'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                            )}
+                          >
+                            {entry.result === 'registered' && 'Registrado'}
+                            {entry.result === 'already-eaten' && 'Ya registrado hoy'}
+                            {entry.result === 'unknown-card' && 'Tarjeta no reconocida'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
 

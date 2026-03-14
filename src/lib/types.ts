@@ -20,6 +20,16 @@ export type Company = {
   requiresEmployeeSelection?: boolean;  // true = Televisa mode
 };
 
+export interface RfidDevice {
+  id?: string;
+  name: string;                    // e.g., "IDEMIA Comedor Principal"
+  ipAddress: string;               // e.g., "192.168.1.10"
+  type: 'idemia-morphoaccess';     // extensible for future device types
+  companyId: string;
+  active: boolean;
+  lastSeen?: string;               // ISO timestamp of last successful poll
+}
+
 export interface Employee {
   id?: string;
   employeeNumber: string;
@@ -34,6 +44,7 @@ export interface Employee {
   voided?: boolean;
   startDate?: string;          // yyyy-MM-dd — set on creation
   endDate?: string;            // yyyy-MM-dd — set on deactivation
+  cardNumber?: string;         // RFID card UID (e.g., MIFARE DESFire)
 }
 
 export interface OrderItem {

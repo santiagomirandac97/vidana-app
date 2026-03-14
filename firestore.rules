@@ -193,6 +193,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // — RFID Devices ——————————————————————————————————————————————
+
+    match /companies/{companyId}/rfidDevices/{deviceId} {
+      allow get, list: if request.auth != null;
+      allow create, update: if request.auth != null && isUserAdmin(request.auth.uid)
+                             && request.resource.data.companyId == companyId;
+      allow delete: if false;
+    }
+
     match /companies/{companyId}/staff/{staffId}/bonuses/{bonusId} {
       allow get, list: if request.auth != null && isUserAdmin(request.auth.uid);
       allow create, update: if request.auth != null && isUserAdmin(request.auth.uid)

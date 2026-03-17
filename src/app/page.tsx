@@ -33,26 +33,37 @@ export default function LandingPage() {
   }, []);
 
   // IntersectionObserver for fade-up animations
-  const observerRef = useRef<IntersectionObserver | null>(null);
   useEffect(() => {
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('animate-in');
-            observerRef.current?.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.15 },
-    );
+    if (isLoading || user) return;
 
-    document.querySelectorAll('[data-animate]').forEach((el) => {
-      observerRef.current?.observe(el);
+    // Wait for paint so all [data-animate] elements are in the DOM
+    const rafId = requestAnimationFrame(() => {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('animate-in');
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
+      );
+
+      document.querySelectorAll('[data-animate]').forEach((el) => {
+        observer.observe(el);
+      });
+
+      // Store for cleanup
+      observerCleanup.current = () => observer.disconnect();
     });
 
-    return () => observerRef.current?.disconnect();
-  }, [isLoading]);
+    return () => {
+      cancelAnimationFrame(rafId);
+      observerCleanup.current?.();
+    };
+  }, [isLoading, user]);
+  const observerCleanup = useRef<(() => void) | null>(null);
 
   // Show loader while auth resolves
   if (isLoading) {

@@ -8,16 +8,17 @@ interface LogoProps {
 }
 
 export function Logo({ variant = 'dark', className }: LogoProps) {
-  const src = variant === 'white' ? '/logos/Logo N+.png' : '/logos/logo.png';
-
   return (
     <div className={cn('flex items-center gap-2', className)}>
       <Image
-        src={src}
+        src="/logos/logo.png"
         alt="Vidana"
         width={120}
         height={40}
-        className="object-contain"
+        className={cn(
+          'object-contain',
+          variant === 'white' && 'brightness-0 invert',
+        )}
         priority
       />
     </div>

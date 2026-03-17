@@ -6,7 +6,7 @@ const PUBLIC_PATH_PREFIXES = ['/login', '/signup', '/reset-password', '/survey']
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (PUBLIC_PATH_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(prefix + '/'))) {
+  if (pathname === '/' || PUBLIC_PATH_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(prefix + '/'))) {
     return NextResponse.next();
   }
 

@@ -1,14 +1,22 @@
 
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
-export function Logo() {
+interface LogoProps {
+  variant?: 'dark' | 'white';
+  className?: string;
+}
+
+export function Logo({ variant = 'dark', className }: LogoProps) {
+  const src = variant === 'white' ? '/logos/Logo N+.png' : '/logos/logo.png';
+
   return (
-    <div className="flex items-center gap-2">
-      <Image 
-        src="/logos/logo.png" 
-        alt="Company Logo" 
-        width={120} 
-        height={40} 
+    <div className={cn('flex items-center gap-2', className)}>
+      <Image
+        src={src}
+        alt="Vidana"
+        width={120}
+        height={40}
         className="object-contain"
         priority
       />

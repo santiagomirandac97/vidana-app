@@ -239,61 +239,29 @@ export default function LandingPage() {
       </nav>
 
       {/* ---------------------------------------------------------------- */}
-      {/* Hero — Animated Gradient Mesh                                     */}
+      {/* Hero — Food Photography                                           */}
       {/* ---------------------------------------------------------------- */}
-      <section className="relative flex min-h-screen items-center justify-center overflow-hidden" style={{ backgroundColor: 'hsl(235, 80%, 6%)' }}>
-        {/* Gradient mesh blobs */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div
-            className="blob-1 absolute rounded-full"
-            style={{
-              width: '600px',
-              height: '600px',
-              top: '10%',
-              left: '15%',
-              background: 'hsl(224, 76%, 48%)',
-              filter: 'blur(100px)',
-              opacity: 0.4,
-            }}
-          />
-          <div
-            className="blob-2 absolute rounded-full"
-            style={{
-              width: '500px',
-              height: '500px',
-              top: '40%',
-              right: '10%',
-              background: 'hsl(180, 70%, 45%)',
-              filter: 'blur(100px)',
-              opacity: 0.3,
-            }}
-          />
-          <div
-            className="blob-3 absolute rounded-full"
-            style={{
-              width: '550px',
-              height: '550px',
-              bottom: '5%',
-              left: '40%',
-              background: 'hsl(270, 60%, 50%)',
-              filter: 'blur(100px)',
-              opacity: 0.35,
-            }}
-          />
-        </div>
-
-        {/* Grain texture overlay */}
-        <div className="grain-overlay absolute inset-0 pointer-events-none" />
+      <section className="relative flex min-h-screen items-center justify-center overflow-hidden">
+        {/* Food photography background */}
+        <Image
+          src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1920&q=80"
+          alt="Platos de comida gourmet"
+          fill
+          className="object-cover"
+          priority
+        />
+        {/* Dark gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60" />
 
         {/* Content */}
         <div className="relative z-10 mx-auto max-w-4xl px-6 text-center text-white">
           <h1
             className="animate-fade-in text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl"
-            style={{ textShadow: '0 0 40px rgba(255,255,255,0.1)' }}
+            style={{ textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}
           >
             Alimentaci&oacute;n corporativa de punta a punta
           </h1>
-          <p className="animate-fade-in-delay mt-6 text-lg text-white/80 sm:text-xl md:text-2xl">
+          <p className="animate-fade-in-delay mt-6 text-lg text-white/80 sm:text-xl md:text-2xl" style={{ textShadow: '0 1px 10px rgba(0,0,0,0.4)' }}>
             Comedores, cafeter&iacute;as y micro markets dise&ntilde;ados para el bienestar de tu equipo
           </p>
           <div className="animate-fade-in-delay-2 mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -327,8 +295,7 @@ export default function LandingPage() {
       {/* ---------------------------------------------------------------- */}
       <section
         ref={statsRef}
-        className="py-20"
-        style={{ backgroundColor: 'hsl(235, 80%, 6%)' }}
+        className="border-t border-border bg-white py-20"
       >
         <div className="mx-auto max-w-5xl px-6">
           <div className="grid gap-10 sm:grid-cols-3">
@@ -336,10 +303,10 @@ export default function LandingPage() {
               const counter = [stat1, stat2, stat3][i];
               return (
                 <div key={stat.label} className="flex flex-col items-center text-center">
-                  <span className="font-mono text-4xl font-bold text-white sm:text-5xl">
+                  <span className="font-mono text-4xl font-bold text-primary sm:text-5xl">
                     {formatNumber(counter.value)}+
                   </span>
-                  <span className="mt-2 text-sm text-white/60">
+                  <span className="mt-2 text-sm text-muted-foreground">
                     {stat.label}
                   </span>
                 </div>
@@ -348,9 +315,6 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-
-      {/* Wave: dark → secondary */}
-      <WaveSeparator fromColor="hsl(235, 80%, 6%)" toColor="hsl(220, 14%, 96%)" />
 
       {/* ---------------------------------------------------------------- */}
       {/* Services                                                          */}

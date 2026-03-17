@@ -429,7 +429,6 @@ export default function LandingPage() {
                   </p>
                   <div className="mt-6">
                     <p className="font-semibold">{t.name}</p>
-                    <p className="text-xs text-muted-foreground">{t.company}</p>
                   </div>
                 </div>
               ))}
@@ -582,49 +581,41 @@ const pillars = [
 const testimonials = [
   {
     name: 'Aar\u00f3n',
-    company: 'Maritimex',
     quote:
       'El tener un beneficio como Vidana es una gran ventaja competitiva para las empresas. Al ser men\u00fas nutritivos cuidas su salud y bienestar. 100% recomendado.',
   },
   {
     name: 'Velia',
-    company: 'Foley & Lardner LLP',
     quote:
       'El servicio siempre es r\u00e1pido, son muy atentos y tienen la mejor disposici\u00f3n y actitud. Puedo seguir mi dieta sin ning\u00fan problema.',
   },
   {
     name: 'Camila',
-    company: 'Morgan Philips',
     quote:
       'No puedo recomendar m\u00e1s el servicio de Vidana. Los colaboradores de cualquier empresa ser\u00edan muy felices de tener este servicio.',
   },
   {
     name: 'Roberto',
-    company: 'Grupo Confianza',
     quote:
       'La variedad de los men\u00fas es excelente y el sabor siempre es consistente. Nuestros colaboradores esperan con ganas la hora de la comida.',
   },
   {
     name: 'Fernanda',
-    company: 'KPMG M\u00e9xico',
     quote:
       'Desde que implementamos Vidana, el ambiente en la oficina cambi\u00f3. La gente se re\u00fane a comer, convive m\u00e1s y se nota en la productividad.',
   },
   {
     name: 'Luis',
-    company: 'Grupo Aeroportuario',
     quote:
       'Operan nuestro comedor con un nivel de profesionalismo impresionante. La log\u00edstica de turnos y volumen la manejan sin problema.',
   },
   {
     name: 'Ana',
-    company: 'Deloitte',
     quote:
       'La cafeter\u00eda Vidana se convirti\u00f3 en el punto de encuentro favorito del equipo. El caf\u00e9 de especialidad y los snacks saludables son un gran plus.',
   },
   {
     name: 'Miguel',
-    company: 'Nestl\u00e9 M\u00e9xico',
     quote:
       'Lo que m\u00e1s valoramos es la transparencia en los reportes y la disposici\u00f3n para adaptar los men\u00fas a nuestras necesidades espec\u00edficas.',
   },

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -13,10 +13,116 @@ import { Loader2, ChevronDown, Leaf, Recycle, Monitor, BarChart3, Mail, Instagra
 // Landing page — public marketing site for Vidana
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Stats counter hook — counts from 0 to target over ~2s with easeOut
+// ---------------------------------------------------------------------------
+function useCountUp(target: number, duration = 2000) {
+  const [value, setValue] = useState(0);
+  const [started, setStarted] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const start = useCallback(() => setStarted(true), []);
+
+  useEffect(() => {
+    if (!started) return;
+
+    // Check for reduced motion preference
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) {
+      setValue(target);
+      return;
+    }
+
+    let startTime: number | null = null;
+    let rafId: number;
+
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = easeOut(progress);
+      setValue(Math.floor(easedProgress * target));
+
+      if (progress < 1) {
+        rafId = requestAnimationFrame(step);
+      } else {
+        setValue(target);
+      }
+    };
+
+    rafId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafId);
+  }, [started, target, duration]);
+
+  return { value, ref, start };
+}
+
+function formatNumber(n: number): string {
+  return n.toLocaleString('es-MX');
+}
+
+// ---------------------------------------------------------------------------
+// 3D Tilt handler for service cards
+// ---------------------------------------------------------------------------
+function useCardTilt() {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const card = ref.current;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const rotateY = ((x - centerX) / centerX) * 5;
+    const rotateX = ((centerY - y) / centerY) * 5;
+    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    const card = ref.current;
+    if (!card) return;
+    card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg)';
+  }, []);
+
+  return { ref, handleMouseMove, handleMouseLeave };
+}
+
+// ---------------------------------------------------------------------------
+// Wave SVG separator component
+// ---------------------------------------------------------------------------
+function WaveSeparator({ fromColor, toColor, flip }: { fromColor: string; toColor: string; flip?: boolean }) {
+  return (
+    <div className="relative w-full overflow-hidden leading-[0]" style={{ backgroundColor: fromColor }}>
+      <svg
+        viewBox="0 0 1440 80"
+        preserveAspectRatio="none"
+        className="block w-full"
+        style={{ height: '80px', transform: flip ? 'scaleY(-1)' : undefined }}
+      >
+        <path
+          d="M0,40 C360,80 720,0 1080,40 C1260,60 1380,20 1440,40 L1440,80 L0,80 Z"
+          fill={toColor}
+        />
+      </svg>
+    </div>
+  );
+}
+
 export default function LandingPage() {
   const { user, isLoading } = useUser();
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
+
+  // Stats counter hooks
+  const stat1 = useCountUp(2000000);
+  const stat2 = useCountUp(10000);
+  const stat3 = useCountUp(20);
+  const statsRef = useRef<HTMLDivElement>(null);
+  const statsTriggered = useRef(false);
 
   // Redirect authenticated users
   useEffect(() => {
@@ -32,11 +138,10 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // IntersectionObserver for fade-up animations
+  // IntersectionObserver for fade-up animations + stats counter trigger
   useEffect(() => {
     if (isLoading || user) return;
 
-    // Wait for paint so all [data-animate] elements are in the DOM
     const rafId = requestAnimationFrame(() => {
       const observer = new IntersectionObserver(
         (entries) => {
@@ -50,18 +155,41 @@ export default function LandingPage() {
         { threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
       );
 
-      document.querySelectorAll('[data-animate]').forEach((el) => {
+      document.querySelectorAll('[data-animate], [data-animate-left], [data-animate-right]').forEach((el) => {
         observer.observe(el);
       });
 
-      // Store for cleanup
-      observerCleanup.current = () => observer.disconnect();
+      // Stats counter observer
+      const statsObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting && !statsTriggered.current) {
+              statsTriggered.current = true;
+              stat1.start();
+              stat2.start();
+              stat3.start();
+              statsObserver.disconnect();
+            }
+          });
+        },
+        { threshold: 0.3 },
+      );
+
+      if (statsRef.current) {
+        statsObserver.observe(statsRef.current);
+      }
+
+      observerCleanup.current = () => {
+        observer.disconnect();
+        statsObserver.disconnect();
+      };
     });
 
     return () => {
       cancelAnimationFrame(rafId);
       observerCleanup.current?.();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, user]);
   const observerCleanup = useRef<(() => void) | null>(null);
 
@@ -78,6 +206,9 @@ export default function LandingPage() {
   // If user is authenticated the redirect effect handles it — render nothing
   if (user) return null;
 
+  // Duplicate testimonials for seamless carousel loop
+  const carouselTestimonials = [...testimonials, ...testimonials];
+
   return (
     <div className="min-h-screen overflow-x-hidden">
       {/* ---------------------------------------------------------------- */}
@@ -86,7 +217,7 @@ export default function LandingPage() {
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           scrolled
-            ? 'bg-white/95 backdrop-blur-md shadow-sm'
+            ? 'bg-white/80 backdrop-blur-lg border-b border-black/5 shadow-sm'
             : 'bg-transparent'
         }`}
       >
@@ -108,23 +239,58 @@ export default function LandingPage() {
       </nav>
 
       {/* ---------------------------------------------------------------- */}
-      {/* Hero                                                              */}
+      {/* Hero — Animated Gradient Mesh                                     */}
       {/* ---------------------------------------------------------------- */}
-      <section className="relative flex min-h-screen items-center justify-center overflow-hidden">
-        {/* Background image */}
-        <Image
-          src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1920&q=80"
-          alt="Corporate food service"
-          fill
-          className="object-cover"
-          priority
-        />
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
+      <section className="relative flex min-h-screen items-center justify-center overflow-hidden" style={{ backgroundColor: 'hsl(235, 80%, 6%)' }}>
+        {/* Gradient mesh blobs */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div
+            className="blob-1 absolute rounded-full"
+            style={{
+              width: '600px',
+              height: '600px',
+              top: '10%',
+              left: '15%',
+              background: 'hsl(224, 76%, 48%)',
+              filter: 'blur(100px)',
+              opacity: 0.4,
+            }}
+          />
+          <div
+            className="blob-2 absolute rounded-full"
+            style={{
+              width: '500px',
+              height: '500px',
+              top: '40%',
+              right: '10%',
+              background: 'hsl(180, 70%, 45%)',
+              filter: 'blur(100px)',
+              opacity: 0.3,
+            }}
+          />
+          <div
+            className="blob-3 absolute rounded-full"
+            style={{
+              width: '550px',
+              height: '550px',
+              bottom: '5%',
+              left: '40%',
+              background: 'hsl(270, 60%, 50%)',
+              filter: 'blur(100px)',
+              opacity: 0.35,
+            }}
+          />
+        </div>
+
+        {/* Grain texture overlay */}
+        <div className="grain-overlay absolute inset-0 pointer-events-none" />
 
         {/* Content */}
         <div className="relative z-10 mx-auto max-w-4xl px-6 text-center text-white">
-          <h1 className="animate-fade-in text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl">
+          <h1
+            className="animate-fade-in text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl"
+            style={{ textShadow: '0 0 40px rgba(255,255,255,0.1)' }}
+          >
             Alimentaci&oacute;n corporativa de punta a punta
           </h1>
           <p className="animate-fade-in-delay mt-6 text-lg text-white/80 sm:text-xl md:text-2xl">
@@ -134,12 +300,13 @@ export default function LandingPage() {
             <Link
               href="/login"
               className="rounded-full bg-white px-8 py-3 text-sm font-semibold text-primary shadow-lg transition hover:bg-white/90"
+              style={{ boxShadow: '0 0 30px rgba(255,255,255,0.15)' }}
             >
               Iniciar Sesi&oacute;n
             </Link>
             <a
               href="#servicios"
-              className="rounded-full border border-white px-8 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+              className="rounded-full px-8 py-3 text-sm font-semibold text-white transition backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20"
             >
               Conoce m&aacute;s
             </a>
@@ -156,6 +323,36 @@ export default function LandingPage() {
       </section>
 
       {/* ---------------------------------------------------------------- */}
+      {/* Stats Counter Section                                            */}
+      {/* ---------------------------------------------------------------- */}
+      <section
+        ref={statsRef}
+        className="py-20"
+        style={{ backgroundColor: 'hsl(235, 80%, 6%)' }}
+      >
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="grid gap-10 sm:grid-cols-3">
+            {statsData.map((stat, i) => {
+              const counter = [stat1, stat2, stat3][i];
+              return (
+                <div key={stat.label} className="flex flex-col items-center text-center">
+                  <span className="font-mono text-4xl font-bold text-white sm:text-5xl">
+                    {formatNumber(counter.value)}+
+                  </span>
+                  <span className="mt-2 text-sm text-white/60">
+                    {stat.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Wave: dark → secondary */}
+      <WaveSeparator fromColor="hsl(235, 80%, 6%)" toColor="hsl(220, 14%, 96%)" />
+
+      {/* ---------------------------------------------------------------- */}
       {/* Services                                                          */}
       {/* ---------------------------------------------------------------- */}
       <section id="servicios" className="bg-secondary py-24">
@@ -164,29 +361,15 @@ export default function LandingPage() {
             Nuestras Soluciones
           </h2>
           <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {services.map((s) => (
-              <div
-                key={s.title}
-                data-animate
-                className="group overflow-hidden rounded-xl bg-white shadow-card transition-shadow hover:shadow-card-hover"
-              >
-                <div className="relative h-56 overflow-hidden">
-                  <Image
-                    src={s.image}
-                    alt={s.title}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                </div>
-                <div className="p-6">
-                  <h3 className="text-lg font-semibold">{s.title}</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">{s.description}</p>
-                </div>
-              </div>
+            {services.map((s, i) => (
+              <ServiceCard key={s.title} service={s} index={i} />
             ))}
           </div>
         </div>
       </section>
+
+      {/* Wave: secondary → white */}
+      <WaveSeparator fromColor="hsl(220, 14%, 96%)" toColor="#ffffff" />
 
       {/* ---------------------------------------------------------------- */}
       {/* Pillars                                                           */}
@@ -197,14 +380,19 @@ export default function LandingPage() {
             &iquest;Por qu&eacute; Vidana?
           </h2>
           <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {pillars.map((p) => (
+            {pillars.map((p, i) => (
               <div
                 key={p.title}
-                data-animate
+                {...(i % 2 === 0 ? { 'data-animate-left': '' } : { 'data-animate-right': '' })}
                 className="flex flex-col items-center text-center"
+                style={{ transitionDelay: `${i * 100}ms` }}
               >
-                <div className="group flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 transition-colors hover:bg-primary">
-                  <p.icon className="h-7 w-7 text-primary transition-colors group-hover:text-white" />
+                <div className="pillar-icon-wrap relative">
+                  {/* Ring pulse element */}
+                  <div className="ring-pulse absolute inset-0 rounded-full border-2 border-primary/40 opacity-0" />
+                  <div className="animate-float group flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 transition-colors hover:bg-primary">
+                    <p.icon className="h-7 w-7 text-primary transition-colors group-hover:text-white" />
+                  </div>
                 </div>
                 <h3 className="mt-5 text-lg font-semibold">{p.title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{p.description}</p>
@@ -214,30 +402,38 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Wave: white → primary/5 */}
+      <WaveSeparator fromColor="#ffffff" toColor="hsl(224, 76%, 48%, 0.05)" />
+
       {/* ---------------------------------------------------------------- */}
-      {/* Testimonials                                                      */}
+      {/* Testimonials — Auto-Scroll Carousel                              */}
       {/* ---------------------------------------------------------------- */}
-      <section className="bg-primary/5 py-24">
+      <section className="py-24" style={{ backgroundColor: 'hsl(224, 76%, 48%, 0.05)' }}>
         <div className="mx-auto max-w-7xl px-6">
           <h2 data-animate className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
             Lo que dicen nuestros clientes
           </h2>
-          <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {testimonials.map((t) => (
-              <div
-                key={t.name}
-                data-animate
-                className="rounded-xl bg-white p-8 shadow-card transition-shadow hover:shadow-card-hover"
-              >
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div className="mt-6">
-                  <p className="font-semibold">{t.name}</p>
-                  <p className="text-xs text-muted-foreground">{t.company}</p>
+          <div className="carousel-container mt-14 overflow-hidden">
+            <div className="carousel-track flex gap-6" style={{ width: 'max-content' }}>
+              {carouselTestimonials.map((t, i) => (
+                <div
+                  key={`${t.name}-${i}`}
+                  className="relative min-w-[350px] max-w-[350px] flex-shrink-0 rounded-xl bg-white p-8 shadow-card transition-shadow hover:shadow-card-hover"
+                >
+                  {/* Decorative quote mark */}
+                  <span className="absolute top-4 left-4 text-6xl leading-none font-serif select-none" style={{ color: 'hsl(224, 76%, 48%, 0.1)' }}>
+                    &ldquo;
+                  </span>
+                  <p className="relative z-10 text-sm leading-relaxed text-muted-foreground pt-6">
+                    &ldquo;{t.quote}&rdquo;
+                  </p>
+                  <div className="mt-6">
+                    <p className="font-semibold">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">{t.company}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -287,8 +483,50 @@ export default function LandingPage() {
 }
 
 // ---------------------------------------------------------------------------
+// Service Card with 3D tilt
+// ---------------------------------------------------------------------------
+function ServiceCard({ service, index }: { service: typeof services[number]; index: number }) {
+  const tilt = useCardTilt();
+
+  return (
+    <div style={{ perspective: '1000px' }}>
+      <div
+        ref={tilt.ref}
+        data-animate
+        onMouseMove={tilt.handleMouseMove}
+        onMouseLeave={tilt.handleMouseLeave}
+        className="group overflow-hidden rounded-xl bg-white shadow-card transition-all duration-200 hover:shadow-card-hover border border-white/50"
+        style={{
+          transformStyle: 'preserve-3d',
+          transitionDelay: `${index * 150}ms`,
+        }}
+      >
+        <div className="relative h-56 overflow-hidden">
+          <Image
+            src={service.image}
+            alt={service.title}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        </div>
+        <div className="p-6">
+          <h3 className="text-lg font-semibold">{service.title}</h3>
+          <p className="mt-2 text-sm text-muted-foreground">{service.description}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Data
 // ---------------------------------------------------------------------------
+
+const statsData = [
+  { target: 2000000, label: 'Comidas servidas' },
+  { target: 10000, label: 'Personas que han probado nuestra comida' },
+  { target: 20, label: 'Empresas colaboradoras' },
+];
 
 const services = [
   {

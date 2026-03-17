@@ -121,3 +121,137 @@ body {
   opacity: 1;
   transform: translateY(0);
 }
+
+/* Directional slide-in animations for pillars */
+[data-animate-left] {
+  opacity: 0;
+  transform: translateX(-40px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+[data-animate-right] {
+  opacity: 0;
+  transform: translateX(40px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+[data-animate-left].animate-in,
+[data-animate-right].animate-in {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ---------------------------------------------------------------- */
+/* Animated gradient mesh blobs                                      */
+/* ---------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes blob-1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25%      { transform: translate(80px, -60px) scale(1.1); }
+    50%      { transform: translate(-40px, 40px) scale(0.95); }
+    75%      { transform: translate(60px, 80px) scale(1.05); }
+  }
+
+  @keyframes blob-2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25%      { transform: translate(-70px, 50px) scale(1.08); }
+    50%      { transform: translate(60px, -30px) scale(0.92); }
+    75%      { transform: translate(-50px, -70px) scale(1.12); }
+  }
+
+  @keyframes blob-3 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25%      { transform: translate(50px, 70px) scale(0.95); }
+    50%      { transform: translate(-80px, -50px) scale(1.1); }
+    75%      { transform: translate(30px, -60px) scale(1.02); }
+  }
+
+  .blob-1 { animation: blob-1 18s ease-in-out infinite; }
+  .blob-2 { animation: blob-2 20s ease-in-out infinite; }
+  .blob-3 { animation: blob-3 16s ease-in-out infinite; }
+
+  /* Pillar icon float */
+  @keyframes float {
+    0%   { transform: translateY(-4px); }
+    100% { transform: translateY(4px); }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite alternate;
+  }
+
+  /* Ring pulse on pillar hover */
+  @keyframes ring-pulse {
+    0%   { transform: scale(1); opacity: 0.5; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+
+  .pillar-icon-wrap:hover .ring-pulse {
+    animation: ring-pulse 0.8s ease-out forwards;
+  }
+
+  /* Testimonial carousel scroll */
+  @keyframes scroll-x {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  .carousel-track {
+    animation: scroll-x 30s linear infinite;
+  }
+
+  .carousel-container:hover .carousel-track {
+    animation-play-state: paused;
+  }
+
+  /* Hero fade-in animations */
+  .animate-fade-in {
+    animation: fadeIn 0.8s ease-out forwards;
+  }
+
+  .animate-fade-in-delay {
+    animation: fadeIn 0.8s ease-out 0.2s forwards;
+    opacity: 0;
+  }
+
+  .animate-fade-in-delay-2 {
+    animation: fadeIn 0.8s ease-out 0.4s forwards;
+    opacity: 0;
+  }
+}
+
+/* Reduced motion: disable all custom animations */
+@media (prefers-reduced-motion: reduce) {
+  .blob-1, .blob-2, .blob-3 {
+    animation: none !important;
+  }
+
+  .animate-float {
+    animation: none !important;
+  }
+
+  .carousel-track {
+    animation: none !important;
+  }
+
+  .animate-fade-in,
+  .animate-fade-in-delay,
+  .animate-fade-in-delay-2 {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  [data-animate],
+  [data-animate-left],
+  [data-animate-right] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* Grain texture overlay */
+.grain-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+}

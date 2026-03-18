@@ -388,18 +388,19 @@ export default function LandingPage() {
       {/* ---------------------------------------------------------------- */}
       <section
         ref={statsRef}
-        className="border-t border-border bg-white py-20"
+        className="bg-muted/30 py-20"
       >
         <div className="mx-auto max-w-5xl px-6">
-          <div className="grid gap-10 sm:grid-cols-3">
+          <div className="grid gap-10 sm:grid-cols-3 sm:divide-x sm:divide-border">
             {statsData.map((stat, i) => {
               const counter = [stat1, stat2, stat3][i];
               return (
                 <div key={stat.label} className="flex flex-col items-center text-center">
-                  <span className="font-mono text-4xl font-bold text-primary sm:text-5xl">
+                  <div className="mx-auto mb-4 h-[3px] w-8 rounded-full bg-primary" />
+                  <span className="font-mono text-5xl font-bold text-primary sm:text-6xl">
                     {formatNumber(counter.value)}+
                   </span>
-                  <span className="mt-2 text-sm text-muted-foreground">
+                  <span className="mt-3 text-sm font-medium text-muted-foreground">
                     {stat.label}
                   </span>
                 </div>
@@ -425,7 +426,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Wave: secondary → white */}
+      {/* Wave: secondary → white (pillars) */}
       <WaveSeparator fromColor="hsl(220, 14%, 96%)" toColor="#ffffff" />
 
       {/* ---------------------------------------------------------------- */}
@@ -436,38 +437,41 @@ export default function LandingPage() {
           <h2 data-animate className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
             &iquest;Por qu&eacute; Vidana?
           </h2>
-          <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-14 grid gap-6 sm:grid-cols-2">
             {pillars.map((p, i) => (
               <div
                 key={p.title}
-                {...(i % 2 === 0 ? { 'data-animate-left': '' } : { 'data-animate-right': '' })}
-                className="flex flex-col items-center text-center"
+                data-animate
+                className="group flex items-start gap-4 rounded-xl border-l-4 border-primary bg-white p-6 shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-1"
                 style={{ transitionDelay: `${i * 100}ms` }}
               >
-                <div className="pillar-icon-wrap relative">
-                  {/* Ring pulse element */}
-                  <div className="ring-pulse absolute inset-0 rounded-full border-2 border-primary/40 opacity-0" />
-                  <div className="animate-float group flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 transition-colors hover:bg-primary">
-                    <p.icon className="h-7 w-7 text-primary transition-colors group-hover:text-white" />
-                  </div>
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary">
+                  <p.icon className="h-6 w-6 text-primary transition-colors group-hover:text-white" />
                 </div>
-                <h3 className="mt-5 text-lg font-semibold">{p.title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{p.description}</p>
+                <div>
+                  <h3 className="text-lg font-semibold">{p.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{p.description}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Wave: white → primary/5 */}
-      <WaveSeparator fromColor="#ffffff" toColor="hsl(224, 76%, 48%, 0.05)" />
+      {/* Wave: white → dark blue (testimonials) */}
+      <WaveSeparator fromColor="#ffffff" toColor="hsl(224, 76%, 42%)" />
 
       {/* ---------------------------------------------------------------- */}
       {/* Testimonials — Auto-Scroll Carousel                              */}
       {/* ---------------------------------------------------------------- */}
-      <section className="py-24" style={{ backgroundColor: 'hsl(224, 76%, 48%, 0.05)' }}>
+      <section
+        className="py-24"
+        style={{
+          background: 'linear-gradient(135deg, hsl(224, 76%, 42%) 0%, hsl(230, 72%, 28%) 50%, hsl(235, 80%, 16%) 100%)',
+        }}
+      >
         <div className="mx-auto max-w-7xl px-6">
-          <h2 data-animate className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 data-animate className="text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">
             Lo que dicen nuestros clientes
           </h2>
           <div className="carousel-container mt-14 overflow-hidden">
@@ -475,21 +479,51 @@ export default function LandingPage() {
               {carouselTestimonials.map((t, i) => (
                 <div
                   key={`${t.name}-${i}`}
-                  className="relative min-w-[350px] max-w-[350px] flex-shrink-0 rounded-xl bg-white p-8 shadow-card transition-shadow hover:shadow-card-hover"
+                  className="relative min-w-[400px] max-w-[400px] flex-shrink-0 rounded-xl border border-white/10 bg-white/10 p-8 backdrop-blur-md transition-all hover:bg-white/15"
                 >
+                  {/* Star rating */}
+                  <div className="mb-4 flex gap-1">
+                    {[...Array(5)].map((_, si) => (
+                      <svg key={si} className="h-4 w-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
+                  </div>
                   {/* Decorative quote mark */}
-                  <span className="absolute top-4 left-4 text-6xl leading-none font-serif select-none" style={{ color: 'hsl(224, 76%, 48%, 0.1)' }}>
-                    &ldquo;
+                  <span className="absolute top-4 right-6 text-6xl leading-none font-serif select-none text-white/10">
+                    &rdquo;
                   </span>
-                  <p className="relative z-10 text-sm leading-relaxed text-muted-foreground pt-6">
+                  <p className="relative z-10 text-sm leading-relaxed text-white/80">
                     &ldquo;{t.quote}&rdquo;
                   </p>
                   <div className="mt-6">
-                    <p className="font-semibold">{t.name}</p>
+                    <p className="font-semibold text-white">{t.name}</p>
                   </div>
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* CTA Banner                                                        */}
+      {/* ---------------------------------------------------------------- */}
+      <section
+        className="py-20"
+        style={{
+          background: 'linear-gradient(135deg, hsl(224, 76%, 38%) 0%, hsl(230, 72%, 24%) 100%)',
+        }}
+      >
+        <div className="mx-auto max-w-3xl px-6 text-center">
+          <h2 data-animate className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            Transforma tu comedor corporativo
+          </h2>
+          <p data-animate className="mt-4 text-lg text-white/70">
+            Hablemos sobre c&oacute;mo Vidana puede mejorar la experiencia de alimentaci&oacute;n en tu empresa.
+          </p>
+          <div data-animate className="mt-8">
+            <ContactDialog />
           </div>
         </div>
       </section>

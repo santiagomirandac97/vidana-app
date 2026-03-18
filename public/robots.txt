@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /main
+Disallow: /selection
+Disallow: /costos
+Disallow: /facturacion
+Disallow: /configuracion
+Disallow: /empleados
+Disallow: /inventario
+Disallow: /recetas
+Disallow: /perfil
+Disallow: /satisfaccion
+
+Sitemap: https://vidana.com.mx/sitemap.xml

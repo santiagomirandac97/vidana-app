@@ -388,7 +388,7 @@ export default function LandingPage() {
       {/* ---------------------------------------------------------------- */}
       <section
         ref={statsRef}
-        className="bg-muted/30 py-20"
+        className="bg-[hsl(220,14%,97%)] py-20"
       >
         <div className="mx-auto max-w-5xl px-6">
           <div className="grid gap-10 sm:grid-cols-3 sm:divide-x sm:divide-border">
@@ -594,7 +594,7 @@ function ServiceCard({ service, index }: { service: typeof services[number]; ind
         <div className="relative h-56 overflow-hidden">
           <Image
             src={service.image}
-            alt={service.title}
+            alt={service.alt}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
@@ -625,12 +625,14 @@ const services = [
       'Men\u00fas dise\u00f1ados seg\u00fan la cultura y necesidades de cada empresa con alianzas con banqueteras l\u00edderes.',
     image:
       'https://images.unsplash.com/photo-1567521464027-f127ff144326?w=800&q=80',
+    alt: 'Comedor corporativo moderno con iluminaci\u00f3n c\u00e1lida y mesas elegantes',
   },
   {
     title: 'Comedores Industriales',
     description:
       'Operaci\u00f3n de alto volumen con foco en energ\u00eda y rendimiento. Servicio eficiente para turnos, flujo y continuidad.',
     image: '/logos/comedores-industriales.jpg',
+    alt: 'Almac\u00e9n industrial de alimentos con log\u00edstica Vidana',
   },
   {
     title: 'Cafeter\u00edas Vidana',
@@ -638,12 +640,14 @@ const services = [
       'Espacios modernos con opciones variadas: desde comida caliente hasta snacks saludables y bebidas de especialidad.',
     image:
       'https://images.unsplash.com/photo-1559305616-3f99cd43e353?w=800&q=80',
+    alt: 'Cafeter\u00eda empresarial con barra de caf\u00e9 y snacks saludables',
   },
   {
     title: 'Vidana Market',
     description:
       'Micro markets inteligentes disponibles 24/7 para que tu equipo tenga acceso a alimentos de calidad en cualquier momento.',
     image: '/logos/vidana-market.jpg',
+    alt: 'Micro market Vidana con refrigeradores y estantes de productos saludables',
   },
 ];
 

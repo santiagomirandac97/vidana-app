@@ -324,7 +324,7 @@ export default function LandingPage() {
           <h2 data-animate className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
             Nuestras Soluciones
           </h2>
-          <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-14 grid gap-8 sm:grid-cols-2">
             {services.map((s, i) => (
               <ServiceCard key={s.title} service={s} index={i} />
             ))}
@@ -495,9 +495,16 @@ const services = [
   {
     title: 'Comedores Corporativos',
     description:
-      'Operamos comedores dentro de tu empresa con men\u00fas balanceados, ingredientes frescos y servicio profesional.',
+      'Men\u00fas dise\u00f1ados seg\u00fan la cultura y necesidades de cada empresa con alianzas con banqueteras l\u00edderes.',
     image:
       'https://images.unsplash.com/photo-1567521464027-f127ff144326?w=800&q=80',
+  },
+  {
+    title: 'Comedores Industriales',
+    description:
+      'Operaci\u00f3n de alto volumen con foco en energ\u00eda y rendimiento. Servicio eficiente para turnos, flujo y continuidad.',
+    image:
+      'https://images.unsplash.com/photo-1590846406792-0adc7f938f1d?w=800&q=80',
   },
   {
     title: 'Cafeter\u00edas Vidana',

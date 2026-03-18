@@ -259,10 +259,10 @@ export default function LandingPage() {
             className="animate-fade-in text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl"
             style={{ textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}
           >
-            Alimentaci&oacute;n corporativa de punta a punta
+            Una experiencia de comedor corporativo m&aacute;s inteligente.
           </h1>
           <p className="animate-fade-in-delay mt-6 text-lg text-white/80 sm:text-xl md:text-2xl" style={{ textShadow: '0 1px 10px rgba(0,0,0,0.4)' }}>
-            Comedores, cafeter&iacute;as y micro markets dise&ntilde;ados para el bienestar de tu equipo
+            Impulsada por tecnolog&iacute;a, dise&ntilde;ada para tu gente.
           </p>
           <div className="animate-fade-in-delay-2 mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link

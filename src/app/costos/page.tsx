@@ -299,7 +299,7 @@ export default function CostosPage() {
     );
   }
 
-  if (!user || userProfile?.role !== 'admin') {
+  if (!user || (!profileLoading && userProfile?.role !== 'admin')) {
     return (
       <AppShell>
         <div className="flex h-full w-full items-center justify-center">

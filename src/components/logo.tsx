@@ -15,7 +15,7 @@ export function Logo({ variant = 'dark', className }: LogoProps) {
         alt="Vidana"
         width={140}
         height={48}
-        className="object-contain h-[40px] w-auto"
+        className="object-contain h-[45px] w-auto"
         priority
       />
     </div>

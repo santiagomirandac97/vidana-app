@@ -516,8 +516,7 @@ const services = [
     title: 'Vidana Market',
     description:
       'Micro markets inteligentes disponibles 24/7 para que tu equipo tenga acceso a alimentos de calidad en cualquier momento.',
-    image:
-      'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=800&q=80',
+    image: '/logos/vidana-market.jpg',
   },
 ];
 

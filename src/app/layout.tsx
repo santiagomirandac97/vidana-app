@@ -13,12 +13,12 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Vidana | Alimentación corporativa de punta a punta',
-  description: 'Comedores, cafeterías y micro markets diseñados para el bienestar de tu equipo. Más de 2 millones de comidas servidas.',
+  title: 'Vidana | Una experiencia de comedor corporativo más inteligente',
+  description: 'Impulsada por tecnología, diseñada para tu gente. Comedores, cafeterías y micro markets corporativos. Más de 2 millones de comidas servidas.',
   metadataBase: new URL('https://vidana.com.mx'),
   openGraph: {
-    title: 'Vidana | Alimentación corporativa de punta a punta',
-    description: 'Comedores, cafeterías y micro markets diseñados para el bienestar de tu equipo.',
+    title: 'Vidana | Una experiencia de comedor corporativo más inteligente',
+    description: 'Impulsada por tecnología, diseñada para tu gente. Comedores, cafeterías y micro markets corporativos.',
     url: 'https://vidana.com.mx',
     siteName: 'Vidana',
     images: [
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
         url: '/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'Vidana - Alimentación corporativa',
+        alt: 'Vidana - Comedor corporativo inteligente',
       },
     ],
     locale: 'es_MX',
@@ -34,8 +34,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Vidana | Alimentación corporativa de punta a punta',
-    description: 'Comedores, cafeterías y micro markets diseñados para el bienestar de tu equipo.',
+    title: 'Vidana | Una experiencia de comedor corporativo más inteligente',
+    description: 'Impulsada por tecnología, diseñada para tu gente. Comedores, cafeterías y micro markets corporativos.',
     images: ['/og-image.jpg'],
   },
 };

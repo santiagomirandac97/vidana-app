@@ -11,14 +11,11 @@ export function Logo({ variant = 'dark', className }: LogoProps) {
   return (
     <div className={cn('flex items-center gap-2', className)}>
       <Image
-        src="/logos/logo.png"
+        src={variant === 'white' ? '/logos/vidana-white-division.png' : '/logos/logo.png'}
         alt="Vidana"
         width={140}
         height={48}
-        className={cn(
-          'object-contain',
-          variant === 'white' && 'brightness-0 invert',
-        )}
+        className="object-contain"
         priority
       />
     </div>

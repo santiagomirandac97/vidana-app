@@ -503,8 +503,7 @@ const services = [
     title: 'Comedores Industriales',
     description:
       'Operaci\u00f3n de alto volumen con foco en energ\u00eda y rendimiento. Servicio eficiente para turnos, flujo y continuidad.',
-    image:
-      'https://images.unsplash.com/photo-1590846406792-0adc7f938f1d?w=800&q=80',
+    image: '/logos/comedores-industriales.jpg',
   },
   {
     title: 'Cafeter\u00edas Vidana',

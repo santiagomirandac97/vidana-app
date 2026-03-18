@@ -388,7 +388,7 @@ export default function LandingPage() {
       {/* ---------------------------------------------------------------- */}
       <section
         ref={statsRef}
-        className="bg-[hsl(220,14%,97%)] py-20"
+        className="bg-white py-20"
       >
         <div className="mx-auto max-w-5xl px-6">
           <div className="grid gap-10 sm:grid-cols-3 sm:divide-x sm:divide-border">
@@ -458,86 +458,74 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Wave: white → dark blue (testimonials) */}
-      <WaveSeparator fromColor="#ffffff" toColor="hsl(224, 76%, 42%)" />
+      {/* Wave: white → Vidana gradient (testimonials + CTA + footer) */}
+      <WaveSeparator fromColor="#ffffff" toColor="hsl(224, 76%, 48%)" />
 
       {/* ---------------------------------------------------------------- */}
-      {/* Testimonials — Auto-Scroll Carousel                              */}
+      {/* Testimonials + CTA + Footer — one continuous Vidana gradient      */}
       {/* ---------------------------------------------------------------- */}
-      <section
-        className="py-24"
+      <div
+        className="text-white"
         style={{
-          background: 'linear-gradient(135deg, hsl(224, 76%, 42%) 0%, hsl(230, 72%, 28%) 50%, hsl(235, 80%, 16%) 100%)',
+          background: 'linear-gradient(180deg, hsl(224, 76%, 48%) 0%, hsl(230, 72%, 32%) 40%, hsl(235, 80%, 18%) 100%)',
         }}
       >
-        <div className="mx-auto max-w-7xl px-6">
-          <h2 data-animate className="text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Lo que dicen nuestros clientes
-          </h2>
-          <div className="carousel-container mt-14 overflow-hidden">
-            <div className="carousel-track flex gap-6" style={{ width: 'max-content' }}>
-              {carouselTestimonials.map((t, i) => (
-                <div
-                  key={`${t.name}-${i}`}
-                  className="relative min-w-[400px] max-w-[400px] flex-shrink-0 rounded-xl border border-white/10 bg-white/10 p-8 backdrop-blur-md transition-all hover:bg-white/15"
-                >
-                  {/* Star rating */}
-                  <div className="mb-4 flex gap-1">
-                    {[...Array(5)].map((_, si) => (
-                      <svg key={si} className="h-4 w-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                    ))}
+        {/* Testimonials */}
+        <section className="py-24">
+          <div className="mx-auto max-w-7xl px-6">
+            <h2 data-animate className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
+              Lo que dicen nuestros clientes
+            </h2>
+            <div className="carousel-container mt-14 overflow-hidden">
+              <div className="carousel-track flex gap-6" style={{ width: 'max-content' }}>
+                {carouselTestimonials.map((t, i) => (
+                  <div
+                    key={`${t.name}-${i}`}
+                    className="relative min-w-[400px] max-w-[400px] flex-shrink-0 rounded-xl border border-white/10 bg-white/10 p-8 backdrop-blur-md transition-all hover:bg-white/15"
+                  >
+                    {/* Star rating */}
+                    <div className="mb-4 flex gap-1">
+                      {[...Array(5)].map((_, si) => (
+                        <svg key={si} className="h-4 w-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      ))}
+                    </div>
+                    {/* Decorative quote mark */}
+                    <span className="absolute top-4 right-6 text-6xl leading-none font-serif select-none text-white/10">
+                      &rdquo;
+                    </span>
+                    <p className="relative z-10 text-sm leading-relaxed text-white/80">
+                      &ldquo;{t.quote}&rdquo;
+                    </p>
+                    <div className="mt-6">
+                      <p className="font-semibold">{t.name}</p>
+                    </div>
                   </div>
-                  {/* Decorative quote mark */}
-                  <span className="absolute top-4 right-6 text-6xl leading-none font-serif select-none text-white/10">
-                    &rdquo;
-                  </span>
-                  <p className="relative z-10 text-sm leading-relaxed text-white/80">
-                    &ldquo;{t.quote}&rdquo;
-                  </p>
-                  <div className="mt-6">
-                    <p className="font-semibold text-white">{t.name}</p>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ---------------------------------------------------------------- */}
-      {/* CTA Banner                                                        */}
-      {/* ---------------------------------------------------------------- */}
-      <section
-        className="py-20"
-        style={{
-          background: 'linear-gradient(135deg, hsl(224, 76%, 38%) 0%, hsl(230, 72%, 24%) 100%)',
-        }}
-      >
-        <div className="mx-auto max-w-3xl px-6 text-center">
-          <h2 data-animate className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Transforma tu comedor corporativo
-          </h2>
-          <p data-animate className="mt-4 text-lg text-white/70">
-            Hablemos sobre c&oacute;mo Vidana puede mejorar la experiencia de alimentaci&oacute;n en tu empresa.
-          </p>
-          <div data-animate className="mt-8">
-            <ContactDialog />
+        {/* CTA Banner */}
+        <section className="py-20">
+          <div className="mx-auto max-w-3xl px-6 text-center">
+            <div className="mx-auto mb-6 h-[2px] w-16 rounded-full bg-white/20" />
+            <h2 data-animate className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Transforma tu comedor corporativo
+            </h2>
+            <p data-animate className="mt-4 text-lg text-white/70">
+              Hablemos sobre c&oacute;mo Vidana puede mejorar la experiencia de alimentaci&oacute;n en tu empresa.
+            </p>
+            <div data-animate className="mt-8">
+              <ContactDialog />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Footer                                                            */}
-      {/* ---------------------------------------------------------------- */}
-      <footer
-        className="py-16 text-white"
-        style={{
-          background:
-            'linear-gradient(135deg, hsl(224, 76%, 48%) 0%, hsl(230, 72%, 32%) 50%, hsl(235, 80%, 18%) 100%)',
-        }}
-      >
+        {/* Footer */}
+        <footer className="border-t border-white/10 py-16">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-8 px-6 text-center">
           <Logo variant="white" />
 
@@ -568,6 +556,7 @@ export default function LandingPage() {
           </p>
         </div>
       </footer>
+      </div>
     </div>
   );
 }

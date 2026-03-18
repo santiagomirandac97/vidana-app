@@ -5,9 +5,15 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useUser } from '@/firebase';
+import { useUser, useFirebase } from '@/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Logo } from '@/components/logo';
-import { Loader2, ChevronDown, Leaf, Recycle, Monitor, BarChart3, Mail, Instagram } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2, ChevronDown, Leaf, Recycle, Monitor, BarChart3, Mail, Instagram, Send } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Landing page — public marketing site for Vidana
@@ -109,6 +115,99 @@ function WaveSeparator({ fromColor, toColor, flip }: { fromColor: string; toColo
         />
       </svg>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Contact form dialog
+// ---------------------------------------------------------------------------
+function ContactDialog() {
+  const { app } = useFirebase();
+  const { toast } = useToast();
+  const [isOpen, setIsOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', phone: '', company: '', message: '' });
+
+  const handleSubmit = async () => {
+    if (!form.name || !form.email || !form.message) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Nombre, email y mensaje son requeridos.' });
+      return;
+    }
+    if (!app) return;
+
+    setIsSending(true);
+    try {
+      const functions = getFunctions(app);
+      const sendContact = httpsCallable(functions, 'sendContactForm');
+      await sendContact(form);
+      toast({ title: 'Mensaje enviado', description: 'Nos pondremos en contacto contigo pronto.' });
+      setIsOpen(false);
+      setForm({ name: '', email: '', phone: '', company: '', message: '' });
+    } catch {
+      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo enviar el mensaje. Intenta de nuevo.' });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        className="rounded-full bg-white px-8 py-3 text-sm font-semibold text-primary shadow-lg transition hover:bg-white/90"
+        style={{ boxShadow: '0 0 30px rgba(255,255,255,0.15)' }}
+      >
+        Cont&aacute;ctanos
+      </button>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cont&aacute;ctanos</DialogTitle>
+            <DialogDescription>
+              Completa el formulario y nos pondremos en contacto contigo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <Input
+              placeholder="Nombre *"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              disabled={isSending}
+            />
+            <Input
+              type="email"
+              placeholder="Email *"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              disabled={isSending}
+            />
+            <Input
+              type="tel"
+              placeholder="Tel&eacute;fono"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              disabled={isSending}
+            />
+            <Input
+              placeholder="Empresa"
+              value={form.company}
+              onChange={(e) => setForm({ ...form, company: e.target.value })}
+              disabled={isSending}
+            />
+            <Textarea
+              placeholder="Mensaje *"
+              value={form.message}
+              onChange={(e) => setForm({ ...form, message: e.target.value })}
+              disabled={isSending}
+              rows={4}
+            />
+          </div>
+          <Button onClick={handleSubmit} disabled={isSending} className="w-full">
+            {isSending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</> : <><Send className="mr-2 h-4 w-4" /> Enviar Mensaje</>}
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -265,13 +364,7 @@ export default function LandingPage() {
             Impulsada por tecnolog&iacute;a, dise&ntilde;ada para tu gente.
           </p>
           <div className="animate-fade-in-delay-2 mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link
-              href="/login"
-              className="rounded-full bg-white px-8 py-3 text-sm font-semibold text-primary shadow-lg transition hover:bg-white/90"
-              style={{ boxShadow: '0 0 30px rgba(255,255,255,0.15)' }}
-            >
-              Iniciar Sesi&oacute;n
-            </Link>
+            <ContactDialog />
             <a
               href="#servicios"
               className="rounded-full px-8 py-3 text-sm font-semibold text-white transition backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20"

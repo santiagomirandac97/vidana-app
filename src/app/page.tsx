@@ -309,7 +309,7 @@ export default function LandingPage() {
   const carouselTestimonials = [...testimonials, ...testimonials];
 
   return (
-    <div className="min-h-screen overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden bg-black">
       {/* ---------------------------------------------------------------- */}
       {/* Navbar                                                           */}
       {/* ---------------------------------------------------------------- */}
@@ -320,7 +320,7 @@ export default function LandingPage() {
             : 'bg-transparent'
         }`}
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 1rem))' }}>
           <Link href="/">
             <Logo variant={scrolled ? 'dark' : 'white'} />
           </Link>
@@ -563,7 +563,7 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          <p className="text-xs text-white/50">
+          <p className="text-xs text-white/50" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
             &copy; 2022&ndash;2026 Vidana. Todos los derechos reservados.
           </p>
         </div>

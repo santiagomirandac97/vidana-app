@@ -2,10 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  /* Extend page under iOS notch/toolbar — matches hero dark background */
+  background-color: #1a1a2e;
+}
+
 body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: hsl(var(--background));
 }
 
 @layer base {

@@ -5,6 +5,13 @@ import { FirebaseProviderWrapper } from '@/components/firebase-provider-wrapper'
 import { Toaster } from '@/components/ui/toaster';
 import './globals.css';
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover' as const,
+  themeColor: '#000000',
+};
+
 export const metadata: Metadata = {
   title: 'Vidana | Alimentación corporativa de punta a punta',
   description: 'Comedores, cafeterías y micro markets diseñados para el bienestar de tu equipo. Más de 2 millones de comidas servidas.',

@@ -7,6 +7,15 @@ import { defineSecret } from 'firebase-functions/params';
 
 initializeApp();
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 const resendApiKey = defineSecret('RESEND_API_KEY');
 
 interface SendInvoiceEmailData {
@@ -54,10 +63,10 @@ export const sendInvoiceEmail = onCall(
       subject: `Estado de Cuenta — ${companyName} — ${monthLabel}`,
       html: `
         <h2>Estado de Cuenta — ${monthLabel}</h2>
-        <p>Estimado equipo de <strong>${companyName}</strong>,</p>
+        <p>Estimado equipo de <strong>${escapeHtml(companyName)}</strong>,</p>
         <p>Adjuntamos el estado de cuenta del mes de <strong>${monthLabel}</strong>.</p>
         <table cellpadding="6" style="border-collapse:collapse;">
-          <tr><td><strong>Empresa:</strong></td><td>${companyName}</td></tr>
+          <tr><td><strong>Empresa:</strong></td><td>${escapeHtml(companyName)}</td></tr>
           <tr><td><strong>Período:</strong></td><td>${monthLabel}</td></tr>
           <tr><td><strong>Total comidas:</strong></td><td>${totalMeals}</td></tr>
           <tr><td><strong>Monto total:</strong></td><td>$${totalAmount.toFixed(2)} MXN</td></tr>
@@ -167,31 +176,31 @@ function buildContactEmailHtml(data: { name: string; email: string; phone: strin
           <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse:collapse;font-size:14px;color:#374151;">
             <tr style="border-bottom:1px solid #e5e7eb;">
               <td style="font-weight:600;color:#111827;width:100px;">Nombre</td>
-              <td>${data.name}</td>
+              <td>${escapeHtml(data.name)}</td>
             </tr>
             <tr style="border-bottom:1px solid #e5e7eb;">
               <td style="font-weight:600;color:#111827;">Email</td>
-              <td><a href="mailto:${data.email}" style="color:#2563eb;text-decoration:none;">${data.email}</a></td>
+              <td><a href="mailto:${encodeURIComponent(data.email)}" style="color:#2563eb;text-decoration:none;">${escapeHtml(data.email)}</a></td>
             </tr>
             <tr style="border-bottom:1px solid #e5e7eb;">
               <td style="font-weight:600;color:#111827;">Teléfono</td>
-              <td>${data.phone || '—'}</td>
+              <td>${escapeHtml(data.phone || '—')}</td>
             </tr>
             <tr style="border-bottom:1px solid #e5e7eb;">
               <td style="font-weight:600;color:#111827;">Empresa</td>
-              <td>${data.company || '—'}</td>
+              <td>${escapeHtml(data.company || '—')}</td>
             </tr>
             <tr>
               <td style="font-weight:600;color:#111827;vertical-align:top;padding-top:12px;">Mensaje</td>
-              <td style="padding-top:12px;white-space:pre-wrap;">${data.message}</td>
+              <td style="padding-top:12px;white-space:pre-wrap;">${escapeHtml(data.message)}</td>
             </tr>
           </table>
           <!-- Divider -->
           <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
           <!-- Reply CTA -->
           <div style="text-align:center;">
-            <a href="mailto:${data.email}" style="display:inline-block;background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 32px;border-radius:8px;">
-              Responder a ${data.name}
+            <a href="mailto:${encodeURIComponent(data.email)}" style="display:inline-block;background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 32px;border-radius:8px;">
+              Responder a ${escapeHtml(data.name)}
             </a>
           </div>
         </td></tr>
@@ -221,12 +230,24 @@ export const sendContactForm = onCall(
       throw new HttpsError('invalid-argument', 'Nombre, email y mensaje son requeridos.');
     }
 
+    // Basic email format validation + prevent header injection
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim()) || /[\r\n]/.test(email)) {
+      throw new HttpsError('invalid-argument', 'Email inválido.');
+    }
+
+    // Limit input lengths to prevent abuse
+    if (name.length > 200 || email.length > 200 || (phone && phone.length > 50) ||
+        (company && company.length > 200) || message.length > 5000) {
+      throw new HttpsError('invalid-argument', 'Datos exceden el límite permitido.');
+    }
+
     const resend = new Resend(resendApiKey.value());
     const { error } = await resend.emails.send({
       from: 'Vidana <no-reply@vidana.com.mx>',
       to: ['andres@vidana.com.mx', 'santiago@vidana.com.mx'],
       reply_to: email.trim(),
-      subject: `Nuevo contacto: ${name} — ${company || 'Sin empresa'}`,
+      subject: `Nuevo contacto: ${name.replace(/[\r\n]/g, '')} — ${(company || 'Sin empresa').replace(/[\r\n]/g, '')}`,
       html: buildContactEmailHtml({
         name: name.trim(),
         email: email.trim(),

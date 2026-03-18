@@ -102,7 +102,8 @@ service cloud.firestore {
     // — Invites ———————————————————————————————————————————————————————————————————————
 
     match /invites/{inviteId} {
-      allow read: if true;  // public read — invites don't contain sensitive data, signup reads before auth
+      allow get: if true;  // signup page reads single invite by ID before auth
+      allow list: if request.auth != null && isUserAdmin(request.auth.uid);  // only admins can list all invites
       allow create: if isUserAdmin(request.auth.uid);
       allow update: if request.auth != null &&
                        request.resource.data.used == true &&

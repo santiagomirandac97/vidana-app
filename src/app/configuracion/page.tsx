@@ -143,6 +143,16 @@ const ConfiguracionDashboard: FC = () => {
 
 const IP_REGEX = /^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
 
+/** Block dangerous IPs: localhost, link-local, multicast, cloud metadata endpoints */
+function isBlockedIp(ip: string): boolean {
+    const parts = ip.split('.').map(Number);
+    if (parts[0] === 127) return true;                           // localhost
+    if (parts[0] === 169 && parts[1] === 254) return true;      // link-local / cloud metadata
+    if (parts[0] >= 224) return true;                            // multicast + broadcast
+    if (parts[0] === 0) return true;                             // current network
+    return false;
+}
+
 function isDeviceOnline(lastSeen?: string): boolean {
     if (!lastSeen) return false;
     const diff = Date.now() - new Date(lastSeen).getTime();
@@ -252,6 +262,10 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
             toast({ title: 'IP inválida', description: 'Ingrese una dirección IP válida.', variant: 'destructive' });
             return;
         }
+        if (isBlockedIp(formIp)) {
+            toast({ title: 'IP bloqueada', description: 'No se permite conectar a esta dirección IP.', variant: 'destructive' });
+            return;
+        }
         setTestStatus('testing');
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 3000);
@@ -277,6 +291,10 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
         }
         if (!IP_REGEX.test(formIp)) {
             toast({ title: 'IP inválida', description: 'Formato esperado: x.x.x.x', variant: 'destructive' });
+            return;
+        }
+        if (isBlockedIp(formIp)) {
+            toast({ title: 'IP bloqueada', description: 'No se permite conectar a esta dirección IP.', variant: 'destructive' });
             return;
         }
 

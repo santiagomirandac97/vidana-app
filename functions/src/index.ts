@@ -225,7 +225,7 @@ export const sendContactForm = onCall(
     const { error } = await resend.emails.send({
       from: 'Vidana <no-reply@vidana.com.mx>',
       to: ['andres@vidana.com.mx', 'santiago@vidana.com.mx'],
-      replyTo: email.trim(),
+      reply_to: email.trim(),
       subject: `Nuevo contacto: ${name} — ${company || 'Sin empresa'}`,
       html: buildContactEmailHtml({
         name: name.trim(),

@@ -244,8 +244,8 @@ export default function LandingPage() {
       <section className="relative flex min-h-screen items-center justify-center overflow-hidden">
         {/* Food photography background */}
         <Image
-          src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1920&q=80"
-          alt="Platos de comida gourmet"
+          src="/logos/hero-chef.png"
+          alt="Chef Vidana cocinando en cocina profesional"
           fill
           className="object-cover"
           priority

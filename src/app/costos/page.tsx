@@ -142,6 +142,9 @@ export default function CostosPage() {
   );
   const { data: allOperationalCosts } = useCollection<OperationalCost>(operationalCostsRef);
 
+  // ── Drill-down Dialog State ────────────────────────────────────────────────
+  const [drillDown, setDrillDown] = useState<'food' | 'labor' | 'waste' | 'opCost' | null>(null);
+
   // ── Add Expense Dialog State ───────────────────────────────────────────────
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
   const [expCompanyId, setExpCompanyId] = useState('');
@@ -262,6 +265,55 @@ export default function CostosPage() {
 
     return { revenue, mealsServed, foodCost, laborCost: totalLaborCost, wasteCost, opCost, totalCost, netMargin, foodCostPct, costPerMeal };
   }, [allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, allStaff, allBonuses, allOperationalCosts, companies, filterCompanyId, monthStart, currentMonthKey, now]);
+
+  const companyName = (id?: string) => companies?.find(c => c.id === id)?.name ?? '—';
+
+  // ── Drill-down filtered data ──────────────────────────────────────────────
+  const drillFoodRows = useMemo(() =>
+    (allPurchaseOrders || []).filter(po =>
+      po.receivedAt && po.receivedAt >= monthStart &&
+      (filterCompanyId === 'all' || po.companyId === filterCompanyId)
+    ),
+    [allPurchaseOrders, monthStart, filterCompanyId]
+  );
+
+  const drillWasteRows = useMemo(() =>
+    (allMerma || []).filter(m =>
+      m.timestamp >= monthStart &&
+      (filterCompanyId === 'all' || m.companyId === filterCompanyId)
+    ),
+    [allMerma, monthStart, filterCompanyId]
+  );
+
+  const drillOpCostRows = useMemo(() =>
+    (allOperationalCosts || []).filter(oc =>
+      oc.month === currentMonthKey &&
+      (filterCompanyId === 'all' || oc.companyId === filterCompanyId)
+    ),
+    [allOperationalCosts, currentMonthKey, filterCompanyId]
+  );
+
+  const drillLaborStaff = useMemo(() => {
+    const monthStartStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const monthEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const monthEndStr = `${monthEndDate.getFullYear()}-${String(monthEndDate.getMonth() + 1).padStart(2, '0')}-${String(monthEndDate.getDate()).padStart(2, '0')}`;
+
+    return ((filterCompanyId === 'all' ? (allStaff ?? []) : (allStaff ?? []).filter((e: any) => e.companyId === filterCompanyId)) as Employee[])
+      .filter(emp => {
+        if (emp.voided) return false;
+        if (emp.startDate && emp.startDate > monthEndStr) return false;
+        if (emp.endDate && emp.endDate < monthStartStr) return false;
+        return true;
+      });
+  }, [allStaff, filterCompanyId, now]);
+
+  const drillLaborLegacy = useMemo(() =>
+    (allLaborCosts || []).filter(lc =>
+      lc.weekStartDate >= monthStart.slice(0, 10) &&
+      (filterCompanyId === 'all' || lc.companyId === filterCompanyId)
+    ),
+    [allLaborCosts, monthStart, filterCompanyId]
+  );
 
   const pieData = useMemo(() => [
     { name: 'Alimentos', value: kpis.foodCost, color: '#3b82f6' },
@@ -441,38 +493,46 @@ export default function CostosPage() {
             delta={{ current: kpis.revenue, previous: prev.revenue, positiveDirection: 'up' }}
             sparklineData={sparkRevenue}
           />
-          <KpiCard
-            label="Costo Alimentos"
-            value={fmt(kpis.foodCost)}
-            icon={<TrendingDown className="h-4 w-4" />}
-            variant="default"
-            delta={{ current: kpis.foodCost, previous: prev.foodCost, positiveDirection: 'down' }}
-            sparklineData={sparkFoodCost}
-          />
-          <KpiCard
-            label="Costo Laboral"
-            value={fmt(kpis.laborCost)}
-            icon={<Users className="h-4 w-4" />}
-            variant="default"
-            delta={{ current: kpis.laborCost, previous: prev.laborCost, positiveDirection: 'down' }}
-            sparklineData={sparkLabor}
-          />
-          <KpiCard
-            label="Merma"
-            value={fmt(kpis.wasteCost)}
-            icon={<AlertTriangle className="h-4 w-4" />}
-            variant="destructive"
-            delta={{ current: kpis.wasteCost, previous: prev.wasteCost, positiveDirection: 'down' }}
-            sparklineData={sparkWaste}
-          />
-          <KpiCard
-            label="Gastos Op."
-            value={fmt(kpis.opCost)}
-            icon={<Receipt className="h-4 w-4" />}
-            variant="warning"
-            delta={{ current: kpis.opCost, previous: prev.opCost, positiveDirection: 'down' }}
-            sparklineData={sparkOpCost}
-          />
+          <div className="cursor-pointer" onClick={() => setDrillDown('food')}>
+            <KpiCard
+              label="Costo Alimentos"
+              value={fmt(kpis.foodCost)}
+              icon={<TrendingDown className="h-4 w-4" />}
+              variant="default"
+              delta={{ current: kpis.foodCost, previous: prev.foodCost, positiveDirection: 'down' }}
+              sparklineData={sparkFoodCost}
+            />
+          </div>
+          <div className="cursor-pointer" onClick={() => setDrillDown('labor')}>
+            <KpiCard
+              label="Costo Laboral"
+              value={fmt(kpis.laborCost)}
+              icon={<Users className="h-4 w-4" />}
+              variant="default"
+              delta={{ current: kpis.laborCost, previous: prev.laborCost, positiveDirection: 'down' }}
+              sparklineData={sparkLabor}
+            />
+          </div>
+          <div className="cursor-pointer" onClick={() => setDrillDown('waste')}>
+            <KpiCard
+              label="Merma"
+              value={fmt(kpis.wasteCost)}
+              icon={<AlertTriangle className="h-4 w-4" />}
+              variant="destructive"
+              delta={{ current: kpis.wasteCost, previous: prev.wasteCost, positiveDirection: 'down' }}
+              sparklineData={sparkWaste}
+            />
+          </div>
+          <div className="cursor-pointer" onClick={() => setDrillDown('opCost')}>
+            <KpiCard
+              label="Gastos Op."
+              value={fmt(kpis.opCost)}
+              icon={<Receipt className="h-4 w-4" />}
+              variant="warning"
+              delta={{ current: kpis.opCost, previous: prev.opCost, positiveDirection: 'down' }}
+              sparklineData={sparkOpCost}
+            />
+          </div>
           <KpiCard
             label="% Costo Alim."
             value={`${kpis.foodCostPct.toFixed(1)}%`}
@@ -690,6 +750,232 @@ export default function CostosPage() {
             >
               {expSaving ? 'Guardando...' : 'Guardar'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Drill-down Dialog ── */}
+      <Dialog open={drillDown !== null} onOpenChange={open => { if (!open) setDrillDown(null); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {drillDown === 'food' && 'Detalle: Costo Alimentos'}
+              {drillDown === 'labor' && 'Detalle: Costo Laboral'}
+              {drillDown === 'waste' && 'Detalle: Merma'}
+              {drillDown === 'opCost' && 'Detalle: Gastos Operativos'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="overflow-y-auto max-h-96 -mx-6 px-6">
+            {/* ── Food Cost ── */}
+            {drillDown === 'food' && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left pb-2">Fecha Recibido</th>
+                      <th className="text-left pb-2">Proveedor</th>
+                      <th className="text-right pb-2">Total</th>
+                      <th className="text-left pb-2">Empresa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drillFoodRows.length === 0 && (
+                      <tr><td colSpan={4} className="text-center py-8 text-muted-foreground">Sin órdenes recibidas este mes.</td></tr>
+                    )}
+                    {drillFoodRows.map(po => (
+                      <tr key={po.id} className="border-b last:border-0">
+                        <td className="py-2 text-muted-foreground">{po.receivedAt ? formatInTimeZone(new Date(po.receivedAt), timeZone, 'dd/MM/yyyy') : '—'}</td>
+                        <td className="py-2">{po.supplierName}</td>
+                        <td className="py-2 text-right font-mono">{fmt(po.totalCost ?? 0)}</td>
+                        <td className="py-2 text-muted-foreground">{companyName(po.companyId)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {drillFoodRows.length > 0 && (
+                    <tfoot>
+                      <tr className="border-t font-semibold">
+                        <td colSpan={2} className="py-2">Total</td>
+                        <td className="py-2 text-right font-mono">{fmt(drillFoodRows.reduce((s, po) => s + (po.totalCost ?? 0), 0))}</td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            )}
+
+            {/* ── Labor Cost ── */}
+            {drillDown === 'labor' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Staff</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left pb-2">Nombre</th>
+                          <th className="text-right pb-2">Salario Quincenal</th>
+                          <th className="text-right pb-2">Salario Mensual</th>
+                          <th className="text-left pb-2">Empresa</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {drillLaborStaff.length === 0 && (
+                          <tr><td colSpan={4} className="text-center py-4 text-muted-foreground">Sin empleados activos este mes.</td></tr>
+                        )}
+                        {drillLaborStaff.map(emp => (
+                          <tr key={emp.id} className="border-b last:border-0">
+                            <td className="py-2">{emp.name}</td>
+                            <td className="py-2 text-right font-mono">{fmt(emp.salaryPerQuincena ?? 0)}</td>
+                            <td className="py-2 text-right font-mono">{fmt((emp.salaryPerQuincena ?? 0) * 2)}</td>
+                            <td className="py-2 text-muted-foreground">{companyName(emp.companyId)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      {drillLaborStaff.length > 0 && (
+                        <tfoot>
+                          <tr className="border-t font-semibold">
+                            <td className="py-2">Total Staff</td>
+                            <td className="py-2 text-right font-mono">{fmt(drillLaborStaff.reduce((s, e) => s + (e.salaryPerQuincena ?? 0), 0))}</td>
+                            <td className="py-2 text-right font-mono">{fmt(drillLaborStaff.reduce((s, e) => s + (e.salaryPerQuincena ?? 0) * 2, 0))}</td>
+                            <td />
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </div>
+
+                {drillLaborLegacy.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">Legacy</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left pb-2">Fecha</th>
+                            <th className="text-right pb-2">Monto</th>
+                            <th className="text-left pb-2">Empresa</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {drillLaborLegacy.map(lc => (
+                            <tr key={lc.id} className="border-b last:border-0">
+                              <td className="py-2 text-muted-foreground">{lc.weekStartDate}</td>
+                              <td className="py-2 text-right font-mono">{fmt(lc.amount)}</td>
+                              <td className="py-2 text-muted-foreground">{companyName(lc.companyId)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t font-semibold">
+                            <td className="py-2">Total Legacy</td>
+                            <td className="py-2 text-right font-mono">{fmt(drillLaborLegacy.reduce((s, lc) => s + lc.amount, 0))}</td>
+                            <td />
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                <div className="border-t pt-3">
+                  <div className="flex justify-between font-semibold">
+                    <span>Total Costo Laboral</span>
+                    <span className="font-mono">{fmt(kpis.laborCost)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Waste ── */}
+            {drillDown === 'waste' && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left pb-2">Fecha</th>
+                      <th className="text-left pb-2">Ingrediente</th>
+                      <th className="text-right pb-2">Cantidad</th>
+                      <th className="text-right pb-2">Costo Unit.</th>
+                      <th className="text-right pb-2">Total</th>
+                      <th className="text-left pb-2">Razón</th>
+                      <th className="text-left pb-2">Empresa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drillWasteRows.length === 0 && (
+                      <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">Sin merma este mes.</td></tr>
+                    )}
+                    {drillWasteRows.map(m => (
+                      <tr key={m.id} className="border-b last:border-0">
+                        <td className="py-2 text-muted-foreground">{formatInTimeZone(new Date(m.timestamp), timeZone, 'dd/MM/yyyy')}</td>
+                        <td className="py-2">{m.ingredientName}</td>
+                        <td className="py-2 text-right font-mono">{m.quantity}</td>
+                        <td className="py-2 text-right font-mono">{fmt(m.unitCost)}</td>
+                        <td className="py-2 text-right font-mono text-red-600">{fmt(m.quantity * m.unitCost)}</td>
+                        <td className="py-2 text-muted-foreground">{m.reason || '—'}</td>
+                        <td className="py-2 text-muted-foreground">{companyName(m.companyId)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {drillWasteRows.length > 0 && (
+                    <tfoot>
+                      <tr className="border-t font-semibold">
+                        <td colSpan={4} className="py-2">Total</td>
+                        <td className="py-2 text-right font-mono text-red-600">{fmt(drillWasteRows.reduce((s, m) => s + m.quantity * m.unitCost, 0))}</td>
+                        <td colSpan={2} />
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            )}
+
+            {/* ── Operational Costs ── */}
+            {drillDown === 'opCost' && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left pb-2">Categoría</th>
+                      <th className="text-left pb-2">Descripción</th>
+                      <th className="text-right pb-2">Monto</th>
+                      <th className="text-left pb-2">Empresa</th>
+                      <th className="text-left pb-2">Mes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drillOpCostRows.length === 0 && (
+                      <tr><td colSpan={5} className="text-center py-8 text-muted-foreground">Sin gastos operativos este mes.</td></tr>
+                    )}
+                    {drillOpCostRows.map(oc => (
+                      <tr key={oc.id} className="border-b last:border-0">
+                        <td className="py-2">{categoryLabel(oc.category)}</td>
+                        <td className="py-2 text-muted-foreground">{oc.description || '—'}</td>
+                        <td className="py-2 text-right font-mono">{fmt(oc.amount)}</td>
+                        <td className="py-2 text-muted-foreground">{companyName(oc.companyId)}</td>
+                        <td className="py-2 text-muted-foreground font-mono">{oc.month}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {drillOpCostRows.length > 0 && (
+                    <tfoot>
+                      <tr className="border-t font-semibold">
+                        <td colSpan={2} className="py-2">Total</td>
+                        <td className="py-2 text-right font-mono">{fmt(drillOpCostRows.reduce((s, oc) => s + oc.amount, 0))}</td>
+                        <td colSpan={2} />
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDrillDown(null)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

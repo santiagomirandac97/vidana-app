@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -14,10 +14,15 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { formatInTimeZone } from 'date-fns-tz';
+import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -45,7 +50,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Plus, Truck, ShoppingCart } from 'lucide-react';
+import { Loader2, Plus, Truck, ShoppingCart, ChevronDown, BarChart3 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 
 import {
@@ -203,6 +208,39 @@ export function OrdenesTab({
 }: OrdenesTabProps) {
   const [addOpen, setAddOpen] = useState(false);
   const [receivingId, setReceivingId] = useState<string | null>(null);
+  const [spendOpen, setSpendOpen] = useState(true);
+
+  // ── Supplier Spend Analysis (current month) ───────────────────────────────
+  const supplierSpend = useMemo(() => {
+    const now = toZonedTime(new Date(), TIME_ZONE);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const receivedThisMonth = purchaseOrders.filter((o) => {
+      if (o.status !== 'recibido' || !o.receivedAt) return false;
+      const received = toZonedTime(new Date(o.receivedAt), TIME_ZONE);
+      return received >= monthStart;
+    });
+
+    const grouped = new Map<string, { name: string; count: number; total: number }>();
+    for (const order of receivedThisMonth) {
+      const existing = grouped.get(order.supplierId);
+      if (existing) {
+        existing.count += 1;
+        existing.total += order.totalCost;
+      } else {
+        grouped.set(order.supplierId, {
+          name: order.supplierName,
+          count: 1,
+          total: order.totalCost,
+        });
+      }
+    }
+
+    const rows = Array.from(grouped.values()).sort((a, b) => b.total - a.total);
+    const grandTotal = rows.reduce((sum, r) => sum + r.total, 0);
+
+    return { rows, grandTotal, monthLabel: formatInTimeZone(now, TIME_ZONE, 'MMMM yyyy') };
+  }, [purchaseOrders]);
 
   const {
     register,
@@ -496,6 +534,91 @@ export function OrdenesTab({
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* ── Supplier Spend Card ────────────────────────────────────── */}
+      {supplierSpend.rows.length > 0 && (
+        <Collapsible open={spendOpen} onOpenChange={setSpendOpen}>
+          <Card className="shadow-card">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer select-none pb-3 hover:bg-muted/50 transition-colors rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                    <CardTitle className="text-base">Gasto por Proveedor</CardTitle>
+                    <span className="text-xs text-muted-foreground capitalize">
+                      {supplierSpend.monthLabel}
+                    </span>
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 text-muted-foreground transition-transform ${
+                      spendOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Proveedor</TableHead>
+                      <TableHead className="text-center">Órdenes</TableHead>
+                      <TableHead className="text-right">Gasto Total</TableHead>
+                      <TableHead className="text-right w-[100px]">% del Total</TableHead>
+                      <TableHead className="w-[120px]" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {supplierSpend.rows.map((row) => {
+                      const pct =
+                        supplierSpend.grandTotal > 0
+                          ? (row.total / supplierSpend.grandTotal) * 100
+                          : 0;
+                      return (
+                        <TableRow key={row.name}>
+                          <TableCell className="font-medium">{row.name}</TableCell>
+                          <TableCell className="text-center font-mono">{row.count}</TableCell>
+                          <TableCell className="text-right font-mono">
+                            ${row.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {pct.toFixed(1)}%
+                          </TableCell>
+                          <TableCell>
+                            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-primary transition-all"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {/* Grand total footer row */}
+                    <TableRow className="border-t-2">
+                      <TableCell className="font-semibold">Total</TableCell>
+                      <TableCell className="text-center font-mono font-semibold">
+                        {supplierSpend.rows.reduce((s, r) => s + r.count, 0)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold">
+                        ${supplierSpend.grandTotal.toLocaleString('es-MX', {
+                          minimumFractionDigits: 2,
+                        })}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs font-semibold">
+                        100%
+                      </TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
 
       {purchaseOrders.length === 0 ? (
         <EmptyState icon={ShoppingCart} title="No hay órdenes de compra." />

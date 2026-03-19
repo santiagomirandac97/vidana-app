@@ -50,7 +50,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Plus, Truck, ShoppingCart, ChevronDown, BarChart3 } from 'lucide-react';
+import { Loader2, Plus, Truck, ShoppingCart, ChevronDown, BarChart3, Scale } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 
 import {
@@ -209,6 +209,7 @@ export function OrdenesTab({
   const [addOpen, setAddOpen] = useState(false);
   const [receivingId, setReceivingId] = useState<string | null>(null);
   const [spendOpen, setSpendOpen] = useState(true);
+  const [priceComparisonOpen, setPriceComparisonOpen] = useState(false);
 
   // ── Supplier Spend Analysis (current month) ───────────────────────────────
   const supplierSpend = useMemo(() => {
@@ -240,6 +241,57 @@ export function OrdenesTab({
     const grandTotal = rows.reduce((sum, r) => sum + r.total, 0);
 
     return { rows, grandTotal, monthLabel: formatInTimeZone(now, TIME_ZONE, 'MMMM yyyy') };
+  }, [purchaseOrders]);
+
+  // ── Price Comparison across Suppliers ─────────────────────────────────────
+  const priceComparison = useMemo(() => {
+    const receivedOrders = purchaseOrders.filter((o) => o.status === 'recibido');
+
+    // Map: ingredientId → Map<supplierName, { unitCost, receivedAt }>
+    const ingredientSupplierMap = new Map<
+      string,
+      { ingredientName: string; suppliers: Map<string, { unitCost: number; receivedAt: string }> }
+    >();
+
+    for (const order of receivedOrders) {
+      for (const item of order.items) {
+        let entry = ingredientSupplierMap.get(item.ingredientId);
+        if (!entry) {
+          entry = { ingredientName: item.ingredientName, suppliers: new Map() };
+          ingredientSupplierMap.set(item.ingredientId, entry);
+        }
+        const existing = entry.suppliers.get(order.supplierName);
+        // Keep the latest price per supplier
+        if (!existing || (order.receivedAt && order.receivedAt > existing.receivedAt)) {
+          entry.suppliers.set(order.supplierName, {
+            unitCost: item.unitCost,
+            receivedAt: order.receivedAt ?? order.createdAt,
+          });
+        }
+      }
+    }
+
+    // Only ingredients with 2+ suppliers
+    const rows: {
+      ingredientId: string;
+      ingredientName: string;
+      cheapest: number;
+      suppliers: { name: string; unitCost: number; receivedAt: string }[];
+    }[] = [];
+
+    for (const [ingredientId, entry] of ingredientSupplierMap) {
+      if (entry.suppliers.size < 2) continue;
+      const supplierList = Array.from(entry.suppliers.entries()).map(([name, data]) => ({
+        name,
+        unitCost: data.unitCost,
+        receivedAt: data.receivedAt,
+      }));
+      const cheapest = Math.min(...supplierList.map((s) => s.unitCost));
+      rows.push({ ingredientId, ingredientName: entry.ingredientName, cheapest, suppliers: supplierList });
+    }
+
+    rows.sort((a, b) => a.ingredientName.localeCompare(b.ingredientName, 'es'));
+    return rows;
   }, [purchaseOrders]);
 
   const {
@@ -614,6 +666,88 @@ export function OrdenesTab({
                     </TableRow>
                   </TableBody>
                 </Table>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
+
+      {/* ── Price Comparison Card ──────────────────────────────────── */}
+      {priceComparison.length > 0 && (
+        <Collapsible open={priceComparisonOpen} onOpenChange={setPriceComparisonOpen}>
+          <Card className="shadow-card">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer select-none pb-3 hover:bg-muted/50 transition-colors rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Scale className="h-4 w-4 text-primary" />
+                    <CardTitle className="text-base">Comparación de Precios por Proveedor</CardTitle>
+                    <span className="text-xs text-muted-foreground">
+                      {priceComparison.length} ingrediente{priceComparison.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 text-muted-foreground transition-transform ${
+                      priceComparisonOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0 space-y-6">
+                {priceComparison.map((item) => (
+                  <div key={item.ingredientId}>
+                    <h4 className="text-sm font-semibold mb-2">{item.ingredientName}</h4>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Proveedor</TableHead>
+                          <TableHead className="text-right">Último Precio</TableHead>
+                          <TableHead className="text-right">Fecha</TableHead>
+                          <TableHead className="text-center w-[120px]" />
+                          <TableHead className="text-right w-[140px]">Diferencia</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {item.suppliers
+                          .slice()
+                          .sort((a, b) => a.unitCost - b.unitCost)
+                          .map((supplier) => {
+                            const isCheapest = supplier.unitCost === item.cheapest;
+                            const diff = supplier.unitCost - item.cheapest;
+                            const diffPct =
+                              item.cheapest > 0 ? (diff / item.cheapest) * 100 : 0;
+                            return (
+                              <TableRow key={supplier.name}>
+                                <TableCell className="font-medium">{supplier.name}</TableCell>
+                                <TableCell className="text-right font-mono">
+                                  ${supplier.unitCost.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                                  {formatInTimeZone(new Date(supplier.receivedAt), TIME_ZONE, 'dd/MM/yyyy')}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {isCheapest && (
+                                    <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-xs">
+                                      Mejor Precio
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-xs">
+                                  {!isCheapest && (
+                                    <span className="text-destructive">
+                                      +${diff.toLocaleString('es-MX', { minimumFractionDigits: 2 })} (+{diffPct.toFixed(1)}%)
+                                    </span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ))}
               </CardContent>
             </CollapsibleContent>
           </Card>

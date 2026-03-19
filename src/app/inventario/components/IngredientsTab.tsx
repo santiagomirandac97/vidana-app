@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useFirebase, useUser } from '@/firebase';
 import { collection, doc, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -25,7 +25,13 @@ import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { APP_TIMEZONE } from '@/lib/constants';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { StatusBadge } from '@/components/ui/status-badge';
 import {
   Dialog,
   DialogContent,
@@ -54,7 +60,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, AlertTriangle, Plus, ArrowDownUp, PackagePlus, Package, Calculator } from 'lucide-react';
+import { Loader2, AlertTriangle, Plus, ArrowDownUp, PackagePlus, Package, Calculator, ChevronDown } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 
 import {
@@ -234,16 +240,97 @@ interface IngredientsTabProps {
   firestore: ReturnType<typeof useFirebase>['firestore'];
   toast: ReturnType<typeof useToast>['toast'];
   daysUntilStockout: Record<string, number | null>;
+  stockMovements: (StockMovement & { id: string })[];
 }
 
-export function IngredientsTab({ ingredients, isLoading, suppliers, companyId, userId, firestore, toast, daysUntilStockout }: IngredientsTabProps) {
+// ─── Reorder Suggestion Types ──────────────────────────────────────────────────
+
+type ReorderPriority = 'urgente' | 'pronto' | 'ok';
+
+interface ReorderSuggestion {
+  ingredientId: string;
+  name: string;
+  currentStock: number;
+  minStock: number;
+  unit: string;
+  avgDailyConsumption: number;
+  daysRemaining: number | null;
+  suggestedQty: number;
+  priority: ReorderPriority;
+}
+
+export function IngredientsTab({ ingredients, isLoading, suppliers, companyId, userId, firestore, toast, daysUntilStockout, stockMovements }: IngredientsTabProps) {
   const [addOpen, setAddOpen] = useState(false);
+  const [reorderOpen, setReorderOpen] = useState(true);
   const [movementOpen, setMovementOpen] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<(Ingredient & { id: string }) | null>(null);
   const [deductOpen, setDeductOpen] = useState(false);
   const [deductLoading, setDeductLoading] = useState(false);
   const [deductPreview, setDeductPreview] = useState<DeductionPreview | null>(null);
   const [deductExecuting, setDeductExecuting] = useState(false);
+
+  // ── Reorder Suggestions ─────────────────────────────────────────────────
+  const reorderSuggestions = useMemo<ReorderSuggestion[]>(() => {
+    if (!ingredients.length) return [];
+
+    const now = new Date();
+    const cutoff = new Date();
+    cutoff.setDate(now.getDate() - 30);
+
+    // Sum consumption (salida + merma) per ingredient over last 30 days
+    const consumed: Record<string, number> = {};
+    for (const m of stockMovements) {
+      if (m.type !== 'salida' && m.type !== 'merma') continue;
+      if (new Date(m.timestamp) < cutoff) continue;
+      consumed[m.ingredientId] = (consumed[m.ingredientId] ?? 0) + m.quantity;
+    }
+
+    const suggestions: ReorderSuggestion[] = [];
+
+    for (const ing of ingredients) {
+      if (!ing.id) continue;
+
+      const totalConsumed = consumed[ing.id] ?? 0;
+      const avgDaily = totalConsumed / 30;
+      const daysRemaining = avgDaily > 0 ? ing.currentStock / avgDaily : null;
+
+      // Determine priority
+      let priority: ReorderPriority = 'ok';
+      if (ing.currentStock <= ing.minStock) {
+        priority = 'urgente';
+      } else if (daysRemaining !== null && daysRemaining <= 7) {
+        priority = 'pronto';
+      }
+
+      // Only include urgente or pronto
+      if (priority === 'ok') continue;
+
+      // Suggested order = 2 weeks supply minus current stock (min 0)
+      const suggestedQty = Math.max(0, (avgDaily * 14) - ing.currentStock);
+
+      suggestions.push({
+        ingredientId: ing.id,
+        name: ing.name,
+        currentStock: ing.currentStock,
+        minStock: ing.minStock,
+        unit: ing.unit,
+        avgDailyConsumption: avgDaily,
+        daysRemaining,
+        suggestedQty,
+        priority,
+      });
+    }
+
+    // Sort: urgente first, then by daysRemaining ascending
+    suggestions.sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority === 'urgente' ? -1 : 1;
+      const da = a.daysRemaining ?? Infinity;
+      const db = b.daysRemaining ?? Infinity;
+      return da - db;
+    });
+
+    return suggestions;
+  }, [ingredients, stockMovements]);
 
   // ── Build deduction preview ──────────────────────────────────────────────
   const handleDeductClick = async () => {
@@ -643,6 +730,74 @@ export function IngredientsTab({ ingredients, isLoading, suppliers, companyId, u
         </Dialog>
         </div>
       </div>
+
+      {/* ── Reorder Suggestions Card ────────────────────────────────── */}
+      {reorderSuggestions.length > 0 && (
+        <Collapsible open={reorderOpen} onOpenChange={setReorderOpen}>
+          <Card className="shadow-card">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer select-none pb-3 hover:bg-muted/50 transition-colors rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <CardTitle className="text-base">Sugerencias de Reorden</CardTitle>
+                    <span className="text-xs text-muted-foreground font-normal">
+                      ({reorderSuggestions.length} ingrediente{reorderSuggestions.length !== 1 ? 's' : ''})
+                    </span>
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 text-muted-foreground transition-transform ${
+                      reorderOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Ingrediente</TableHead>
+                      <TableHead>Stock Actual</TableHead>
+                      <TableHead>Stock Mín.</TableHead>
+                      <TableHead>Consumo/Día</TableHead>
+                      <TableHead>Días Restantes</TableHead>
+                      <TableHead>Sugerido</TableHead>
+                      <TableHead>Estado</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reorderSuggestions.map((s) => (
+                      <TableRow key={s.ingredientId}>
+                        <TableCell className="font-medium">{s.name}</TableCell>
+                        <TableCell className="font-mono">{s.currentStock} {s.unit}</TableCell>
+                        <TableCell className="font-mono">{s.minStock} {s.unit}</TableCell>
+                        <TableCell className="font-mono">
+                          {s.avgDailyConsumption > 0 ? s.avgDailyConsumption.toFixed(1) : '0.0'} {s.unit}
+                        </TableCell>
+                        <TableCell className="font-mono">
+                          {s.daysRemaining !== null ? s.daysRemaining.toFixed(1) : '—'}
+                        </TableCell>
+                        <TableCell className="font-mono">
+                          {s.suggestedQty > 0 ? `${s.suggestedQty.toFixed(1)} ${s.unit}` : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {s.priority === 'urgente' ? (
+                            <StatusBadge variant="error" label="Urgente" />
+                          ) : (
+                            <StatusBadge variant="warning" label="Pronto" />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
 
       {/* Deduction Preview Dialog */}
       <Dialog open={deductOpen} onOpenChange={(open) => { setDeductOpen(open); if (!open) setDeductPreview(null); }}>

@@ -189,6 +189,7 @@ export default function InventarioPage() {
                   ingredients={ingredients ?? []} isLoading={ingredientsLoading}
                   suppliers={suppliersList} companyId={cid} userId={user?.uid ?? ''}
                   firestore={firestore} toast={toast} daysUntilStockout={daysUntilStockout}
+                  stockMovements={movements ?? []}
                 />
               </TabsContent>
               <TabsContent value="movimientos">

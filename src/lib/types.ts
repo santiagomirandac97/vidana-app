@@ -224,6 +224,28 @@ export interface Bonus {
   createdBy: string;
 }
 
+// ─── Operational Costs ──────────────────────────────────────────────────────
+
+export type OperationalCostCategory =
+  | 'renta'
+  | 'mantenimiento'
+  | 'desechables'
+  | 'capacitacion'
+  | 'seguros'
+  | 'servicios'
+  | 'otro';
+
+export interface OperationalCost {
+  id?: string;
+  category: OperationalCostCategory;
+  description: string;        // custom note
+  amount: number;             // MXN
+  month: string;              // 'yyyy-MM' format
+  companyId: string;          // denormalized for collectionGroup
+  createdAt: string;          // ISO-8601
+  createdBy: string;          // uid
+}
+
 // ─── Surveys ─────────────────────────────────────────────────────────────────
 
 export interface SurveyQuestion {

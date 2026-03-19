@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useFirebase, useUser } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import {
   type Ingredient,
@@ -10,12 +10,19 @@ import {
   type Supplier,
   type PurchaseOrder,
   type PurchaseOrderItem,
+  type Recipe,
+  type WeeklyMenu,
+  type DayOfWeek,
+  type Consumption,
   type StockUnit,
   type MovementType,
 } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { startOfWeek } from 'date-fns';
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { APP_TIMEZONE } from '@/lib/constants';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,6 +31,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
   DialogFooter,
   DialogClose,
@@ -46,7 +54,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, AlertTriangle, Plus, ArrowDownUp, PackagePlus, Package } from 'lucide-react';
+import { Loader2, AlertTriangle, Plus, ArrowDownUp, PackagePlus, Package, Calculator } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 
 import {
@@ -181,6 +189,40 @@ export function AutoOrderContent({ ingredients, suppliers, daysUntilStockout, le
   );
 }
 
+// ─── Stock Deduction Types ────────────────────────────────────────────────────
+
+interface DeductionItem {
+  ingredientId: string;
+  ingredientName: string;
+  quantity: number;
+  unit: StockUnit;
+}
+
+interface DeductionPreview {
+  todayLabel: string;
+  menuItemNames: string[];
+  mealCount: number;
+  numberOfDishes: number;
+  deductions: DeductionItem[];
+  alreadyDeducted: boolean;
+}
+
+const DAY_KEYS: Record<number, DayOfWeek> = {
+  1: 'lunes',
+  2: 'martes',
+  3: 'miercoles',
+  4: 'jueves',
+  5: 'viernes',
+};
+
+const DAY_LABELS: Record<DayOfWeek, string> = {
+  lunes: 'Lunes',
+  martes: 'Martes',
+  miercoles: 'Miércoles',
+  jueves: 'Jueves',
+  viernes: 'Viernes',
+};
+
 // ─── IngredientsTab ───────────────────────────────────────────────────────────
 
 interface IngredientsTabProps {
@@ -198,6 +240,199 @@ export function IngredientsTab({ ingredients, isLoading, suppliers, companyId, u
   const [addOpen, setAddOpen] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<(Ingredient & { id: string }) | null>(null);
+  const [deductOpen, setDeductOpen] = useState(false);
+  const [deductLoading, setDeductLoading] = useState(false);
+  const [deductPreview, setDeductPreview] = useState<DeductionPreview | null>(null);
+  const [deductExecuting, setDeductExecuting] = useState(false);
+
+  // ── Build deduction preview ──────────────────────────────────────────────
+  const handleDeductClick = async () => {
+    if (!firestore || !companyId) return;
+    setDeductLoading(true);
+    setDeductPreview(null);
+    setDeductOpen(true);
+
+    try {
+      // 1. Today in Mexico timezone
+      const nowInMx = toZonedTime(new Date(), APP_TIMEZONE);
+      const todayStr = formatInTimeZone(new Date(), APP_TIMEZONE, 'yyyy-MM-dd');
+      const dayOfWeek = nowInMx.getDay(); // 0=Sun, 1=Mon, ...
+      const dayKey = DAY_KEYS[dayOfWeek];
+
+      if (!dayKey) {
+        setDeductPreview(null);
+        setDeductLoading(false);
+        toast({ title: 'Hoy es fin de semana. No hay menú configurado.', variant: 'destructive' });
+        return;
+      }
+
+      const todayLabel = `${DAY_LABELS[dayKey]} ${todayStr}`;
+
+      // 2. Week start date (Monday)
+      const monday = startOfWeek(nowInMx, { weekStartsOn: 1 });
+      const weekStartDate = formatInTimeZone(monday, APP_TIMEZONE, 'yyyy-MM-dd');
+
+      // 3. Fetch weekly menu
+      const menuDocRef = doc(firestore, `companies/${companyId}/weeklyMenus/${weekStartDate}`);
+      const menuSnap = await getDoc(menuDocRef);
+      if (!menuSnap.exists()) {
+        setDeductPreview({ todayLabel, menuItemNames: [], mealCount: 0, numberOfDishes: 0, deductions: [], alreadyDeducted: false });
+        setDeductLoading(false);
+        return;
+      }
+      const weeklyMenu = menuSnap.data() as WeeklyMenu;
+      const todayMenuItemIds = weeklyMenu.days?.[dayKey] ?? [];
+
+      if (todayMenuItemIds.length === 0) {
+        setDeductPreview({ todayLabel, menuItemNames: [], mealCount: 0, numberOfDishes: 0, deductions: [], alreadyDeducted: false });
+        setDeductLoading(false);
+        return;
+      }
+
+      // 4. Fetch recipes for today's menu items
+      const recipes: Record<string, Recipe> = {};
+      const menuItemNames: string[] = [];
+      for (const menuItemId of todayMenuItemIds) {
+        const recipeDocRef = doc(firestore, `companies/${companyId}/recipes/${menuItemId}`);
+        const recipeSnap = await getDoc(recipeDocRef);
+        if (recipeSnap.exists()) {
+          const recipe = recipeSnap.data() as Recipe;
+          recipes[menuItemId] = recipe;
+          menuItemNames.push(recipe.menuItemName);
+        }
+      }
+
+      // 5. Count today's non-voided consumptions
+      const startOfDay = new Date(todayStr + 'T00:00:00');
+      const endOfDay = new Date(todayStr + 'T23:59:59');
+      const consumptionsQuery = query(
+        collection(firestore, `companies/${companyId}/consumptions`),
+        where('timestamp', '>=', startOfDay.toISOString()),
+        where('timestamp', '<=', endOfDay.toISOString())
+      );
+      const consumptionsSnap = await getDocs(consumptionsQuery);
+      const mealCount = consumptionsSnap.docs.filter(d => {
+        const c = d.data() as Consumption;
+        return !c.voided;
+      }).length;
+
+      // 6. Check if deduction already done today
+      const deductionReason = `Deducción automática — ${todayStr}`;
+      const existingDeductionQuery = query(
+        collection(firestore, `companies/${companyId}/stockMovements`),
+        where('type', '==', 'salida'),
+        where('reason', '==', deductionReason)
+      );
+      const existingSnap = await getDocs(existingDeductionQuery);
+      const alreadyDeducted = !existingSnap.empty;
+
+      // 7. Calculate deductions per ingredient
+      // Meals are divided evenly across all menu items for the day
+      const numberOfDishes = todayMenuItemIds.length;
+      const mealsPerDish = numberOfDishes > 0 ? mealCount / numberOfDishes : 0;
+
+      const ingredientTotals: Record<string, { name: string; quantity: number; unit: StockUnit }> = {};
+
+      for (const menuItemId of todayMenuItemIds) {
+        const recipe = recipes[menuItemId];
+        if (!recipe || recipe.servings <= 0) continue;
+
+        for (const ri of recipe.ingredients) {
+          const quantityPerMeal = ri.quantity / recipe.servings;
+          const totalForThisDish = quantityPerMeal * mealsPerDish;
+
+          if (!ingredientTotals[ri.ingredientId]) {
+            ingredientTotals[ri.ingredientId] = {
+              name: ri.ingredientName,
+              quantity: 0,
+              unit: ri.unit,
+            };
+          }
+          ingredientTotals[ri.ingredientId].quantity += totalForThisDish;
+        }
+      }
+
+      const deductions: DeductionItem[] = Object.entries(ingredientTotals)
+        .filter(([, v]) => v.quantity > 0)
+        .map(([ingredientId, v]) => ({
+          ingredientId,
+          ingredientName: v.name,
+          quantity: Math.round(v.quantity * 1000) / 1000, // round to 3 decimals
+          unit: v.unit,
+        }));
+
+      setDeductPreview({
+        todayLabel,
+        menuItemNames,
+        mealCount,
+        numberOfDishes,
+        deductions,
+        alreadyDeducted,
+      });
+    } catch (err) {
+      console.error('Error building deduction preview:', err);
+      toast({ title: 'Error al calcular la deducción', variant: 'destructive' });
+      setDeductOpen(false);
+    } finally {
+      setDeductLoading(false);
+    }
+  };
+
+  // ── Execute deductions ──────────────────────────────────────────────────
+  const executeDeduction = async () => {
+    if (!firestore || !deductPreview || deductPreview.deductions.length === 0) return;
+    setDeductExecuting(true);
+
+    try {
+      const todayStr = formatInTimeZone(new Date(), APP_TIMEZONE, 'yyyy-MM-dd');
+      const deductionReason = `Deducción automática — ${todayStr}`;
+      const timestamp = new Date().toISOString();
+
+      const ingredientsMap: Record<string, Ingredient & { id: string }> = {};
+      for (const ing of ingredients) {
+        if (ing.id) ingredientsMap[ing.id] = ing;
+      }
+
+      for (const item of deductPreview.deductions) {
+        const ingredient = ingredientsMap[item.ingredientId];
+        const currentStock = ingredient?.currentStock ?? 0;
+        const newStock = Math.max(0, currentStock - item.quantity);
+
+        // Update ingredient stock
+        const ingredientDocRef = doc(firestore, `companies/${companyId}/ingredients/${item.ingredientId}`);
+        updateDocumentNonBlocking(ingredientDocRef, { currentStock: newStock });
+
+        // Create stock movement
+        const movement: Omit<StockMovement, 'id'> = {
+          ingredientId: item.ingredientId,
+          ingredientName: item.ingredientName,
+          type: 'salida',
+          quantity: item.quantity,
+          reason: deductionReason,
+          createdBy: userId,
+          timestamp,
+          unitCost: ingredient?.costPerUnit ?? 0,
+          companyId,
+        };
+        await addDocumentNonBlocking(
+          collection(firestore, `companies/${companyId}/stockMovements`),
+          movement
+        );
+      }
+
+      toast({
+        title: 'Deducción aplicada',
+        description: `Se dedujeron ${deductPreview.deductions.length} ingredientes basado en ${deductPreview.mealCount} comidas.`,
+      });
+      setDeductOpen(false);
+      setDeductPreview(null);
+    } catch (err) {
+      console.error('Error executing deduction:', err);
+      toast({ title: 'Error al aplicar la deducción', variant: 'destructive' });
+    } finally {
+      setDeductExecuting(false);
+    }
+  };
 
   const {
     register: regIngredient,
@@ -290,7 +525,12 @@ export function IngredientsTab({ ingredients, isLoading, suppliers, companyId, u
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Ingredientes en Stock</h2>
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={handleDeductClick} disabled={!companyId}>
+            <Calculator className="mr-2 h-4 w-4" />
+            Deducir Stock del Día
+          </Button>
+          <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus className="mr-2 h-4 w-4" />
@@ -401,7 +641,106 @@ export function IngredientsTab({ ingredients, isLoading, suppliers, companyId, u
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {/* Deduction Preview Dialog */}
+      <Dialog open={deductOpen} onOpenChange={(open) => { setDeductOpen(open); if (!open) setDeductPreview(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Deducir Stock del Día</DialogTitle>
+            {deductPreview && (
+              <DialogDescription>{deductPreview.todayLabel}</DialogDescription>
+            )}
+          </DialogHeader>
+
+          {deductLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span className="text-sm text-muted-foreground">Calculando deducción...</span>
+            </div>
+          ) : deductPreview ? (
+            <div className="space-y-4">
+              {/* Already deducted warning */}
+              {deductPreview.alreadyDeducted && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-md p-3 flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+                  <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                    <p className="font-medium">Ya se realizó una deducción hoy.</p>
+                    <p>Si continúas, se aplicará una deducción adicional.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Menu items */}
+              {deductPreview.menuItemNames.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">
+                  No hay menú configurado para hoy. Configure el menú semanal primero.
+                </p>
+              ) : (
+                <>
+                  <div>
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Platillos del día</Label>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {deductPreview.menuItemNames.map((name, i) => (
+                        <Badge key={i} variant="secondary">{name}</Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md p-3 text-center">
+                      <p className="text-2xl font-bold font-mono text-blue-900 dark:text-blue-200">{deductPreview.mealCount}</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">Comidas hoy</p>
+                    </div>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md p-3 text-center">
+                      <p className="text-2xl font-bold font-mono text-blue-900 dark:text-blue-200">{deductPreview.numberOfDishes}</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">Platillos</p>
+                    </div>
+                  </div>
+
+                  {deductPreview.mealCount === 0 ? (
+                    <p className="text-center text-muted-foreground py-2">
+                      No hay comidas registradas hoy. No se deducirá nada.
+                    </p>
+                  ) : deductPreview.deductions.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-2">
+                      Los platillos del menú no tienen recetas asociadas. Cree las recetas primero.
+                    </p>
+                  ) : (
+                    <div>
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Ingredientes a deducir</Label>
+                      <div className="mt-1 border rounded-md divide-y max-h-52 overflow-y-auto">
+                        {deductPreview.deductions.map((d) => (
+                          <div key={d.ingredientId} className="flex items-center justify-between px-3 py-2 text-sm">
+                            <span className="font-medium">{d.ingredientName}</span>
+                            <span className="font-mono text-muted-foreground">
+                              -{d.quantity} {d.unit}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => { setDeductOpen(false); setDeductPreview(null); }}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={executeDeduction}
+                  disabled={deductExecuting || deductPreview.deductions.length === 0 || deductPreview.mealCount === 0}
+                >
+                  {deductExecuting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {deductPreview.alreadyDeducted ? 'Deducir de Todas Formas' : 'Confirmar Deducción'}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {/* Movement Dialog */}
       <Dialog open={movementOpen} onOpenChange={setMovementOpen}>

@@ -4,17 +4,22 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, doc, where, collectionGroup } from 'firebase/firestore';
-import { type Company, type Consumption, type StockMovement, type PurchaseOrder, type LaborCost, type Employee, type Bonus, type UserProfile } from '@/lib/types';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { type Company, type Consumption, type StockMovement, type PurchaseOrder, type LaborCost, type Employee, type Bonus, type UserProfile, type OperationalCost, type OperationalCostCategory } from '@/lib/types';
 import { computeMonthlyLaborCost } from '@/lib/labor-cost-utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DollarSign, TrendingDown, TrendingUp, Users, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { DollarSign, TrendingDown, TrendingUp, Users, ShieldAlert, AlertTriangle, Receipt, Plus } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { ErrorState } from '@/components/ui/error-state';
+import { useToast } from '@/hooks/use-toast';
 import { format, startOfMonth, subMonths, endOfMonth, addMonths } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { APP_TIMEZONE } from '@/lib/constants';
@@ -26,10 +31,24 @@ const timeZone = APP_TIMEZONE;
 
 const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const OPERATIONAL_COST_CATEGORIES: { value: OperationalCostCategory; label: string }[] = [
+  { value: 'renta', label: 'Renta' },
+  { value: 'mantenimiento', label: 'Mantenimiento de Equipo' },
+  { value: 'desechables', label: 'Desechables/Empaque' },
+  { value: 'capacitacion', label: 'Capacitaci\u00f3n' },
+  { value: 'seguros', label: 'Seguros' },
+  { value: 'servicios', label: 'Servicios (gas, agua, luz)' },
+  { value: 'otro', label: 'Otro' },
+];
+
+const categoryLabel = (cat: OperationalCostCategory) =>
+  OPERATIONAL_COST_CATEGORIES.find(c => c.value === cat)?.label ?? cat;
+
 export default function CostosPage() {
   const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
   const { firestore } = useFirebase();
+  const { toast } = useToast();
 
   const userProfileRef = useMemoFirebase(() =>
     firestore && user ? doc(firestore, `users/${user.uid}`) : null
@@ -54,6 +73,12 @@ export default function CostosPage() {
   const monthStart = useMemo(() => startOfMonth(now).toISOString(), [now.getMonth(), now.getFullYear()]);
   const sixMonthsAgo = useMemo(
     () => startOfMonth(subMonths(now, 5)).toISOString(),
+    [now.getMonth(), now.getFullYear()]
+  );
+
+  // Current month key for operational costs
+  const currentMonthKey = useMemo(
+    () => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
     [now.getMonth(), now.getFullYear()]
   );
 
@@ -102,6 +127,61 @@ export default function CostosPage() {
     [firestore, isAdmin]
   );
   const { data: allBonuses } = useCollection(bonusesRef);
+
+  // Cross-company operational costs — fetch all months in the 6-month window
+  const sixMonthsAgoKey = useMemo(() => {
+    const d = subMonths(now, 5);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, [now.getMonth(), now.getFullYear()]);
+
+  const operationalCostsRef = useMemoFirebase(() =>
+    firestore && isAdmin
+      ? query(collectionGroup(firestore, 'operationalCosts'), where('month', '>=', sixMonthsAgoKey))
+      : null,
+    [firestore, isAdmin, sixMonthsAgoKey]
+  );
+  const { data: allOperationalCosts } = useCollection<OperationalCost>(operationalCostsRef);
+
+  // ── Add Expense Dialog State ───────────────────────────────────────────────
+  const [showExpenseDialog, setShowExpenseDialog] = useState(false);
+  const [expCompanyId, setExpCompanyId] = useState('');
+  const [expCategory, setExpCategory] = useState<OperationalCostCategory>('renta');
+  const [expAmount, setExpAmount] = useState('');
+  const [expDescription, setExpDescription] = useState('');
+  const [expMonth, setExpMonth] = useState(currentMonthKey);
+  const [expSaving, setExpSaving] = useState(false);
+
+  const resetExpenseForm = () => {
+    setExpCompanyId('');
+    setExpCategory('renta');
+    setExpAmount('');
+    setExpDescription('');
+    setExpMonth(currentMonthKey);
+  };
+
+  const handleSaveExpense = async () => {
+    if (!firestore || !user || !expCompanyId) return;
+    const amount = parseFloat(expAmount);
+    if (isNaN(amount) || amount <= 0) return;
+    if (expCategory === 'otro' && !expDescription.trim()) return;
+
+    setExpSaving(true);
+    const colRef = collection(firestore, `companies/${expCompanyId}/operationalCosts`);
+    const data: OperationalCost = {
+      category: expCategory,
+      description: expDescription.trim(),
+      amount,
+      month: expMonth,
+      companyId: expCompanyId,
+      createdAt: new Date().toISOString(),
+      createdBy: user.uid,
+    };
+    await addDocumentNonBlocking(colRef as any, data as any);
+    toast({ title: 'Gasto registrado', description: `${categoryLabel(expCategory)} — ${fmt(amount)}` });
+    setShowExpenseDialog(false);
+    resetExpenseForm();
+    setExpSaving(false);
+  };
 
   // ── KPI Calculations ──────────────────────────────────────────────────────
 
@@ -167,18 +247,27 @@ export default function CostosPage() {
 
     const totalLaborCost = laborCost + extraLaborCost;
 
-    const totalCost = foodCost + totalLaborCost + wasteCost;
+    // Operational costs for current month
+    const opCost = (allOperationalCosts || [])
+      .filter(oc =>
+        oc.month === currentMonthKey &&
+        (filterCompanyId === 'all' || oc.companyId === filterCompanyId)
+      )
+      .reduce((sum, oc) => sum + oc.amount, 0);
+
+    const totalCost = foodCost + totalLaborCost + wasteCost + opCost;
     const netMargin = revenue - totalCost;
     const foodCostPct = revenue > 0 ? (foodCost / revenue) * 100 : 0;
     const costPerMeal = mealsServed > 0 ? totalCost / mealsServed : 0;
 
-    return { revenue, mealsServed, foodCost, laborCost: totalLaborCost, wasteCost, totalCost, netMargin, foodCostPct, costPerMeal };
-  }, [allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, allStaff, allBonuses, companies, filterCompanyId, monthStart, now]);
+    return { revenue, mealsServed, foodCost, laborCost: totalLaborCost, wasteCost, opCost, totalCost, netMargin, foodCostPct, costPerMeal };
+  }, [allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, allStaff, allBonuses, allOperationalCosts, companies, filterCompanyId, monthStart, currentMonthKey, now]);
 
   const pieData = useMemo(() => [
     { name: 'Alimentos', value: kpis.foodCost, color: '#3b82f6' },
     { name: 'Labor', value: kpis.laborCost, color: '#8b5cf6' },
     { name: 'Merma', value: kpis.wasteCost, color: '#ef4444' },
+    { name: 'Gastos Op.', value: kpis.opCost, color: '#f59e0b' },
   ].filter(d => d.value > 0), [kpis]);
 
   const MONTHS = useMemo(
@@ -203,6 +292,7 @@ export default function CostosPage() {
       const mStartStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
       const mEndDate = new Date(d.getFullYear(), d.getMonth() + 1, 0);
       const mEndStr = `${mEndDate.getFullYear()}-${String(mEndDate.getMonth() + 1).padStart(2, '0')}-${String(mEndDate.getDate()).padStart(2, '0')}`;
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
       const monthLabor = computeMonthlyLaborCost(
         (allStaff ?? []) as Employee[],
@@ -220,24 +310,28 @@ export default function CostosPage() {
       const extraLabor = monthLegacyLabor.reduce((s, lc) => s + lc.amount, 0);
       const laborCost = monthLabor + extraLabor;
       const wasteCost = monthMerma.reduce((s, m) => s + m.quantity * m.unitCost, 0);
-      const netMargin = revenue - foodCost - laborCost - wasteCost;
+      const opCost = (allOperationalCosts || [])
+        .filter(oc => oc.month === monthKey)
+        .reduce((s, oc) => s + oc.amount, 0);
+      const netMargin = revenue - foodCost - laborCost - wasteCost - opCost;
       const foodCostPct = revenue > 0 ? (foodCost / revenue) * 100 : 0;
       const monthLabel = format(monthDate, 'MMM', { locale: es });
 
-      return { month: monthLabel, revenue, foodCost, laborCost, wasteCost, netMargin, foodCostPct };
+      return { month: monthLabel, revenue, foodCost, laborCost, wasteCost, opCost, netMargin, foodCostPct };
     });
-  }, [MONTHS, allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, allStaff, allBonuses, companies, monthStart, now]);
+  }, [MONTHS, allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, allStaff, allBonuses, allOperationalCosts, companies, monthStart, now]);
 
   // Sparkline arrays — one entry per month (oldest first)
   const sparkRevenue     = monthlyBuckets.map(b => ({ month: b.month, value: b.revenue }));
   const sparkFoodCost    = monthlyBuckets.map(b => ({ month: b.month, value: b.foodCost }));
   const sparkLabor       = monthlyBuckets.map(b => ({ month: b.month, value: b.laborCost }));
   const sparkWaste       = monthlyBuckets.map(b => ({ month: b.month, value: b.wasteCost }));
+  const sparkOpCost      = monthlyBuckets.map(b => ({ month: b.month, value: b.opCost }));
   const sparkNetMargin   = monthlyBuckets.map(b => ({ month: b.month, value: b.netMargin }));
   const sparkFoodCostPct = monthlyBuckets.map(b => ({ month: b.month, value: b.foodCostPct }));
 
   // Delta: index 4 = previous month, index 5 = current month
-  const prev = monthlyBuckets.at(-2) ?? { revenue: 0, foodCost: 0, laborCost: 0, wasteCost: 0, netMargin: 0, foodCostPct: 0 };
+  const prev = monthlyBuckets.at(-2) ?? { revenue: 0, foodCost: 0, laborCost: 0, wasteCost: 0, opCost: 0, netMargin: 0, foodCostPct: 0 };
 
   const perKitchenStats = useMemo(() => {
     if (!companies) return [];
@@ -261,6 +355,9 @@ export default function CostosPage() {
       const labor = kitchenLaborCost + (allLaborCosts || [])
         .filter(lc => lc.companyId === company.id && lc.weekStartDate >= monthStart.slice(0, 10))
         .reduce((s, lc) => s + lc.amount, 0);
+      const opCost = (allOperationalCosts || [])
+        .filter(oc => oc.companyId === company.id && oc.month === currentMonthKey)
+        .reduce((s, oc) => s + oc.amount, 0);
       const meals = cons.length;
       // Use estimatedFoodCostPerMeal as fallback when no POs have been received
       const estimatedFood = (company.estimatedFoodCostPerMeal ?? 0) * meals;
@@ -268,9 +365,9 @@ export default function CostosPage() {
       const isEstimated = rawFood === 0 && estimatedFood > 0;
       const threshold = company.targetFoodCostPct ?? 35;
       const foodCostPct = rev > 0 ? (food / rev) * 100 : 0;
-      return { company, rev, food, isEstimated, waste, labor, meals, margin: rev - food - waste - labor, costPerMeal: meals > 0 ? (food + labor + waste) / meals : 0, foodCostPct, threshold };
+      return { company, rev, food, isEstimated, waste, labor, opCost, meals, margin: rev - food - waste - labor - opCost, costPerMeal: meals > 0 ? (food + labor + waste + opCost) / meals : 0, foodCostPct, threshold };
     });
-  }, [companies, allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, allStaff, allBonuses, monthStart, now]);
+  }, [companies, allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, allStaff, allBonuses, allOperationalCosts, currentMonthKey, monthStart, now]);
 
   // Auth flash guard
   if (!userLoading && !user) return null;
@@ -320,6 +417,9 @@ export default function CostosPage() {
           subtitle={`${format(now, 'MMMM yyyy', { locale: es })} — datos del mes en curso`}
           action={
             <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setShowExpenseDialog(true)}>
+                <Plus className="h-4 w-4 mr-1" />Agregar Gasto
+              </Button>
               <Select value={filterCompanyId} onValueChange={setFilterCompanyId}>
                 <SelectTrigger className="w-44 h-8 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -332,7 +432,7 @@ export default function CostosPage() {
         />
 
         {/* ── KPI Cards ── */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
           <KpiCard
             label="Ingresos"
             value={fmt(kpis.revenue)}
@@ -364,6 +464,14 @@ export default function CostosPage() {
             variant="destructive"
             delta={{ current: kpis.wasteCost, previous: prev.wasteCost, positiveDirection: 'down' }}
             sparklineData={sparkWaste}
+          />
+          <KpiCard
+            label="Gastos Op."
+            value={fmt(kpis.opCost)}
+            icon={<Receipt className="h-4 w-4" />}
+            variant="warning"
+            delta={{ current: kpis.opCost, previous: prev.opCost, positiveDirection: 'down' }}
+            sparklineData={sparkOpCost}
           />
           <KpiCard
             label="% Costo Alim."
@@ -425,7 +533,7 @@ export default function CostosPage() {
         {/* ── Per Kitchen Cards ── */}
         <h2 className="text-lg font-semibold mb-3">Por Cocina</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {perKitchenStats.map(({ company, rev, food, isEstimated, waste, labor, meals, margin, costPerMeal, foodCostPct, threshold }) => (
+          {perKitchenStats.map(({ company, rev, food, isEstimated, waste, labor, opCost, meals, margin, costPerMeal, foodCostPct, threshold }) => (
             <Card key={company.id} className={`shadow-card hover:shadow-card-hover transition-shadow${margin < 0 ? ' border-red-200 dark:border-red-800' : ''}`}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">{company.name}</CardTitle>
@@ -445,6 +553,7 @@ export default function CostosPage() {
                 )}
                 <div className="flex justify-between"><span className="text-muted-foreground">Labor</span><span className="font-mono">{fmt(labor)}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Merma</span><span className="font-mono text-red-600">{fmt(waste)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Gastos Op.</span><span className="font-mono text-amber-600">{fmt(opCost)}</span></div>
                 <div className="flex justify-between border-t pt-2"><span className="font-semibold">Margen</span><span className={`font-bold font-mono ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(margin)}</span></div>
                 {rev > 0 && (() => {
                   const marginPct = Math.max(0, (margin / rev) * 100);
@@ -518,6 +627,72 @@ export default function CostosPage() {
         </Tabs>
       </div>
 
+      {/* ── Add Expense Dialog ── */}
+      <Dialog open={showExpenseDialog} onOpenChange={setShowExpenseDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Agregar Gasto Operativo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Cocina</Label>
+              <Select value={expCompanyId} onValueChange={setExpCompanyId}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar cocina" /></SelectTrigger>
+                <SelectContent>
+                  {(companies || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Categoría</Label>
+              <Select value={expCategory} onValueChange={v => setExpCategory(v as OperationalCostCategory)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {OPERATIONAL_COST_CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Monto (MXN)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={expAmount}
+                onChange={e => setExpAmount(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{expCategory === 'otro' ? 'Descripción (requerida)' : 'Descripción (opcional)'}</Label>
+              <Input
+                placeholder={expCategory === 'otro' ? 'Describe el gasto...' : 'Nota adicional'}
+                value={expDescription}
+                onChange={e => setExpDescription(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Mes</Label>
+              <Input
+                type="month"
+                value={expMonth}
+                onChange={e => setExpMonth(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowExpenseDialog(false); resetExpenseForm(); }}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveExpense}
+              disabled={expSaving || !expCompanyId || !expAmount || parseFloat(expAmount) <= 0 || (expCategory === 'otro' && !expDescription.trim())}
+            >
+              {expSaving ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

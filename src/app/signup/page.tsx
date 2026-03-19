@@ -302,9 +302,11 @@ function SignupForm() {
 
       {/* Card */}
       <div className="relative z-10 w-full max-w-[420px] rounded-2xl bg-white p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] sm:p-10">
-        {/* Logo */}
+        {/* Logo — links back to landing page */}
         <div className="mb-8 flex justify-center">
-          <Logo />
+          <a href="/" className="transition-opacity hover:opacity-80">
+            <Logo />
+          </a>
         </div>
 
         <h2 className="text-center text-2xl font-semibold tracking-tight text-gray-900 mb-1">Crear cuenta</h2>

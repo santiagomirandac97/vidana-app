@@ -556,7 +556,7 @@ export default function CostosPage() {
         />
 
         {/* ── KPI Cards ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
           <KpiCard
             label="Ingresos"
             value={fmt(kpis.revenue)}
@@ -623,7 +623,7 @@ export default function CostosPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
           <Card className="md:col-span-1 shadow-card hover:shadow-card-hover transition-shadow">
             <CardHeader><CardTitle className="text-sm">Distribución de Costos</CardTitle></CardHeader>
             <CardContent>
@@ -663,8 +663,8 @@ export default function CostosPage() {
         </div>
 
         {/* ── Per Kitchen Cards ── */}
-        <h2 className="text-lg font-semibold mb-3">Por Cocina</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <h2 className="text-lg font-semibold mb-4">Por Cocina</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
           {perKitchenStats.map(({ company, rev, food, isEstimated, waste, labor, opCost, meals, margin, costPerMeal, foodCostPct, threshold }) => (
             <Card key={company.id} className={`shadow-card hover:shadow-card-hover transition-shadow${margin < 0 ? ' border-red-200 dark:border-red-800' : ''}`}>
               <CardHeader className="pb-2">

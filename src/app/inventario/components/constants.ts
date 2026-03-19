@@ -44,7 +44,7 @@ export const purchaseOrderItemSchema = z.object({
   ingredientId: z.string().min(1, 'Seleccione un ingrediente'),
   ingredientName: z.string(),
   quantity: z.coerce.number().min(0.001, 'La cantidad debe ser mayor a 0'),
-  unitCost: z.coerce.number().min(0, 'El costo no puede ser negativo'),
+  unitCost: z.coerce.number().min(0.01, 'El costo debe ser mayor a $0.01'),
 });
 
 export const purchaseOrderSchema = z.object({

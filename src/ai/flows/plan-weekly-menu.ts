@@ -95,7 +95,7 @@ Usa solo IDs del catálogo. No incluyas platillos marcados como "Usado recientem
     // Validate all returned menuItemIds actually exist in the catalogue
     const validIds = new Set(input.menuItems.map(m => m.id));
     for (const day of DAYS) {
-      output[day].menuItemIds = output[day].menuItemIds.filter(id => validIds.has(id));
+      output[day].menuItemIds = output[day].menuItemIds.filter((id: string) => validIds.has(id));
       if (output[day].menuItemIds.length === 0) {
         const byCost = (a: { id: string }, b: { id: string }) => {
           const ca = input.recipes.find(r => r.menuItemId === a.id)?.costPerPortion ?? 9999;

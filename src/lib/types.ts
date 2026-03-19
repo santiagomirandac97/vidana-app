@@ -155,7 +155,7 @@ export interface PurchaseOrder {
   createdAt: string; // ISO-8601
   receivedAt?: string; // ISO-8601
   createdBy: string;
-  companyId?: string; // denormalized for collectionGroup queries
+  companyId: string; // denormalized — required for collectionGroup queries in costos
 }
 
 // ─── Recipes ──────────────────────────────────────────────────────────────────

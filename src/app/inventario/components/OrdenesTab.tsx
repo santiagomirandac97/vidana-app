@@ -260,6 +260,7 @@ export function OrdenesTab({
       await updateDocumentNonBlocking(orderDocRef, {
         status: 'recibido',
         receivedAt: new Date().toISOString(),
+        companyId, // ensure companyId is always present for collectionGroup queries
       });
 
       // For each item: update ingredient stock + create stockMovement

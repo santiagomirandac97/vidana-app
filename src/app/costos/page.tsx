@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DollarSign, TrendingDown, TrendingUp, Users, ShieldAlert, AlertTriangle, Receipt, Plus } from 'lucide-react';
+import { DollarSign, TrendingDown, TrendingUp, Users, ShieldAlert, AlertTriangle, Receipt, Plus, Download, FileSpreadsheet } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { ErrorState } from '@/components/ui/error-state';
@@ -184,6 +184,21 @@ export default function CostosPage() {
     setShowExpenseDialog(false);
     resetExpenseForm();
     setExpSaving(false);
+  };
+
+  // ── Export Handlers ──────────────────────────────────────────────────────
+  const handleExportPDF = async () => {
+    const { generateCostosPDF } = await import('@/lib/costos-export');
+    const { downloadBlob } = await import('@/lib/billing-generators');
+    const blob = generateCostosPDF(buildExportData());
+    downloadBlob(blob, `costos-${currentMonthKey}.pdf`);
+  };
+
+  const handleExportExcel = async () => {
+    const { generateCostosExcel } = await import('@/lib/costos-export');
+    const { downloadBlob } = await import('@/lib/billing-generators');
+    const blob = generateCostosExcel(buildExportData());
+    downloadBlob(blob, `costos-${currentMonthKey}.xlsx`);
   };
 
   // ── KPI Calculations ──────────────────────────────────────────────────────
@@ -421,6 +436,57 @@ export default function CostosPage() {
     });
   }, [companies, allConsumptions, allPurchaseOrders, allMerma, allLaborCosts, allStaff, allBonuses, allOperationalCosts, currentMonthKey, monthStart, now]);
 
+  // ── Build export data ─────────────────────────────────────────────────────
+  const buildExportData = () => {
+    const monthLabelStr = format(now, 'MMMM yyyy', { locale: es });
+    return {
+      monthLabel: monthLabelStr.charAt(0).toUpperCase() + monthLabelStr.slice(1),
+      kpis: {
+        revenue: kpis.revenue,
+        foodCost: kpis.foodCost,
+        laborCost: kpis.laborCost,
+        wasteCost: kpis.wasteCost,
+        opCost: kpis.opCost,
+        netMargin: kpis.netMargin,
+        foodCostPct: kpis.foodCostPct,
+        mealsServed: kpis.mealsServed,
+        costPerMeal: kpis.costPerMeal,
+      },
+      perKitchen: perKitchenStats.map(k => ({
+        name: k.company.name,
+        meals: k.meals,
+        revenue: k.rev,
+        food: k.food,
+        labor: k.labor,
+        waste: k.waste,
+        opCost: k.opCost,
+        margin: k.margin,
+        marginPct: k.rev > 0 ? (k.margin / k.rev) * 100 : 0,
+      })),
+      purchaseOrders: drillFoodRows.map(po => ({
+        date: po.receivedAt ? formatInTimeZone(new Date(po.receivedAt), timeZone, 'dd/MM/yyyy') : '',
+        supplier: po.supplierName,
+        total: po.totalCost ?? 0,
+        company: companyName(po.companyId),
+      })),
+      wasteEntries: drillWasteRows.map(m => ({
+        date: formatInTimeZone(new Date(m.timestamp), timeZone, 'dd/MM/yyyy'),
+        ingredient: m.ingredientName,
+        quantity: m.quantity,
+        unitCost: m.unitCost,
+        total: m.quantity * m.unitCost,
+        reason: m.reason || '',
+        company: companyName(m.companyId),
+      })),
+      operationalCosts: drillOpCostRows.map(oc => ({
+        category: categoryLabel(oc.category),
+        description: oc.description || '',
+        amount: oc.amount,
+        company: companyName(oc.companyId),
+      })),
+    };
+  };
+
   // Auth flash guard
   if (!userLoading && !user) return null;
 
@@ -469,6 +535,12 @@ export default function CostosPage() {
           subtitle={`${format(now, 'MMMM yyyy', { locale: es })} — datos del mes en curso`}
           action={
             <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={handleExportPDF} title="Exportar PDF">
+                <Download className="h-4 w-4 mr-1" />PDF
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleExportExcel} title="Exportar Excel">
+                <FileSpreadsheet className="h-4 w-4 mr-1" />Excel
+              </Button>
               <Button size="sm" variant="outline" onClick={() => setShowExpenseDialog(true)}>
                 <Plus className="h-4 w-4 mr-1" />Agregar Gasto
               </Button>

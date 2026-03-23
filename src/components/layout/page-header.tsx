@@ -10,11 +10,11 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, action, className }: PageHeaderProps) {
   return (
-    <div className={cn('flex items-start justify-between gap-4 pb-6 border-b border-border mb-6', className)}>
+    <div className={cn('flex items-start justify-between gap-4 pb-6 mb-8', className)}>
       <div>
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
         {subtitle && (
-          <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
+          <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
         )}
       </div>
       {action && <div className="shrink-0">{action}</div>}

@@ -18,6 +18,8 @@ import { Label } from '@/components/ui/label';
 import { DollarSign, TrendingDown, TrendingUp, Users, ShieldAlert, AlertTriangle, Receipt, Plus, Download, FileSpreadsheet } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
+import { SectionLabel } from '@/components/ui/section-label';
+import { StaggerChildren, StaggerItem } from '@/components/ui/stagger-children';
 import { ErrorState } from '@/components/ui/error-state';
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfMonth, subMonths, endOfMonth, addMonths } from 'date-fns';
@@ -556,75 +558,89 @@ export default function CostosPage() {
         />
 
         {/* ── KPI Cards ── */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-          <KpiCard
-            label="Ingresos"
-            value={fmt(kpis.revenue)}
-            icon={<DollarSign className="h-4 w-4" />}
-            variant="success"
-            delta={{ current: kpis.revenue, previous: prev.revenue, positiveDirection: 'up' }}
-            sparklineData={sparkRevenue}
-          />
-          <div className="cursor-pointer" onClick={() => setDrillDown('food')}>
+        <StaggerChildren className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 mb-8">
+          <StaggerItem>
             <KpiCard
-              label="Costo Alimentos"
-              value={fmt(kpis.foodCost)}
-              icon={<TrendingDown className="h-4 w-4" />}
-              variant="default"
-              delta={{ current: kpis.foodCost, previous: prev.foodCost, positiveDirection: 'down' }}
-              sparklineData={sparkFoodCost}
+              label="Ingresos"
+              value={fmt(kpis.revenue)}
+              icon={<DollarSign className="h-4 w-4" />}
+              variant="success"
+              delta={{ current: kpis.revenue, previous: prev.revenue, positiveDirection: 'up' }}
+              sparklineData={sparkRevenue}
             />
-          </div>
-          <div className="cursor-pointer" onClick={() => setDrillDown('labor')}>
+          </StaggerItem>
+          <StaggerItem>
+            <div className="cursor-pointer hover:ring-2 hover:ring-primary/20 rounded-lg" onClick={() => setDrillDown('food')}>
+              <KpiCard
+                label="Costo Alimentos"
+                value={fmt(kpis.foodCost)}
+                icon={<TrendingDown className="h-4 w-4" />}
+                variant="default"
+                delta={{ current: kpis.foodCost, previous: prev.foodCost, positiveDirection: 'down' }}
+                sparklineData={sparkFoodCost}
+              />
+            </div>
+          </StaggerItem>
+          <StaggerItem>
+            <div className="cursor-pointer hover:ring-2 hover:ring-primary/20 rounded-lg" onClick={() => setDrillDown('labor')}>
+              <KpiCard
+                label="Costo Laboral"
+                value={fmt(kpis.laborCost)}
+                icon={<Users className="h-4 w-4" />}
+                variant="default"
+                delta={{ current: kpis.laborCost, previous: prev.laborCost, positiveDirection: 'down' }}
+                sparklineData={sparkLabor}
+              />
+            </div>
+          </StaggerItem>
+          <StaggerItem>
+            <div className="cursor-pointer hover:ring-2 hover:ring-primary/20 rounded-lg" onClick={() => setDrillDown('waste')}>
+              <KpiCard
+                label="Merma"
+                value={fmt(kpis.wasteCost)}
+                icon={<AlertTriangle className="h-4 w-4" />}
+                variant="destructive"
+                delta={{ current: kpis.wasteCost, previous: prev.wasteCost, positiveDirection: 'down' }}
+                sparklineData={sparkWaste}
+              />
+            </div>
+          </StaggerItem>
+          <StaggerItem>
+            <div className="cursor-pointer hover:ring-2 hover:ring-primary/20 rounded-lg" onClick={() => setDrillDown('opCost')}>
+              <KpiCard
+                label="Gastos Op."
+                value={fmt(kpis.opCost)}
+                icon={<Receipt className="h-4 w-4" />}
+                variant="warning"
+                delta={{ current: kpis.opCost, previous: prev.opCost, positiveDirection: 'down' }}
+                sparklineData={sparkOpCost}
+              />
+            </div>
+          </StaggerItem>
+          <StaggerItem>
             <KpiCard
-              label="Costo Laboral"
-              value={fmt(kpis.laborCost)}
-              icon={<Users className="h-4 w-4" />}
-              variant="default"
-              delta={{ current: kpis.laborCost, previous: prev.laborCost, positiveDirection: 'down' }}
-              sparklineData={sparkLabor}
+              label="% Costo Alim."
+              value={`${kpis.foodCostPct.toFixed(1)}%`}
+              icon={<TrendingUp className="h-4 w-4" />}
+              variant={kpis.foodCostPct > selectedCompanyThreshold ? 'destructive' : 'success'}
+              delta={{ current: kpis.foodCostPct, previous: prev.foodCostPct, positiveDirection: 'down' }}
+              sparklineData={sparkFoodCostPct}
             />
-          </div>
-          <div className="cursor-pointer" onClick={() => setDrillDown('waste')}>
+          </StaggerItem>
+          <StaggerItem>
             <KpiCard
-              label="Merma"
-              value={fmt(kpis.wasteCost)}
-              icon={<AlertTriangle className="h-4 w-4" />}
-              variant="destructive"
-              delta={{ current: kpis.wasteCost, previous: prev.wasteCost, positiveDirection: 'down' }}
-              sparklineData={sparkWaste}
+              label="Margen Neto"
+              value={fmt(kpis.netMargin)}
+              icon={<DollarSign className="h-4 w-4" />}
+              variant={kpis.netMargin >= 0 ? 'success' : 'destructive'}
+              delta={{ current: kpis.netMargin, previous: prev.netMargin, positiveDirection: 'up' }}
+              sparklineData={sparkNetMargin}
             />
-          </div>
-          <div className="cursor-pointer" onClick={() => setDrillDown('opCost')}>
-            <KpiCard
-              label="Gastos Op."
-              value={fmt(kpis.opCost)}
-              icon={<Receipt className="h-4 w-4" />}
-              variant="warning"
-              delta={{ current: kpis.opCost, previous: prev.opCost, positiveDirection: 'down' }}
-              sparklineData={sparkOpCost}
-            />
-          </div>
-          <KpiCard
-            label="% Costo Alim."
-            value={`${kpis.foodCostPct.toFixed(1)}%`}
-            icon={<TrendingUp className="h-4 w-4" />}
-            variant={kpis.foodCostPct > selectedCompanyThreshold ? 'destructive' : 'success'}
-            delta={{ current: kpis.foodCostPct, previous: prev.foodCostPct, positiveDirection: 'down' }}
-            sparklineData={sparkFoodCostPct}
-          />
-          <KpiCard
-            label="Margen Neto"
-            value={fmt(kpis.netMargin)}
-            icon={<DollarSign className="h-4 w-4" />}
-            variant={kpis.netMargin >= 0 ? 'success' : 'destructive'}
-            delta={{ current: kpis.netMargin, previous: prev.netMargin, positiveDirection: 'up' }}
-            sparklineData={sparkNetMargin}
-          />
-        </div>
+          </StaggerItem>
+        </StaggerChildren>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
-          <Card className="md:col-span-1 shadow-card hover:shadow-card-hover transition-shadow">
+          <Card className="md:col-span-1 shadow-card rounded-xl hover:shadow-card-hover transition-all duration-200">
             <CardHeader><CardTitle className="text-sm">Distribución de Costos</CardTitle></CardHeader>
             <CardContent>
               {pieData.length > 0 ? (
@@ -642,18 +658,18 @@ export default function CostosPage() {
             </CardContent>
           </Card>
 
-          <Card className="md:col-span-2 shadow-card hover:shadow-card-hover transition-shadow">
+          <Card className="md:col-span-2 shadow-card rounded-xl hover:shadow-card-hover transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-sm">Costo por Comida Servida</CardTitle>
               <CardDescription>KPI principal — objetivo: &lt;$80 MXN por comida</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="text-center p-4 bg-primary/5 rounded-xl">
                   <p className="text-3xl font-bold">{fmt(kpis.costPerMeal)}</p>
                   <p className="text-sm text-muted-foreground mt-1">Costo total / comida</p>
                 </div>
-                <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="text-center p-4 bg-primary/5 rounded-xl">
                   <p className="text-3xl font-bold font-mono">{kpis.mealsServed.toLocaleString()}</p>
                   <p className="text-sm text-muted-foreground mt-1">Comidas servidas</p>
                 </div>
@@ -663,10 +679,11 @@ export default function CostosPage() {
         </div>
 
         {/* ── Per Kitchen Cards ── */}
-        <h2 className="text-lg font-semibold mb-4">Por Cocina</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
+        <SectionLabel className="mb-5">Por Cocina</SectionLabel>
+        <StaggerChildren className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
           {perKitchenStats.map(({ company, rev, food, isEstimated, waste, labor, opCost, meals, margin, costPerMeal, foodCostPct, threshold }) => (
-            <Card key={company.id} className={`shadow-card hover:shadow-card-hover transition-shadow${margin < 0 ? ' border-red-200 dark:border-red-800' : ''}`}>
+            <StaggerItem key={company.id}>
+            <Card className={`shadow-card hover:shadow-card-hover rounded-xl transition-all duration-200${margin < 0 ? ' border-red-200 dark:border-red-800' : ''}`}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">{company.name}</CardTitle>
                 <CardDescription>{meals} comidas · <span className="font-mono">{fmt(costPerMeal)}</span>/comida</CardDescription>
@@ -700,22 +717,23 @@ export default function CostosPage() {
                         <span>Margen %</span>
                         <span className="font-mono">{marginPct.toFixed(1)}%</span>
                       </div>
-                      <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                        <div className={`${barColor} h-1.5 rounded-full transition-all`} style={{ width: `${marginPct}%` }} />
+                      <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                        <div className={`${barColor} h-2 rounded-full transition-all`} style={{ width: `${marginPct}%` }} />
                       </div>
                     </div>
                   );
                 })()}
               </CardContent>
             </Card>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerChildren>
 
         {/* ── Waste Report ── */}
         <Tabs defaultValue="merma">
           <TabsList><TabsTrigger value="merma">Reporte de Merma</TabsTrigger></TabsList>
           <TabsContent value="merma">
-            <Card className="shadow-card hover:shadow-card-hover transition-shadow">
+            <Card className="shadow-card hover:shadow-card-hover rounded-xl transition-shadow">
               <CardHeader><CardTitle className="text-sm">Movimientos de Merma — {format(now, 'MMMM yyyy', { locale: es })}</CardTitle></CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">

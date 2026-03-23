@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Building, ChevronDown, Loader2 } from 'lucide-react';
+import { Building, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { startOfMonth } from 'date-fns';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, useUser } from '@/firebase';
@@ -13,6 +13,8 @@ import { type Company, type Employee, type Consumption, type UserProfile } from 
 import { getTodayInMexicoCity } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { AppShell, PageHeader } from '@/components/layout';
+import { SkeletonPageHeader } from '@/components/ui/skeleton-layouts';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 import { EmployeeSearch } from './components/EmployeeSearch';
@@ -109,10 +111,29 @@ export default function MainPage() {
 
   if (userLoading || !user || companiesLoading || profileLoading || !selectedCompanyId || !company || !allCompanies) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <p className="ml-3 text-lg">Cargando datos de la empresa...</p>
-      </div>
+      <AppShell>
+        <main className="container mx-auto p-4 sm:p-6 md:p-8">
+          <SkeletonPageHeader />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <Skeleton className="h-10 w-full rounded-lg mb-4" />
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-14 w-full rounded-lg" />
+                ))}
+              </div>
+            </div>
+            <div className="lg:col-span-1">
+              <Skeleton className="h-6 w-32 mb-4" />
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </main>
+      </AppShell>
     );
   }
 

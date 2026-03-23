@@ -157,7 +157,7 @@ export function ProveedoresTab({ suppliers, isLoading, companyId, firestore, toa
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {suppliers.map((supplier) => (
-            <Card key={supplier.id}>
+            <Card key={supplier.id} className="rounded-xl">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">{supplier.name}</CardTitle>
                 {supplier.contact && (
@@ -590,9 +590,9 @@ export function OrdenesTab({
       {/* ── Supplier Spend Card ────────────────────────────────────── */}
       {supplierSpend.rows.length > 0 && (
         <Collapsible open={spendOpen} onOpenChange={setSpendOpen}>
-          <Card className="shadow-card">
+          <Card className="shadow-card rounded-xl">
             <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer select-none pb-3 hover:bg-muted/50 transition-colors rounded-t-lg">
+              <CardHeader className="cursor-pointer select-none pb-3 hover:bg-muted/50 transition-colors rounded-t-xl">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 text-primary" />
@@ -613,7 +613,7 @@ export function OrdenesTab({
               <CardContent className="pt-0">
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-muted/30">
                       <TableHead>Proveedor</TableHead>
                       <TableHead className="text-center">Órdenes</TableHead>
                       <TableHead className="text-right">Gasto Total</TableHead>
@@ -628,7 +628,7 @@ export function OrdenesTab({
                           ? (row.total / supplierSpend.grandTotal) * 100
                           : 0;
                       return (
-                        <TableRow key={row.name}>
+                        <TableRow key={row.name} className="hover:bg-muted/30 transition-colors">
                           <TableCell className="font-medium">{row.name}</TableCell>
                           <TableCell className="text-center font-mono">{row.count}</TableCell>
                           <TableCell className="text-right font-mono">
@@ -675,9 +675,9 @@ export function OrdenesTab({
       {/* ── Price Comparison Card ──────────────────────────────────── */}
       {priceComparison.length > 0 && (
         <Collapsible open={priceComparisonOpen} onOpenChange={setPriceComparisonOpen}>
-          <Card className="shadow-card">
+          <Card className="shadow-card rounded-xl">
             <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer select-none pb-3 hover:bg-muted/50 transition-colors rounded-t-lg">
+              <CardHeader className="cursor-pointer select-none pb-3 hover:bg-muted/50 transition-colors rounded-t-xl">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Scale className="h-4 w-4 text-primary" />
@@ -701,7 +701,7 @@ export function OrdenesTab({
                     <h4 className="text-sm font-semibold mb-2">{item.ingredientName}</h4>
                     <Table>
                       <TableHeader>
-                        <TableRow>
+                        <TableRow className="bg-muted/30">
                           <TableHead>Proveedor</TableHead>
                           <TableHead className="text-right">Último Precio</TableHead>
                           <TableHead className="text-right">Fecha</TableHead>
@@ -719,7 +719,7 @@ export function OrdenesTab({
                             const diffPct =
                               item.cheapest > 0 ? (diff / item.cheapest) * 100 : 0;
                             return (
-                              <TableRow key={supplier.name}>
+                              <TableRow key={supplier.name} className="hover:bg-muted/30 transition-colors">
                                 <TableCell className="font-medium">{supplier.name}</TableCell>
                                 <TableCell className="text-right font-mono">
                                   ${supplier.unitCost.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
@@ -759,7 +759,7 @@ export function OrdenesTab({
       ) : (
         <div className="space-y-4">
           {purchaseOrders.map((order) => (
-            <Card key={order.id}>
+            <Card key={order.id} className="rounded-xl">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start gap-2 flex-wrap">
                   <div>
@@ -795,7 +795,7 @@ export function OrdenesTab({
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-muted/30">
                       <TableHead>Ingrediente</TableHead>
                       <TableHead>Cantidad</TableHead>
                       <TableHead>Costo Unitario</TableHead>
@@ -804,7 +804,7 @@ export function OrdenesTab({
                   </TableHeader>
                   <TableBody>
                     {order.items.map((item: PurchaseOrderItem, idx: number) => (
-                      <TableRow key={`${item.ingredientId}-${idx}`}>
+                      <TableRow key={`${item.ingredientId}-${idx}`} className="hover:bg-muted/30 transition-colors">
                         <TableCell>{item.ingredientName}</TableCell>
                         <TableCell>{item.quantity}</TableCell>
                         <TableCell>${item.unitCost.toFixed(2)}</TableCell>

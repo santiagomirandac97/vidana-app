@@ -5,16 +5,20 @@ import { useRouter } from 'next/navigation';
 import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, collectionGroup, doc, query, where } from 'firebase/firestore';
 import {
-  Loader2, Settings, ClipboardList, AreaChart, Tablet,
+  Settings, ClipboardList, AreaChart, Tablet,
   ChefHat, ShoppingCart, Package, BookOpen, TrendingDown, Receipt,
 } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { SectionLabel } from '@/components/ui/section-label';
+import { SkeletonPageHeader, SkeletonKpiGrid } from '@/components/ui/skeleton-layouts';
+import { Skeleton } from '@/components/ui/skeleton';
+import { StaggerChildren, StaggerItem } from '@/components/ui/stagger-children';
 import { type Company, type Consumption, type UserProfile } from '@/lib/types';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { APP_TIMEZONE } from '@/lib/constants';
-import { startOfMonth } from 'date-fns';
+import { startOfMonth, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 const TZ = APP_TIMEZONE;
 
@@ -92,10 +96,20 @@ export default function SelectionPage() {
 
   if (isLoading || profileLoading || !user) {
     return (
-      <div className="flex h-screen items-center justify-center gap-3">
-        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Verificando acceso…</p>
-      </div>
+      <AppShell>
+        <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+          <SkeletonPageHeader />
+          <SkeletonKpiGrid count={3} />
+          <div className="mt-8">
+            <Skeleton className="h-3 w-24 mb-3" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-11 rounded-lg" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </AppShell>
     );
   }
 
@@ -105,7 +119,7 @@ export default function SelectionPage() {
     return (
       <AppShell>
         <div className="p-6 lg:p-8 max-w-5xl mx-auto">
-          <PageHeader title={`Hola, ${firstName}`} subtitle="Bienvenido al panel de control de Vidana" />
+          <PageHeader title={`Hola, ${firstName}`} subtitle={format(now, "EEEE, d 'de' MMMM yyyy", { locale: es })} />
           <div className="rounded-lg border border-border bg-muted/40 p-6 text-center text-sm text-muted-foreground">
             Tu cuenta aún no está asignada a una empresa. Contacta al administrador.
           </div>
@@ -119,30 +133,37 @@ export default function SelectionPage() {
       <div className="p-6 lg:p-8 max-w-5xl mx-auto">
         <PageHeader
           title={`Hola, ${firstName}`}
-          subtitle="Bienvenido al panel de control de Vidana"
+          subtitle={format(now, "EEEE, d 'de' MMMM yyyy", { locale: es })}
         />
 
         {/* Live KPI row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <KpiCard label="Comidas hoy"      value={todayCount.toLocaleString()}          loading={consumptionsLoading} variant="default" />
-          <KpiCard label="Comidas este mes" value={monthlyMeals.toLocaleString()}         loading={consumptionsLoading} variant="success" />
-          <KpiCard label="Empresas activas" value={activeCompaniesCount}                  loading={companiesLoading}    variant="default" />
-        </div>
+        <StaggerChildren className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+          <StaggerItem>
+            <KpiCard label="Comidas hoy" value={todayCount.toLocaleString()} loading={consumptionsLoading} variant="default" />
+          </StaggerItem>
+          <StaggerItem>
+            <KpiCard label="Comidas este mes" value={monthlyMeals.toLocaleString()} loading={consumptionsLoading} variant="success" />
+          </StaggerItem>
+          <StaggerItem>
+            <KpiCard label="Empresas activas" value={activeCompaniesCount} loading={companiesLoading} variant="default" />
+          </StaggerItem>
+        </StaggerChildren>
 
         {/* Quick access grid */}
-        <SectionLabel>Acceso rápido</SectionLabel>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <SectionLabel className="mb-5">Acceso rápido</SectionLabel>
+        <StaggerChildren className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
           {NAV_ITEMS.map(item => (
-            <button
-              key={item.href}
-              onClick={() => router.push(item.href)}
-              className="flex items-center gap-2.5 p-3 rounded-lg border border-border hover:bg-muted transition-colors text-sm font-medium text-left"
-            >
-              <item.icon size={16} className="text-muted-foreground shrink-0" />
-              {item.label}
-            </button>
+            <StaggerItem key={item.href}>
+              <button
+                onClick={() => router.push(item.href)}
+                className="flex items-center gap-3 p-3.5 rounded-xl bg-card border border-border/50 shadow-card hover:shadow-card-hover hover:border-primary/30 transition-all duration-200 text-sm font-medium text-left w-full group"
+              >
+                <item.icon size={16} className="text-muted-foreground shrink-0 group-hover:text-primary transition-colors" />
+                {item.label}
+              </button>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerChildren>
       </div>
     </AppShell>
   );

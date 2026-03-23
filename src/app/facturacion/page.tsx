@@ -8,7 +8,6 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { type Company, type Consumption, type UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -27,6 +26,9 @@ import { SectionLabel } from '@/components/ui/section-label';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { ErrorState } from '@/components/ui/error-state';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { SkeletonPageHeader, SkeletonKpiGrid, SkeletonCardGrid } from '@/components/ui/skeleton-layouts';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StaggerChildren, StaggerItem } from '@/components/ui/stagger-children';
 import { useToast } from '@/hooks/use-toast';
 import { format, subMonths, eachDayOfInterval, getDay } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
@@ -254,14 +256,11 @@ export default function FacturacionPage() {
     return (
       <AppShell>
         <div className="p-6 lg:p-8 max-w-6xl mx-auto">
-          <Skeleton className="h-8 w-48 mb-2" />
-          <Skeleton className="h-4 w-32 mb-8" />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
+          <SkeletonPageHeader />
+          <div className="mb-8">
+            <SkeletonKpiGrid count={4} />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-lg" />)}
-          </div>
+          <SkeletonCardGrid count={3} />
         </div>
       </AppShell>
     );
@@ -340,16 +339,16 @@ export default function FacturacionPage() {
         />
 
         {/* Summary KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <KpiCard label="Total Comidas"   value={totalMeals.toLocaleString()} variant="default" loading={consumptionsLoading} />
-          <KpiCard label="Total Facturado" value={fmt(totalBilled)}            variant="success" loading={consumptionsLoading} />
-          <KpiCard label="Cocinas"         value={(companies ?? []).length}    variant="default" />
-          <KpiCard label="Pagadas"         value={paidCount}                   variant={paidCount === (companies ?? []).length && paidCount > 0 ? 'success' : 'warning'} />
-        </div>
+        <StaggerChildren className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-8">
+          <StaggerItem><KpiCard label="Total Comidas"   value={totalMeals.toLocaleString()} variant="default" loading={consumptionsLoading} /></StaggerItem>
+          <StaggerItem><KpiCard label="Total Facturado" value={fmt(totalBilled)}            variant="success" loading={consumptionsLoading} /></StaggerItem>
+          <StaggerItem><KpiCard label="Cocinas"         value={(companies ?? []).length}    variant="default" /></StaggerItem>
+          <StaggerItem><KpiCard label="Pagadas"         value={paidCount}                   variant={paidCount === (companies ?? []).length && paidCount > 0 ? 'success' : 'warning'} /></StaggerItem>
+        </StaggerChildren>
 
         {/* Per-company billing cards */}
-        <SectionLabel className="mb-4">Empresas</SectionLabel>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <SectionLabel className="mb-5">Empresas</SectionLabel>
+        <StaggerChildren className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {(companies ?? []).map((company) => {
             const consumptions = byCompany[company.id] ?? [];
             const totalMealsForCompany = consumptions.length;
@@ -359,9 +358,9 @@ export default function FacturacionPage() {
             const isSending = sendingCompanyId === company.id;
 
             return (
+              <StaggerItem key={company.id}>
               <Card
-                key={company.id}
-                className="border-border/60 shadow-sm hover:shadow-md transition-shadow"
+                className="shadow-card hover:shadow-card-hover rounded-xl transition-all duration-200"
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
@@ -415,7 +414,7 @@ export default function FacturacionPage() {
                   </div>
                   <div className="flex justify-between text-sm border-t border-border/60 pt-3">
                     <span className="text-muted-foreground text-xs uppercase tracking-wider font-medium">Total</span>
-                    <span className="font-bold text-base text-foreground">{fmt(totalAmount)}</span>
+                    <span className="font-bold font-mono text-base text-foreground">{fmt(totalAmount)}</span>
                   </div>
                   <div className="flex gap-1.5 pt-0.5">
                     <TooltipProvider>
@@ -495,15 +494,13 @@ export default function FacturacionPage() {
                   </div>
                 </CardContent>
               </Card>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerChildren>
 
         {(companies ?? []).length === 0 && !companiesLoading && (
-          <div className="text-center py-20 text-muted-foreground">
-            <Receipt className="h-10 w-10 mx-auto mb-3 opacity-20" />
-            <p className="text-sm">No hay empresas configuradas.</p>
-          </div>
+          <EmptyState icon={Receipt} title="No hay facturas este mes." />
         )}
       </div>
     </AppShell>

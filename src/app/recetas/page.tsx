@@ -66,6 +66,9 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import { formatFirestoreError } from '@/lib/firestore-errors';
+import { SkeletonPageHeader, SkeletonCardGrid } from '@/components/ui/skeleton-layouts';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StaggerChildren, StaggerItem } from '@/components/ui/stagger-children';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -232,9 +235,9 @@ export default function RecetasPage() {
   if (pageIsLoading && !loadTimeout) {
     return (
       <AppShell>
-        <div className="flex h-full w-full items-center justify-center">
-          <Loader2 className="h-10 w-10 animate-spin" />
-          <p className="ml-4 text-lg">Cargando...</p>
+        <div className="p-6 lg:p-8">
+          <SkeletonPageHeader />
+          <SkeletonCardGrid count={8} />
         </div>
       </AppShell>
     );
@@ -404,13 +407,9 @@ function RecetasTab({ menuItems, ingredients, recipesMap, companyId, firestore, 
   return (
     <div>
       {menuItems.length === 0 ? (
-        <Card>
-          <CardContent className="flex items-center justify-center h-40">
-            <p className="text-muted-foreground">No hay elementos de menú. Cree algunos primero.</p>
-          </CardContent>
-        </Card>
+        <EmptyState icon={BookOpen} title="No hay recetas registradas." />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <StaggerChildren className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {menuItems.map((item) => {
             const recipe = recipesMap[item.id];
             const hasRecipe = !!recipe;
@@ -420,61 +419,63 @@ function RecetasTab({ menuItems, ingredients, recipesMap, companyId, firestore, 
                 : null;
 
             return (
-              <Card key={item.id} className="flex flex-col shadow-card hover:shadow-card-hover transition-shadow">
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base leading-tight">{item.name}</CardTitle>
-                    {hasRecipe ? (
-                      <Badge className="bg-green-100 text-green-800 border-green-200 shrink-0">
-                        Receta OK
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-orange-100 text-orange-800 border-orange-200 shrink-0">
-                        Sin receta
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{item.category}</p>
-                  <p className="text-sm font-medium font-mono">
-                    ${item.price.toFixed(2)} MXN
-                  </p>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3 flex-1 justify-between">
-                  {hasRecipe && (
-                    <div className="text-sm space-y-1 bg-gray-50 dark:bg-gray-800 rounded-md p-2">
-                      <p>
-                        <span className="text-muted-foreground">Costo/porción: </span>
-                        <span className="font-medium font-mono">${recipe.costPerPortion.toFixed(2)}</span>
-                      </p>
-                      <p>
-                        <span className="text-muted-foreground">Ingredientes: </span>
-                        <span className="font-medium">{recipe.ingredients.length}</span>
-                      </p>
-                      {margin !== null && (
-                        <p>
-                          <span className="text-muted-foreground">Margen: </span>
-                          <span
-                            className={`font-medium ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}
-                          >
-                            {margin.toFixed(1)}%
-                          </span>
-                        </p>
+              <StaggerItem key={item.id}>
+                <Card className="flex flex-col shadow-card hover:shadow-card-hover hover:scale-[1.01] transition-all duration-200">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-base leading-tight">{item.name}</CardTitle>
+                      {hasRecipe ? (
+                        <Badge className="bg-green-100 text-green-800 border-green-200 shrink-0">
+                          Receta OK
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-orange-100 text-orange-800 border-orange-200 shrink-0">
+                          Sin receta
+                        </Badge>
                       )}
                     </div>
-                  )}
-                  <Button
-                    size="sm"
-                    variant={hasRecipe ? 'outline' : 'default'}
-                    className="w-full"
-                    onClick={() => openDialog(item)}
-                  >
-                    {hasRecipe ? 'Editar Receta' : 'Crear Receta'}
-                  </Button>
-                </CardContent>
-              </Card>
+                    <p className="text-sm text-muted-foreground">{item.category}</p>
+                    <p className="text-sm font-medium font-mono">
+                      ${item.price.toFixed(2)} MXN
+                    </p>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-3 flex-1 justify-between">
+                    {hasRecipe && (
+                      <div className="text-sm space-y-1 bg-gray-50 dark:bg-gray-800 rounded-md p-2">
+                        <p>
+                          <span className="text-muted-foreground">Costo/porción: </span>
+                          <span className="font-medium font-mono">${recipe.costPerPortion.toFixed(2)}</span>
+                        </p>
+                        <p>
+                          <span className="text-muted-foreground">Ingredientes: </span>
+                          <span className="font-medium">{recipe.ingredients.length}</span>
+                        </p>
+                        {margin !== null && (
+                          <p>
+                            <span className="text-muted-foreground">Margen: </span>
+                            <span
+                              className={`font-medium ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                            >
+                              {margin.toFixed(1)}%
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <Button
+                      size="sm"
+                      variant={hasRecipe ? 'outline' : 'default'}
+                      className="w-full"
+                      onClick={() => openDialog(item)}
+                    >
+                      {hasRecipe ? 'Editar Receta' : 'Crear Receta'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerChildren>
       )}
 
       {selectedMenuItem && (

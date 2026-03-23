@@ -85,7 +85,7 @@ export function SurveyQuestionCard({ question, responses }: SurveyQuestionCardPr
             </span>
             <div className="flex-1 bg-muted rounded-full h-1.5 overflow-hidden">
               <div
-                className="bg-primary h-1.5 rounded-full transition-all"
+                className="bg-primary h-1.5 rounded-full transition-all duration-500"
                 style={{ width: `${(d.count / maxCount) * 100}%` }}
               />
             </div>

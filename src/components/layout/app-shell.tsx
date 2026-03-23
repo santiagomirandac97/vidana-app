@@ -5,6 +5,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Sidebar } from './sidebar';
 import { MobileTopBar } from './mobile-top-bar';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { PageTransition } from '@/components/ui/page-transition';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { useToast } from '@/hooks/use-toast';
 
@@ -49,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex h-screen bg-background overflow-hidden">
         <main className="flex-1 overflow-y-auto">
-          <ErrorBoundary>{children}</ErrorBoundary>
+          <ErrorBoundary><PageTransition>{children}</PageTransition></ErrorBoundary>
         </main>
       </div>
     );
@@ -76,7 +77,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="flex-1 overflow-y-auto min-w-0">
         <div className="md:hidden h-12" /> {/* spacer for mobile top bar */}
         <ErrorBoundary>
-          {children}
+          <PageTransition>{children}</PageTransition>
         </ErrorBoundary>
       </main>
     </div>

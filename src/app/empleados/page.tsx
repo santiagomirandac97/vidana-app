@@ -9,14 +9,16 @@ import { AppShell, PageHeader } from '@/components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ShieldAlert, Plus, MoreVertical } from 'lucide-react';
+import { SkeletonPageHeader, SkeletonCardGrid } from '@/components/ui/skeleton-layouts';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StaggerChildren, StaggerItem } from '@/components/ui/stagger-children';
+import { ShieldAlert, Plus, MoreVertical, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -226,13 +228,8 @@ export default function EmpleadosPage() {
     return (
       <AppShell>
         <div className="p-6 lg:p-8 max-w-6xl mx-auto">
-          <Skeleton className="h-8 w-48 mb-2" />
-          <Skeleton className="h-4 w-32 mb-8" />
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-20 rounded-lg" />
-            ))}
-          </div>
+          <SkeletonPageHeader />
+          <SkeletonCardGrid count={4} />
         </div>
       </AppShell>
     );
@@ -287,27 +284,19 @@ export default function EmpleadosPage() {
 
         {/* Employee list */}
         {employeesLoading && (
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-20 rounded-lg" />
-            ))}
-          </div>
+          <SkeletonCardGrid count={4} />
         )}
 
         {!employeesLoading && (!employees || employees.length === 0) && (
-          <Card className="text-center py-12">
-            <CardContent className="text-muted-foreground">
-              No hay empleados registrados para esta cocina.
-            </CardContent>
-          </Card>
+          <EmptyState icon={Users} title="No hay empleados registrados." description="Agrega un empleado para comenzar." />
         )}
 
         {!employeesLoading && employees && employees.length > 0 && (
-          <div className="space-y-3">
+          <StaggerChildren className="space-y-3">
             {employees.map(emp => (
+              <StaggerItem key={emp.id}>
               <Card
-                key={emp.id}
-                className={`shadow-card hover:shadow-card-hover transition-shadow${!emp.active ? ' opacity-60' : ''}`}
+                className={`shadow-card hover:shadow-card-hover hover:bg-muted/50 transition-colors transition-shadow${!emp.active ? ' opacity-60' : ''}`}
               >
                 <CardHeader className="pb-1 flex flex-row items-start justify-between">
                   <div>
@@ -348,8 +337,9 @@ export default function EmpleadosPage() {
                   </p>
                 </CardContent>
               </Card>
+              </StaggerItem>
             ))}
-          </div>
+          </StaggerChildren>
         )}
       </div>
 

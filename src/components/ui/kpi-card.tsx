@@ -24,22 +24,29 @@ interface KpiCardProps {
 }
 
 const VARIANT_CLASSES = {
-  default:     'border-l-2 border-primary',
-  success:     'border-l-2 border-success',
-  warning:     'border-l-2 border-warning',
-  destructive: 'border-l-2 border-destructive',
+  default:     'border-l-[3px] border-primary',
+  success:     'border-l-[3px] border-success',
+  warning:     'border-l-[3px] border-warning',
+  destructive: 'border-l-[3px] border-destructive',
+};
+
+const ICON_VARIANT_CLASSES = {
+  default:     'text-primary/70',
+  success:     'text-success/70',
+  warning:     'text-warning/70',
+  destructive: 'text-destructive/70',
 };
 
 export function KpiCard({ label, value, icon, loading, variant = 'default', className, delta, sparklineData }: KpiCardProps) {
   return (
     <div className={cn(
-      'bg-card rounded-lg p-4 shadow-card',
+      'bg-card rounded-xl p-5 shadow-card hover:shadow-card-hover hover:scale-[1.02] transition-all duration-200',
       VARIANT_CLASSES[variant],
       className
     )}>
-      <div className="flex items-center gap-1.5 mb-2">
-        {icon && <span className="text-muted-foreground">{icon}</span>}
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+      <div className="flex items-center gap-2 mb-3">
+        {icon && <span className={ICON_VARIANT_CLASSES[variant]}>{icon}</span>}
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
       </div>
       {loading ? (
         <div className="h-8 w-24 bg-muted animate-pulse rounded" />

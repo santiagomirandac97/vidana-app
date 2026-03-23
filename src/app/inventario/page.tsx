@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { AppShell, PageHeader } from '@/components/layout';
 import { AlertTriangle, Zap } from 'lucide-react';
 import { IngredientsTab } from './components/IngredientsTab';
@@ -161,16 +160,14 @@ export default function InventarioPage() {
           />
 
           {lowStockCount > 0 && (
-            <div className="mb-4">
-              <Badge variant="destructive" className="flex items-center gap-1 text-xs w-fit">
-                <AlertTriangle className="h-3 w-3" />
-                {lowStockCount} bajo stock
-              </Badge>
+            <div className="mb-6 p-3 bg-destructive/5 border border-destructive/20 rounded-xl flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+              <span className="text-sm font-medium text-destructive">{lowStockCount} ingrediente(s) bajo stock mínimo</span>
             </div>
           )}
 
           {!cid ? (
-            <Card className="shadow-card">
+            <Card className="shadow-card rounded-xl">
               <CardContent className="flex items-center justify-center h-40">
                 <p className="text-muted-foreground">Seleccione una empresa para ver el inventario.</p>
               </CardContent>

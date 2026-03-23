@@ -7,10 +7,11 @@ import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/
 import { type Survey, type Company, type UserProfile } from '@/lib/types';
 import { AppShell, PageHeader } from '@/components/layout';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/error-state';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/ui/skeleton-layouts';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { ShieldAlert, Plus } from 'lucide-react';
+import { ShieldAlert, Plus, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -56,9 +57,8 @@ export default function EncuestasPage() {
     return (
       <AppShell>
         <div className="p-6 lg:p-8 max-w-5xl mx-auto">
-          <Skeleton className="h-8 w-48 mb-2" />
-          <Skeleton className="h-4 w-32 mb-8" />
-          <Skeleton className="h-64 w-full rounded-lg" />
+          <SkeletonPageHeader />
+          <SkeletonTable rows={5} cols={5} />
         </div>
       </AppShell>
     );
@@ -121,7 +121,7 @@ export default function EncuestasPage() {
               {sorted.map(survey => (
                 <tr
                   key={survey.id}
-                  className="border-b last:border-0 hover:bg-muted/20 transition-colors cursor-pointer"
+                  className="border-b last:border-0 hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() => router.push(`/satisfaccion/encuestas/${survey.id}`)}
                 >
                   <td className="px-4 py-3 font-medium">{survey.name}</td>
@@ -140,16 +140,16 @@ export default function EncuestasPage() {
                   </td>
                 </tr>
               ))}
-              {sorted.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-sm">
-                    Aún no hay encuestas. Crea una para comenzar.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
+        {sorted.length === 0 && (
+          <EmptyState
+            icon={ClipboardList}
+            title="No hay encuestas."
+            description="Crea una nueva encuesta para comenzar."
+          />
+        )}
       </div>
     </AppShell>
   );

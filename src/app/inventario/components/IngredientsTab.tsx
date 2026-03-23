@@ -734,9 +734,9 @@ export function IngredientsTab({ ingredients, isLoading, suppliers, companyId, u
       {/* ── Reorder Suggestions Card ────────────────────────────────── */}
       {reorderSuggestions.length > 0 && (
         <Collapsible open={reorderOpen} onOpenChange={setReorderOpen}>
-          <Card className="shadow-card">
+          <Card className="shadow-card rounded-xl">
             <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer select-none pb-3 hover:bg-muted/50 transition-colors rounded-t-lg">
+              <CardHeader className="cursor-pointer select-none pb-3 hover:bg-muted/50 transition-colors rounded-t-xl">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-amber-500" />
@@ -757,7 +757,7 @@ export function IngredientsTab({ ingredients, isLoading, suppliers, companyId, u
               <CardContent className="pt-0">
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-muted/30">
                       <TableHead>Ingrediente</TableHead>
                       <TableHead>Stock Actual</TableHead>
                       <TableHead>Stock Mín.</TableHead>
@@ -769,7 +769,7 @@ export function IngredientsTab({ ingredients, isLoading, suppliers, companyId, u
                   </TableHeader>
                   <TableBody>
                     {reorderSuggestions.map((s) => (
-                      <TableRow key={s.ingredientId}>
+                      <TableRow key={s.ingredientId} className="hover:bg-muted/30 transition-colors">
                         <TableCell className="font-medium">{s.name}</TableCell>
                         <TableCell className="font-mono">{s.currentStock} {s.unit}</TableCell>
                         <TableCell className="font-mono">{s.minStock} {s.unit}</TableCell>
@@ -963,7 +963,7 @@ export function IngredientsTab({ ingredients, isLoading, suppliers, companyId, u
         <Card>
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/30">
                 <TableHead>Nombre</TableHead>
                 <TableHead>Categoría</TableHead>
                 <TableHead>Stock Actual</TableHead>
@@ -978,7 +978,7 @@ export function IngredientsTab({ ingredients, isLoading, suppliers, companyId, u
               {ingredients.map((ingredient) => {
                 const isLow = ingredient.currentStock <= ingredient.minStock;
                 return (
-                  <TableRow key={ingredient.id}>
+                  <TableRow key={ingredient.id} className={`hover:bg-muted/30 transition-colors ${isLow ? 'bg-destructive/5' : ''}`}>
                     <TableCell className="font-medium">{ingredient.name}</TableCell>
                     <TableCell>{ingredient.category}</TableCell>
                     <TableCell>

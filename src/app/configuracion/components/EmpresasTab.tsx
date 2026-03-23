@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, Edit } from 'lucide-react';
+import { SkeletonTable } from '@/components/ui/skeleton-layouts';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
 
@@ -104,7 +105,7 @@ export const EmpresasTab: FC<{companies: Company[] | null, companiesLoading: boo
         <>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1">
-                <Card className="shadow-card hover:shadow-card-hover transition-shadow">
+                <Card className="rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200">
                     <CardHeader>
                         <CardTitle>Añadir Nueva Empresa</CardTitle>
                         <CardDescription>Complete el formulario para registrar una nueva empresa.</CardDescription>
@@ -166,21 +167,21 @@ export const EmpresasTab: FC<{companies: Company[] | null, companiesLoading: boo
                 </Card>
             </div>
             <div className="lg:col-span-2">
-                <Card className="shadow-card hover:shadow-card-hover transition-shadow">
+                <Card className="rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200">
                         <CardHeader>
                         <CardTitle>Empresas Existentes</CardTitle>
                         <CardDescription>Lista de todas las empresas actualmente en el sistema.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {companiesLoading ? (
-                                <div className="flex h-48 w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                                <SkeletonTable rows={4} cols={5} />
                         ) : (
                             <div className="overflow-x-auto">
                             <Table>
-                                <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead className="text-right">Precio Comida</TableHead><TableHead className="text-right">Objetivo Diario</TableHead><TableHead>Nota Facturación</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+                                <TableHeader><TableRow className="bg-muted/30"><TableHead>Nombre</TableHead><TableHead className="text-right">Precio Comida</TableHead><TableHead className="text-right">Objetivo Diario</TableHead><TableHead>Nota Facturación</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                                 <TableBody>
                                     {companies?.map(company => (
-                                        <TableRow key={company.id}>
+                                        <TableRow key={company.id} className="hover:bg-muted/30 transition-colors">
                                             <TableCell className="font-medium">{company.name}</TableCell>
                                             <TableCell className="text-right">${(company.mealPrice || 0).toFixed(2)}</TableCell>
                                             <TableCell className="text-right">{company.dailyTarget || 'N/A'}</TableCell>

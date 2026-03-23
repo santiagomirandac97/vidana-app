@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { AppShell, PageHeader } from '@/components/layout';
 import { Loader2, ShieldAlert, Home, PlusCircle, Edit, CheckCircle2, XCircle, Wifi, WifiOff } from 'lucide-react';
+import { SkeletonPageHeader, SkeletonTable } from '@/components/ui/skeleton-layouts';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { EmpresasTab } from './components/EmpresasTab';
@@ -48,9 +49,9 @@ export default function ConfiguracionPage() {
     if (isLoading) {
         return (
             <AppShell>
-                <div className="flex h-screen w-full items-center justify-center">
-                    <Loader2 className="h-10 w-10 animate-spin" />
-                    <p className="ml-4 text-lg">Verificando acceso de administrador...</p>
+                <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+                    <SkeletonPageHeader />
+                    <SkeletonTable rows={6} cols={4} />
                 </div>
             </AppShell>
         );
@@ -60,7 +61,7 @@ export default function ConfiguracionPage() {
          return (
             <AppShell>
                 <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-                    <Card className="w-full max-w-sm mx-4 shadow-xl text-center">
+                    <Card className="w-full max-w-sm mx-4 shadow-card rounded-xl text-center">
                         <CardHeader>
                             <CardTitle className="flex flex-col items-center gap-2">
                                 <ShieldAlert className="h-12 w-12 text-destructive" />
@@ -338,16 +339,15 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
 
     if (companiesLoading || devicesLoading) {
         return (
-            <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                <span className="text-muted-foreground">Cargando dispositivos...</span>
+            <div className="py-4">
+                <SkeletonTable rows={4} cols={5} />
             </div>
         );
     }
 
     return (
         <>
-            <Card className="shadow-card">
+            <Card className="rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                     <div>
                         <CardTitle>Dispositivos RFID</CardTitle>
@@ -366,7 +366,7 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
                     ) : (
                         <Table>
                             <TableHeader>
-                                <TableRow>
+                                <TableRow className="bg-muted/30">
                                     <TableHead>Empresa</TableHead>
                                     <TableHead>Nombre</TableHead>
                                     <TableHead>IP</TableHead>
@@ -380,7 +380,7 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
                                 {allDevices.map(device => {
                                     const online = isDeviceOnline(device.lastSeen);
                                     return (
-                                        <TableRow key={`${device.companyId}-${device.id}`} className={!device.active ? 'opacity-50' : ''}>
+                                        <TableRow key={`${device.companyId}-${device.id}`} className={cn('hover:bg-muted/30 transition-colors', !device.active && 'opacity-50')}>
                                             <TableCell>{device.companyName}</TableCell>
                                             <TableCell className="font-medium">{device.name}</TableCell>
                                             <TableCell className="font-mono text-sm">{device.ipAddress}</TableCell>

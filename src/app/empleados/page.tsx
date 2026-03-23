@@ -239,7 +239,7 @@ export default function EmpleadosPage() {
     return (
       <AppShell>
         <div className="flex h-full w-full items-center justify-center">
-          <Card className="w-full max-w-sm mx-4 text-center">
+          <Card className="w-full max-w-sm mx-4 text-center rounded-xl shadow-card">
             <CardHeader>
               <CardTitle className="flex flex-col items-center gap-2">
                 <ShieldAlert className="h-12 w-12 text-destructive" />
@@ -296,7 +296,7 @@ export default function EmpleadosPage() {
             {employees.map(emp => (
               <StaggerItem key={emp.id}>
               <Card
-                className={`shadow-card hover:shadow-card-hover hover:bg-muted/50 transition-colors transition-shadow${!emp.active ? ' opacity-60' : ''}`}
+                className={`rounded-xl shadow-card hover:shadow-card-hover hover:bg-muted/50 transition-all duration-200${!emp.active ? ' opacity-60' : ''}`}
               >
                 <CardHeader className="pb-1 flex flex-row items-start justify-between">
                   <div>
@@ -393,7 +393,7 @@ export default function EmpleadosPage() {
             <div className="space-y-2 mb-4">
               <p className="text-sm font-medium">Bonos activos</p>
               {bonuses.map(b => (
-                <div key={b.id} className="flex items-center justify-between text-sm border rounded-md px-3 py-2">
+                <div key={b.id} className="flex items-center justify-between text-sm border rounded-xl px-3 py-2">
                   <div>
                     <span className="font-medium">{b.description}</span>
                     {' · '}

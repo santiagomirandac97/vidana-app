@@ -50,6 +50,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from '@/components/ui/empty-state';
+import { SectionLabel } from '@/components/ui/section-label';
 import { usePagination } from '@/hooks/use-pagination';
 
 interface ConsumptionHistoryProps {
@@ -280,7 +281,7 @@ export function ConsumptionHistory({
               <TabsTrigger value="statistics">Estadísticas</TabsTrigger>
             </TabsList>
             <TabsContent value="employees" className="space-y-4 pt-6">
-              <h3 className="font-semibold">Importar Empleados (CSV)</h3>
+              <SectionLabel>Importar Empleados (CSV)</SectionLabel>
               <Button
                 variant="outline"
                 className="w-full"
@@ -294,15 +295,15 @@ export function ConsumptionHistory({
               </Button>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
 
-              <h3 className="font-semibold">Exportar Empleados</h3>
+              <SectionLabel>Exportar Empleados</SectionLabel>
               <Button variant="outline" className="w-full" onClick={handleExportEmployees}>
                 <Download className="mr-2 h-4 w-4" /> Exportar para {company?.name}
               </Button>
-              <h3 className="font-semibold">Añadir Rápido Empleado</h3>
+              <SectionLabel>Añadir Rápido Empleado</SectionLabel>
               <QuickAddForm onAdd={handleAddEmployee} company={company} />
             </TabsContent>
             <TabsContent value="consumptions" className="space-y-4 pt-6">
-              <h3 className="font-semibold">Exportar Consumos</h3>
+              <SectionLabel>Exportar Consumos</SectionLabel>
 
               <div className="space-y-2">
                 <label>Rango de Fechas</label>
@@ -347,11 +348,11 @@ export function ConsumptionHistory({
               {/* Monthly consumptions list with pagination */}
               {activeMonthlyConsumptions.length > 0 && (
                 <div className="mt-4">
-                  <h3 className="font-semibold mb-2">Consumos del Mes</h3>
-                  <div className="overflow-x-auto border rounded-md">
+                  <SectionLabel>Consumos del Mes</SectionLabel>
+                  <div className="overflow-x-auto border rounded-xl">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b bg-muted/40">
+                        <tr className="border-b bg-muted/30">
                           <th className="text-left px-3 py-2 font-medium">Nombre</th>
                           <th className="text-left px-3 py-2 font-medium">No. Empleado</th>
                           <th className="text-left px-3 py-2 font-medium">Fecha</th>
@@ -359,7 +360,7 @@ export function ConsumptionHistory({
                       </thead>
                       <tbody>
                         {consumptionPage.map((c, i) => (
-                          <tr key={`${c.employeeNumber}-${c.timestamp}-${i}`} className="border-b last:border-0">
+                          <tr key={`${c.employeeNumber}-${c.timestamp}-${i}`} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                             <td className="px-3 py-2 font-medium">{c.name}</td>
                             <td className="px-3 py-2 font-mono text-muted-foreground">{c.employeeNumber}</td>
                             <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
@@ -529,7 +530,7 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
 
   if (!consumptions) {
     return (
-      <div className="flex flex-col items-center justify-center h-80 border rounded-md bg-gray-50 dark:bg-gray-800/50">
+      <div className="flex flex-col items-center justify-center h-80 border rounded-xl bg-gray-50 dark:bg-gray-800/50">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
@@ -546,9 +547,9 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
 
   return (
     <div className="space-y-4">
-      <h3 className="font-semibold text-sm">Tendencia de Consumo (Mes Actual)</h3>
+      <SectionLabel>Tendencia de Consumo (Mes Actual)</SectionLabel>
       <div className="grid gap-4 grid-cols-2">
-        <Card>
+        <Card className="rounded-xl shadow-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Consumos del Periodo</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -557,7 +558,7 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
             <div className="text-2xl font-bold">{stats.total}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="rounded-xl shadow-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Promedio Diario</CardTitle>
             <BarChart className="h-4 w-4 text-muted-foreground" />
@@ -567,7 +568,7 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
           </CardContent>
         </Card>
       </div>
-      <Card>
+      <Card className="rounded-xl shadow-card">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Día Pico ({stats.peakDay})</CardTitle>
           <CheckCircle className="h-4 w-4 text-muted-foreground" />
@@ -577,7 +578,7 @@ const ConsumptionChart: FC<{ consumptions: Consumption[] | null }> = ({ consumpt
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="rounded-xl shadow-card">
         <CardContent className="pt-6">
           <ResponsiveContainer width="100%" height={250}>
             <RechartsBarChart data={chartData}>

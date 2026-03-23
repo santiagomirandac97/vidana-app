@@ -34,7 +34,7 @@ export function SurveyQuestionCard({ question, responses }: SurveyQuestionCardPr
       .filter((a): a is string => typeof a === 'string' && a.trim().length > 0);
 
     return (
-      <div className="rounded-lg border bg-card p-4 shadow-card">
+      <div className="rounded-xl border bg-card p-4 shadow-card">
         <p className="text-sm font-medium mb-3">{question.text}</p>
         {textAnswers.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">Sin comentarios escritos.</p>
@@ -56,7 +56,7 @@ export function SurveyQuestionCard({ question, responses }: SurveyQuestionCardPr
 
   // Star / emoji questions: show average + distribution bars
   return (
-    <div className="rounded-lg border bg-card p-4 shadow-card">
+    <div className="rounded-xl border bg-card p-4 shadow-card">
       <p className="text-sm font-medium mb-2">{question.text}</p>
 
       {/* Average score — only show rating widget when there is at least one response */}

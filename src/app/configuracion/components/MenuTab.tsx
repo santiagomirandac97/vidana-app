@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, Utensils, Trash2 } from 'lucide-react';
+import { SkeletonTable } from '@/components/ui/skeleton-layouts';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -88,7 +89,7 @@ export const MenuTab: FC<{ companies: Company[] | null, companiesLoading: boolea
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1">
-                <Card className="shadow-card hover:shadow-card-hover transition-shadow">
+                <Card className="rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Utensils className="h-5 w-5" />Añadir Producto al Menú</CardTitle>
                         <CardDescription>Seleccione una empresa y añada un nuevo producto a su menú.</CardDescription>
@@ -139,14 +140,14 @@ export const MenuTab: FC<{ companies: Company[] | null, companiesLoading: boolea
                 </Card>
             </div>
             <div className="lg:col-span-2">
-                <Card className="shadow-card hover:shadow-card-hover transition-shadow">
+                <Card className="rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200">
                     <CardHeader>
                         <CardTitle>Menú de {companies?.find(c=>c.id === selectedCompanyId)?.name || '...'}</CardTitle>
                         <CardDescription>Lista de productos disponibles para la empresa seleccionada.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {(menuItemsLoading || (selectedCompanyId && companiesLoading)) ? (
-                            <div className="flex h-48 w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                            <SkeletonTable rows={4} cols={5} />
                         ) : !selectedCompanyId ? (
                             <div className="flex h-48 w-full items-center justify-center text-muted-foreground">Seleccione una empresa para ver su menú.</div>
                         ) : menuItems && menuItems.length === 0 ? (
@@ -154,10 +155,10 @@ export const MenuTab: FC<{ companies: Company[] | null, companiesLoading: boolea
                         ) : (
                             <div className="overflow-x-auto">
                             <Table>
-                                <TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Nombre</TableHead><TableHead>Categoría</TableHead><TableHead className="text-right">Precio</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+                                <TableHeader><TableRow className="bg-muted/30"><TableHead>SKU</TableHead><TableHead>Nombre</TableHead><TableHead>Categoría</TableHead><TableHead className="text-right">Precio</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                                 <TableBody>
                                     {menuItems?.map(item => (
-                                        <TableRow key={item.id}>
+                                        <TableRow key={item.id} className="hover:bg-muted/30 transition-colors">
                                             <TableCell className="text-muted-foreground">{item.sku || 'N/A'}</TableCell>
                                             <TableCell className="font-medium">{item.name}</TableCell>
                                             <TableCell>{item.category}</TableCell>

@@ -154,7 +154,7 @@ function ContactDialog() {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="rounded-full bg-white px-8 py-3 text-sm font-semibold text-primary shadow-lg transition hover:bg-white/90"
+        className="rounded-xl bg-white px-8 py-3 text-sm font-semibold text-primary shadow-lg transition-all duration-200 hover:bg-white/90 hover:shadow-xl"
         style={{ boxShadow: '0 0 30px rgba(255,255,255,0.15)' }}
       >
         Cont&aacute;ctanos
@@ -326,9 +326,9 @@ export default function LandingPage() {
           </Link>
           <Link
             href="/login"
-            className={`rounded-full px-5 py-2 text-sm font-medium transition-all ${
+            className={`rounded-xl px-5 py-2 text-sm font-medium transition-all duration-200 ${
               scrolled
-                ? 'bg-primary text-white hover:bg-primary/90'
+                ? 'bg-primary text-white hover:bg-primary/90 hover:shadow-md'
                 : 'border border-white text-white hover:bg-white/10'
             }`}
           >
@@ -367,7 +367,7 @@ export default function LandingPage() {
             <ContactDialog />
             <a
               href="#servicios"
-              className="rounded-full px-8 py-3 text-sm font-semibold text-white transition backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20"
+              className="rounded-xl px-8 py-3 text-sm font-semibold text-white transition-all duration-200 backdrop-blur-md bg-white/10 border border-white/20 hover:bg-white/20"
             >
               Conoce m&aacute;s
             </a>
@@ -574,13 +574,13 @@ function ServiceCard({ service, index }: { service: typeof services[number]; ind
         data-animate
         onMouseMove={tilt.handleMouseMove}
         onMouseLeave={tilt.handleMouseLeave}
-        className="group overflow-hidden rounded-xl bg-white shadow-card transition-all duration-200 hover:shadow-card-hover border border-white/50"
+        className="group overflow-hidden rounded-xl bg-white shadow-card transition-all duration-300 hover:shadow-card-hover border border-white/50"
         style={{
           transformStyle: 'preserve-3d',
           transitionDelay: `${index * 150}ms`,
         }}
       >
-        <div className="relative h-56 overflow-hidden">
+        <div className="relative h-56 overflow-hidden rounded-t-xl">
           <Image
             src={service.image}
             alt={service.alt}

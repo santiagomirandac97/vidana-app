@@ -247,7 +247,7 @@ export default function RecetasPage() {
     return (
       <AppShell>
         <div className="flex h-full w-full items-center justify-center">
-          <Card className="w-full max-w-sm mx-4 shadow-card text-center">
+          <Card className="w-full max-w-sm mx-4 rounded-xl shadow-card text-center">
             <CardHeader>
               <CardTitle className="flex flex-col items-center gap-2">
                 <ShieldAlert className="h-12 w-12 text-destructive" />
@@ -277,7 +277,7 @@ export default function RecetasPage() {
     return (
       <AppShell>
         <div className="flex h-full w-full items-center justify-center">
-          <Card className="w-full max-w-sm mx-4 shadow-card text-center">
+          <Card className="w-full max-w-sm mx-4 rounded-xl shadow-card text-center">
             <CardHeader>
               <CardTitle className="flex flex-col items-center gap-2">
                 <ShieldAlert className="h-12 w-12 text-destructive" />
@@ -319,7 +319,7 @@ export default function RecetasPage() {
         />
 
         {!selectedCompanyId ? (
-          <Card>
+          <Card className="rounded-xl shadow-card">
             <CardContent className="flex items-center justify-center h-40">
               <p className="text-muted-foreground">Seleccione una empresa para continuar.</p>
             </CardContent>
@@ -420,7 +420,7 @@ function RecetasTab({ menuItems, ingredients, recipesMap, companyId, firestore, 
 
             return (
               <StaggerItem key={item.id}>
-                <Card className="flex flex-col shadow-card hover:shadow-card-hover hover:scale-[1.01] transition-all duration-200">
+                <Card className="flex flex-col rounded-xl shadow-card hover:shadow-card-hover hover:scale-[1.01] transition-all duration-200">
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="text-base leading-tight">{item.name}</CardTitle>
@@ -441,7 +441,7 @@ function RecetasTab({ menuItems, ingredients, recipesMap, companyId, firestore, 
                   </CardHeader>
                   <CardContent className="flex flex-col gap-3 flex-1 justify-between">
                     {hasRecipe && (
-                      <div className="text-sm space-y-1 bg-gray-50 dark:bg-gray-800 rounded-md p-2">
+                      <div className="text-sm space-y-1 bg-gray-50 dark:bg-gray-800 rounded-xl p-2">
                         <p>
                           <span className="text-muted-foreground">Costo/porción: </span>
                           <span className="font-medium font-mono">${recipe.costPerPortion.toFixed(2)}</span>
@@ -645,7 +645,7 @@ function RecipeBuilderDialog({
           </div>
 
           {/* Cost display */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md p-3 flex items-center justify-between">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-3 flex items-center justify-between">
             <span className="font-medium text-blue-800 dark:text-blue-300">
               Costo por porción calculado:
             </span>
@@ -890,7 +890,7 @@ function MenuSemanalTab({
         {DAYS_OF_WEEK.map(({ key, label }) => {
           const dayItems = getDayItems(key);
           return (
-            <Card key={key} className="flex flex-col shadow-card hover:shadow-card-hover transition-shadow">
+            <Card key={key} className="flex flex-col rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold">{label}</CardTitle>
                 <p className="text-xs text-muted-foreground">{dayDates[key]}</p>
@@ -1006,7 +1006,7 @@ function ListaComprasTab({
 
   if (!weeklyMenu) {
     return (
-      <Card>
+      <Card className="rounded-xl shadow-card">
         <CardContent className="flex items-center justify-center h-40">
           <p className="text-muted-foreground">No hay menú semanal definido. Configure el menú primero.</p>
         </CardContent>
@@ -1016,7 +1016,7 @@ function ListaComprasTab({
 
   if (shoppingList.length === 0) {
     return (
-      <Card>
+      <Card className="rounded-xl shadow-card">
         <CardContent className="flex items-center justify-center h-40">
           <p className="text-muted-foreground">No hay ingredientes requeridos. Asocie recetas a los platillos del menú.</p>
         </CardContent>
@@ -1026,11 +1026,11 @@ function ListaComprasTab({
 
   return (
     <div className="space-y-4">
-      <Card className="shadow-card">
+      <Card className="rounded-xl shadow-card">
         <CardContent className="pt-4">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/30">
                 <TableHead>Ingrediente</TableHead>
                 <TableHead className="text-right">Necesario</TableHead>
                 <TableHead className="text-right">En Stock</TableHead>
@@ -1042,7 +1042,7 @@ function ListaComprasTab({
               {shoppingList.map((row) => (
                 <TableRow
                   key={row.ingredientId}
-                  className={row.toOrder > 0 ? 'bg-orange-50 dark:bg-orange-900/10' : ''}
+                  className={`hover:bg-muted/30 transition-colors ${row.toOrder > 0 ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}
                 >
                   <TableCell className="font-medium">{row.name}</TableCell>
                   <TableCell className="text-right">
@@ -1066,7 +1066,7 @@ function ListaComprasTab({
                 </TableRow>
               ))}
               {/* Total row */}
-              <TableRow className="border-t-2 font-bold">
+              <TableRow className="border-t-2 font-bold hover:bg-muted/30 transition-colors">
                 <TableCell colSpan={4} className="text-right">
                   Total estimado:
                 </TableCell>

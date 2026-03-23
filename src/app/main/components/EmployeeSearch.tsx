@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { SectionLabel } from '@/components/ui/section-label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -439,12 +440,12 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
                   onChange={(e) => setEmployeeNumber(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={`Número de Empleado para ${company?.name}`}
-                  className="text-xl h-14 font-mono text-center tracking-widest flex-grow rounded-lg"
+                  className="text-xl h-14 font-mono text-center tracking-widest flex-grow rounded-xl"
                   disabled={isProcessing}
                 />
                 <Button
                   onClick={handleRegistrationByNumber}
-                  className="h-14 text-lg rounded-lg"
+                  className="h-14 text-lg rounded-xl"
                   disabled={isProcessing}
                 >
                   {isProcessing ? (
@@ -464,7 +465,7 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
                   placeholder="Buscar por nombre o número de empleado..."
                   value={nameSearch}
                   onChange={(e) => setNameSearch(e.target.value)}
-                  className="text-lg h-14 pl-10 rounded-lg"
+                  className="text-lg h-14 pl-10 rounded-xl"
                   disabled={isProcessing}
                 />
               </div>
@@ -480,7 +481,7 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
                             'flex justify-between items-center p-3 rounded-md',
                             isProcessing
                               ? 'cursor-not-allowed text-muted-foreground'
-                              : 'hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer'
+                              : 'hover:bg-muted/30 transition-colors cursor-pointer'
                           )}
                         >
                           <div>
@@ -618,9 +619,7 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
                 {/* Recent tap log */}
                 {tapLog.length > 0 && (
                   <div className="w-full mt-4 space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Últimos taps
-                    </p>
+                    <SectionLabel>Últimos taps</SectionLabel>
                     <div className="space-y-1.5">
                       {tapLog.map((entry, idx) => (
                         <div
@@ -661,7 +660,7 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
 
           {feedback && (
             <div
-              className={cn('mt-6 p-4 rounded-lg flex items-center gap-3 text-base font-medium', {
+              className={cn('mt-6 p-4 rounded-xl flex items-center gap-3 text-base font-medium', {
                 'bg-teal-50 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200': feedback.type === 'success',
                 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300':
                   feedback.type === 'warning',
@@ -754,7 +753,7 @@ const RecentConsumptionsCard: FC<{ recentConsumptions: Consumption[] | null; com
         ) : (
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/30">
                 <TableHead>Nombre</TableHead>
                 <TableHead># Empleado</TableHead>
                 <TableHead>Empresa</TableHead>

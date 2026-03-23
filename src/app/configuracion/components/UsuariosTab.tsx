@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Users, ChevronDown, Link2, Copy, Check } from 'lucide-react';
+import { SkeletonTable } from '@/components/ui/skeleton-layouts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -88,21 +89,21 @@ export const UsuariosTab: FC = () => {
 
     return (
         <div className="space-y-6">
-            <Card className="shadow-card hover:shadow-card-hover transition-shadow">
+            <Card className="rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Gestionar Usuarios</CardTitle>
                     <CardDescription>Vea y gestione los roles y empresas de los usuarios registrados en el sistema.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
-                        <div className="flex h-64 w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                        <SkeletonTable rows={5} cols={5} />
                     ) : !users || users.length === 0 ? (
                         <EmptyState icon={Users} title="No hay miembros en el equipo." />
                     ) : (
                         <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
-                                <TableRow>
+                                <TableRow className="bg-muted/30">
                                     <TableHead>Nombre</TableHead>
                                     <TableHead>Email</TableHead>
                                     <TableHead>Empresa Asignada</TableHead>
@@ -115,7 +116,7 @@ export const UsuariosTab: FC = () => {
                                     const assignedCompany = companies?.find(c => c.id === user.companyId);
                                     const isSelf = user.uid === currentUser?.uid;
                                     return (
-                                        <TableRow key={user.uid}>
+                                        <TableRow key={user.uid} className="hover:bg-muted/30 transition-colors">
                                             <TableCell className="font-medium">{user.name}</TableCell>
                                             <TableCell className="text-muted-foreground">{user.email}</TableCell>
                                             <TableCell>
@@ -186,7 +187,7 @@ export const UsuariosTab: FC = () => {
             </Card>
 
             {/* Section A — Generate Invite */}
-            <Card className="shadow-card hover:shadow-card-hover transition-shadow">
+            <Card className="rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200">
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         <div>
@@ -202,14 +203,14 @@ export const UsuariosTab: FC = () => {
                 <CardContent>
                     {/* Section B — Invite history */}
                     {invitesLoading ? (
-                        <div className="flex h-32 w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                        <SkeletonTable rows={3} cols={5} />
                     ) : !invites || invites.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-8">No hay invitaciones generadas aún.</p>
                     ) : (
                         <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
-                                <TableRow>
+                                <TableRow className="bg-muted/30">
                                     <TableHead>Empresa</TableHead>
                                     <TableHead>Rol</TableHead>
                                     <TableHead>Email</TableHead>
@@ -223,7 +224,7 @@ export const UsuariosTab: FC = () => {
                                     const isExpired = new Date(invite.expiresAt) < new Date();
                                     const status = invite.used ? 'used' : isExpired ? 'expired' : 'pending';
                                     return (
-                                        <TableRow key={invite.id}>
+                                        <TableRow key={invite.id} className="hover:bg-muted/30 transition-colors">
                                             <TableCell className="font-medium">{company?.name ?? invite.companyId}</TableCell>
                                             <TableCell>
                                                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${invite.role === 'admin' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>

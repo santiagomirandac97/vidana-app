@@ -7,7 +7,7 @@ import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/
 import { type Survey, type SurveyResponse, type UserProfile } from '@/lib/types';
 import { AppShell, PageHeader } from '@/components/layout';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { SkeletonPageHeader } from '@/components/ui/skeleton-layouts';
 import { ErrorState } from '@/components/ui/error-state';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -95,10 +95,11 @@ export default function SurveyResultsPage() {
     return (
       <AppShell>
         <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-          <Skeleton className="h-8 w-64 mb-2" />
-          <Skeleton className="h-4 w-32 mb-8" />
+          <SkeletonPageHeader />
           <div className="grid grid-cols-3 gap-4 mb-8">
-            {[0, 1, 2].map(i => <Skeleton key={i} className="h-24 rounded-lg" />)}
+            {[0, 1, 2].map(i => (
+              <div key={i} className="h-24 rounded-xl bg-muted/30 animate-pulse" />
+            ))}
           </div>
         </div>
       </AppShell>
@@ -188,7 +189,7 @@ export default function SurveyResultsPage() {
             <SurveyQuestionCard key={q.id} question={q} responses={responses ?? []} />
           ))}
           {totalResponses === 0 && !responsesLoading && (
-            <div className="col-span-2 rounded-lg border bg-card shadow-card p-8 text-center">
+            <div className="col-span-2 rounded-xl border bg-card shadow-card p-8 text-center">
               <p className="text-muted-foreground text-sm">
                 Aún no hay respuestas. Comparte el enlace para comenzar a recopilar datos.
               </p>
@@ -201,7 +202,7 @@ export default function SurveyResultsPage() {
           Compartir encuesta
         </p>
         {surveyUrl && (
-          <div className="rounded-lg border bg-card shadow-card p-6 flex justify-center">
+          <div className="rounded-xl border bg-card shadow-card p-6 flex justify-center">
             <QrCodeDisplay url={surveyUrl} />
           </div>
         )}

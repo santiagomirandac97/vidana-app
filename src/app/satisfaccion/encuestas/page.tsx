@@ -106,10 +106,10 @@ export default function EncuestasPage() {
           }
         />
 
-        <div className="rounded-lg border bg-card shadow-card overflow-hidden">
+        <div className="rounded-xl border bg-card shadow-card overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-muted/40">
+              <tr className="border-b bg-muted/30">
                 <th className="text-left px-4 py-2 font-medium text-muted-foreground">Nombre</th>
                 <th className="text-left px-4 py-2 font-medium text-muted-foreground">Cocina</th>
                 <th className="text-left px-4 py-2 font-medium text-muted-foreground">Estado</th>
@@ -121,7 +121,7 @@ export default function EncuestasPage() {
               {sorted.map(survey => (
                 <tr
                   key={survey.id}
-                  className="border-b last:border-0 hover:bg-muted/50 transition-colors cursor-pointer"
+                  className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
                   onClick={() => router.push(`/satisfaccion/encuestas/${survey.id}`)}
                 >
                   <td className="px-4 py-3 font-medium">{survey.name}</td>

@@ -97,18 +97,18 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
       >
         {/* Header */}
         <div className={cn(
-          'flex items-center h-14 px-3 border-b border-sidebar-border shrink-0',
+          'flex items-center h-14 px-3 border-b border-sidebar-border/60 shrink-0',
           collapsed ? 'justify-center' : 'justify-between'
         )}>
           {!collapsed && (
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 pl-1">
               <Logo />
             </div>
           )}
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/60 shrink-0 transition-colors"
             onClick={onToggleCollapse}
           >
             {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
@@ -120,17 +120,17 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
 
         {/* Footer */}
         <div className={cn(
-          'shrink-0 border-t border-sidebar-border p-3 space-y-2',
+          'shrink-0 border-t border-sidebar-border/60 p-3 space-y-1.5',
           collapsed ? 'flex flex-col items-center' : ''
         )}>
           <Link
             href="/perfil"
             className={cn(
-              'flex items-center gap-2 rounded-md px-1 py-1.5 hover:bg-sidebar-accent transition-colors',
+              'flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 hover:bg-muted/60 transition-colors',
               collapsed ? 'justify-center px-0' : ''
             )}
           >
-            <Avatar className="h-7 w-7 shrink-0">
+            <Avatar className="h-7 w-7 shrink-0 ring-1 ring-border/40">
               <AvatarImage src={userProfile?.photoURL} alt={firstName} />
               <AvatarFallback className="text-[10px] font-medium bg-primary/10 text-primary">
                 {firstName?.charAt(0)?.toUpperCase() ?? '?'}
@@ -144,7 +144,7 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
             variant="ghost"
             size={collapsed ? 'icon' : 'sm'}
             className={cn(
-              'text-muted-foreground hover:text-foreground gap-2',
+              'text-muted-foreground hover:text-foreground hover:bg-muted/60 gap-2 transition-colors',
               collapsed ? 'h-8 w-8' : 'w-full justify-start h-8 text-xs'
             )}
             onClick={handleLogout}

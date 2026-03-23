@@ -2,7 +2,7 @@
 'use client';
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getFirestore, initializeFirestore, memoryLocalCache, Firestore, DocumentReference, Query } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, Firestore, DocumentReference, Query } from 'firebase/firestore';
 import { getAuth, Auth, browserSessionPersistence, inMemoryPersistence, setPersistence } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { useMemo } from 'react';
@@ -38,10 +38,11 @@ const getAuthInstance = (app: FirebaseApp): Auth => {
 export function initializeFirebase() {
     const isFirstInit = getApps().length === 0;
     const app = isFirstInit ? initializeApp(firebaseConfig) : getApps()[0];
-    // Use memoryLocalCache on first init so Firestore never touches window.localStorage,
-    // which crashes during Next.js SSR when window is partially polyfilled.
+    // Use persistentLocalCache with IndexedDB so data survives page reloads.
+    // Multi-tab manager allows multiple tabs to share the same cache.
+    // This only runs client-side (FirebaseClientProvider guards SSR).
     const firestore = isFirstInit
-        ? initializeFirestore(app, { localCache: memoryLocalCache() })
+        ? initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) })
         : getFirestore(app);
     const auth = getAuthInstance(app);
     const storage = getStorage(app);

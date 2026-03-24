@@ -89,8 +89,8 @@ export default function PublicSurveyPage() {
   // ── Loading ──
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="min-h-screen bg-gradient-to-b from-[hsl(224,76%,48%)] to-[hsl(224,76%,35%)] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-white/60" />
       </div>
     );
   }
@@ -98,13 +98,14 @@ export default function PublicSurveyPage() {
   // ── Not found ──
   if (notFound) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <div className="text-center max-w-sm">
+      <div className="min-h-screen bg-gradient-to-b from-[hsl(224,76%,48%)] to-[hsl(224,76%,35%)] flex items-center justify-center p-6">
+        <div className="max-w-lg mx-auto bg-white rounded-2xl shadow-xl p-8 text-center">
           <XCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
           <p className="font-semibold">Encuesta no encontrada</p>
           <p className="text-sm text-muted-foreground mt-1">
             El enlace puede haber expirado o ser incorrecto.
           </p>
+          <p className="text-[10px] text-muted-foreground/60 text-center mt-6">Encuesta de satisfacción · Vidana</p>
         </div>
       </div>
     );
@@ -116,13 +117,14 @@ export default function PublicSurveyPage() {
   // ── Closed ──
   if (survey.status === 'closed') {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <div className="text-center max-w-sm">
+      <div className="min-h-screen bg-gradient-to-b from-[hsl(224,76%,48%)] to-[hsl(224,76%,35%)] flex items-center justify-center p-6">
+        <div className="max-w-lg mx-auto bg-white rounded-2xl shadow-xl p-8 text-center">
           <XCircle className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
           <p className="font-semibold">Esta encuesta está cerrada</p>
           <p className="text-sm text-muted-foreground mt-1">
             Gracias por tu interés.
           </p>
+          <p className="text-[10px] text-muted-foreground/60 text-center mt-6">Encuesta de satisfacción · Vidana</p>
         </div>
       </div>
     );
@@ -131,13 +133,16 @@ export default function PublicSurveyPage() {
   // ── Already submitted (sessionStorage guard) ──
   if (alreadySubmitted || submitted) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <div className="text-center max-w-sm">
-          <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
-          <p className="text-xl font-bold">¡Gracias por tu opinión!</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Tu respuesta ha sido registrada. Tu retroalimentación nos ayuda a mejorar.
-          </p>
+      <div className="min-h-screen bg-gradient-to-b from-[hsl(224,76%,48%)] to-[hsl(224,76%,35%)] flex items-center justify-center p-6">
+        <div className="animate-in fade-in duration-500">
+          <div className="max-w-lg mx-auto bg-white rounded-2xl shadow-xl p-8 text-center">
+            <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
+            <p className="text-xl font-bold">¡Gracias por tu opinión!</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Tu respuesta ha sido registrada. Tu retroalimentación nos ayuda a mejorar.
+            </p>
+            <p className="text-[10px] text-muted-foreground/60 text-center mt-6">Encuesta de satisfacción · Vidana</p>
+          </div>
         </div>
       </div>
     );
@@ -145,75 +150,88 @@ export default function PublicSurveyPage() {
 
   // ── Survey form ──
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card px-6 py-4 flex items-center gap-3">
-        <Logo />
-      </div>
-
-      {/* Survey content */}
-      <div className="max-w-lg mx-auto px-6 py-8 space-y-8">
-        <div>
-          <h1 className="text-xl font-bold">{survey.name}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Tus respuestas son anónimas y nos ayudan a mejorar el servicio.
-          </p>
+    <div className="min-h-screen bg-gradient-to-b from-[hsl(224,76%,48%)] to-[hsl(224,76%,35%)]">
+      <div className="max-w-lg mx-auto my-8 bg-white rounded-2xl shadow-xl p-8">
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <a href="https://vidana.com.mx" target="_blank" rel="noopener noreferrer">
+            <Logo />
+          </a>
         </div>
 
-        {survey.questions.map((q, idx) => (
-          <div key={q.id} className="space-y-3">
-            <p className="text-sm font-medium leading-snug">
-              <span className="text-muted-foreground mr-1.5">{idx + 1}.</span>
-              {q.text}
-              {q.required && (
-                <span className="text-destructive ml-1 text-xs">*</span>
-              )}
-            </p>
+        {/* Title section */}
+        <h1 className="text-xl font-bold text-center">{survey.name}</h1>
+        <p className="text-sm text-muted-foreground text-center mt-1">
+          Tus respuestas son anónimas
+        </p>
 
-            {q.type === 'star' && (
-              <StarRating
-                value={(answers[q.id] as number) || 0}
-                onChange={v => setAnswer(q.id, v)}
-                size="lg"
-              />
+        <div className="h-px bg-border my-6" />
+
+        {/* Questions */}
+        <div className="space-y-6">
+          {survey.questions.map((q, idx) => (
+            <div key={q.id}>
+              {idx > 0 && <div className="h-px bg-border mb-6" />}
+              <div className="space-y-3">
+                <p className="text-sm font-medium leading-snug">
+                  <span className="bg-primary h-2 w-2 rounded-full inline-block mr-2 align-middle" />
+                  <span className="text-muted-foreground mr-1.5">{idx + 1}.</span>
+                  {q.text}
+                  {q.required && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-destructive inline-block ml-1.5 align-middle" />
+                  )}
+                </p>
+
+                {q.type === 'star' && (
+                  <StarRating
+                    value={(answers[q.id] as number) || 0}
+                    onChange={v => setAnswer(q.id, v)}
+                    size="lg"
+                  />
+                )}
+
+                {q.type === 'emoji' && (
+                  <EmojiRating
+                    value={(answers[q.id] as number) || 0}
+                    onChange={v => setAnswer(q.id, v)}
+                    size="lg"
+                  />
+                )}
+
+                {q.type === 'text' && (
+                  <Textarea
+                    placeholder="Escribe tu comentario aquí… (opcional)"
+                    value={(answers[q.id] as string) || ''}
+                    onChange={e => setAnswer(q.id, e.target.value)}
+                    className="resize-none"
+                    rows={3}
+                  />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8">
+          <Button
+            size="lg"
+            className="w-full rounded-xl"
+            onClick={handleSubmit}
+            disabled={!canSubmit || submitting}
+          >
+            {submitting ? (
+              <><Loader2 size={16} className="mr-2 animate-spin" />Enviando…</>
+            ) : (
+              'Enviar mi opinión'
             )}
+          </Button>
+        </div>
 
-            {q.type === 'emoji' && (
-              <EmojiRating
-                value={(answers[q.id] as number) || 0}
-                onChange={v => setAnswer(q.id, v)}
-                size="lg"
-              />
-            )}
-
-            {q.type === 'text' && (
-              <Textarea
-                placeholder="Escribe tu comentario aquí… (opcional)"
-                value={(answers[q.id] as string) || ''}
-                onChange={e => setAnswer(q.id, e.target.value)}
-                className="resize-none"
-                rows={3}
-              />
-            )}
-          </div>
-        ))}
-
-        <Button
-          size="lg"
-          className="w-full"
-          onClick={handleSubmit}
-          disabled={!canSubmit || submitting}
-        >
-          {submitting ? (
-            <><Loader2 size={16} className="mr-2 animate-spin" />Enviando…</>
-          ) : (
-            'Enviar mi opinión'
-          )}
-        </Button>
-
-        <p className="text-[11px] text-muted-foreground text-center">
+        <p className="text-[11px] text-muted-foreground text-center mt-4">
           * Campos requeridos · Respuestas completamente anónimas
         </p>
+
+        <p className="text-[10px] text-muted-foreground/60 text-center mt-6">Encuesta de satisfacción · Vidana</p>
       </div>
     </div>
   );

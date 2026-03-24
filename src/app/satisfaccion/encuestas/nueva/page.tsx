@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, query, doc, addDoc } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { type Company, type Survey, type UserProfile } from '@/lib/types';
+import { type Company, type Survey, type SurveyQuestion, type UserProfile } from '@/lib/types';
 import { SURVEY_QUESTION_LIBRARY } from '@/lib/survey-questions';
 import { AppShell, PageHeader } from '@/components/layout';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,14 @@ export default function NuevaEncuestaPage() {
     [firestore]
   );
   const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesQuery);
+
+  // Read question library from Firestore, fall back to hardcoded defaults
+  const questionsDocRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, 'configuration/surveyQuestions') : null),
+    [firestore]
+  );
+  const { data: questionsDoc } = useDoc<{ questions: SurveyQuestion[] }>(questionsDocRef);
+  const questionLibrary: SurveyQuestion[] = questionsDoc?.questions ?? SURVEY_QUESTION_LIBRARY;
 
   useEffect(() => {
     if (!userLoading && !user) router.push('/login');
@@ -69,7 +77,7 @@ export default function NuevaEncuestaPage() {
     setPublishing(true);
     try {
       // Preserve library order for selected questions
-      const orderedQuestions = SURVEY_QUESTION_LIBRARY.filter(q =>
+      const orderedQuestions = questionLibrary.filter(q =>
         selectedIds.includes(q.id)
       );
       const survey: Omit<Survey, 'id'> = {
@@ -177,7 +185,7 @@ export default function NuevaEncuestaPage() {
                 )}
               </p>
               <div className="space-y-3">
-                {SURVEY_QUESTION_LIBRARY.map(q => (
+                {questionLibrary.map(q => (
                   <div key={q.id} className="flex items-start gap-3">
                     <Checkbox
                       id={q.id}

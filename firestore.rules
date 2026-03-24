@@ -77,6 +77,12 @@ service cloud.firestore {
       allow list, create, update, delete: if isUserAdmin(request.auth.uid);
     }
 
+    match /configuration/surveyQuestions {
+      allow get: if request.auth != null;
+      allow create, update: if isUserAdmin(request.auth.uid);
+      allow delete: if false;
+    }
+
     /**
      * @description Collection group rules for cross-company management.
      */
@@ -105,6 +111,10 @@ service cloud.firestore {
     }
 
     match /{path=**}/operationalCosts/{costId} {
+      allow list: if request.auth != null && isUserAdmin(request.auth.uid);
+    }
+
+    match /{path=**}/responses/{responseId} {
       allow list: if request.auth != null && isUserAdmin(request.auth.uid);
     }
 

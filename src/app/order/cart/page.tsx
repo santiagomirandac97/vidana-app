@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { doc, collection, query, where, addDoc, getDocs } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -99,10 +99,12 @@ export default function CartPage() {
     ? cart.paymentMethod
     : paymentMethods[0];
 
-  // Sync if it drifted
-  if (effectivePaymentMethod !== cart.paymentMethod) {
-    cart.setPaymentMethod(effectivePaymentMethod);
-  }
+  // Sync if it drifted (must be in useEffect, not during render)
+  useEffect(() => {
+    if (effectivePaymentMethod !== cart.paymentMethod) {
+      cart.setPaymentMethod(effectivePaymentMethod);
+    }
+  }, [effectivePaymentMethod, cart]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -157,7 +159,7 @@ export default function CartPage() {
         totalAmount: cart.totalAmount,
         status: 'pending',
         orderNumber: nextOrderNumber,
-        paymentMethod: cart.paymentMethod as any,
+        paymentMethod: cart.paymentMethod,
         source: 'portal' as const,
         orderType: cart.orderType,
         scheduledFor: cart.scheduledFor || undefined,
@@ -413,35 +415,37 @@ export default function CartPage() {
               </button>
             ))}
           </div>
-          {scheduleMode === 'schedule' && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="flex gap-2 flex-wrap mt-2">
-                {timeSlots.map((slot) => (
-                  <button
-                    key={slot.value}
-                    onClick={() => cart.setScheduledFor(slot.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      cart.scheduledFor === slot.value
-                        ? 'bg-primary text-white'
-                        : 'bg-white text-foreground shadow-sm'
-                    }`}
-                  >
-                    {slot.label}
-                  </button>
-                ))}
-                {timeSlots.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    No hay horarios disponibles
-                  </p>
-                )}
-              </div>
-            </motion.div>
-          )}
+          <AnimatePresence>
+            {scheduleMode === 'schedule' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="flex gap-2 flex-wrap mt-2">
+                  {timeSlots.map((slot) => (
+                    <button
+                      key={slot.value}
+                      onClick={() => cart.setScheduledFor(slot.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        cart.scheduledFor === slot.value
+                          ? 'bg-primary text-white'
+                          : 'bg-white text-foreground shadow-sm'
+                      }`}
+                    >
+                      {slot.label}
+                    </button>
+                  ))}
+                  {timeSlots.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      No hay horarios disponibles
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Payment method */}

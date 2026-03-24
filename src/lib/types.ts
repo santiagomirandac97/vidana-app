@@ -70,7 +70,7 @@ export interface Consumption {
   totalAmount?: number;
   status?: 'pending' | 'completed';
   orderNumber?: number;
-  paymentMethod?: 'cash' | 'card' | 'transfer';
+  paymentMethod?: 'cash' | 'card' | 'transfer' | 'nomina' | 'efectivo' | 'tarjeta' | 'transferencia';
   customerNote?: string;
   completedAt?: string; // ISO-8601 — set when kitchen marks the order complete
   orderType?: 'eat_in' | 'take_away';
@@ -224,7 +224,7 @@ export interface WeeklyMenu {
 export interface UserInvite {
   id?: string;
   companyId: string;
-  role: 'admin' | 'operations' | 'user';
+  role: 'admin' | 'operations' | 'user' | 'customer';
   createdBy: string;       // admin uid
   createdAt: string;       // ISO-8601
   expiresAt: string;       // ISO-8601 (+7 days from createdAt)

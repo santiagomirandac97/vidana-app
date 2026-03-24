@@ -35,8 +35,11 @@ function formatTime(iso: string): string {
 
 const paymentLabels: Record<string, string> = {
   cash: 'Efectivo',
+  efectivo: 'Efectivo',
   card: 'Tarjeta',
+  tarjeta: 'Tarjeta',
   transfer: 'Transferencia',
+  transferencia: 'Transferencia',
   nomina: 'N\u00F3mina',
 };
 
@@ -184,8 +187,9 @@ export default function OrderDetailPage({
       {/* Items list */}
       <div className="bg-white rounded-2xl shadow-sm divide-y">
         {(order.items ?? []).map((item, i) => {
-          const modifiers = order.selectedModifiers?.[item.itemId];
-          const instructions = order.specialInstructions?.[item.itemId];
+          const modKey = `${item.itemId}_${i}`;
+          const modifiers = order.selectedModifiers?.[modKey] ?? order.selectedModifiers?.[item.itemId];
+          const instructions = order.specialInstructions?.[modKey] ?? order.specialInstructions?.[item.itemId];
 
           return (
             <div key={`${item.itemId}-${i}`} className="px-4 py-3">

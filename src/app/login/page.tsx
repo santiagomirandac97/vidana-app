@@ -144,6 +144,7 @@ export default function LoginPage() {
         .then(async (result) => {
           if (result?.user) {
             // User came back from redirect — create profile if needed
+            document.cookie = 'vidana_session=1; path=/; max-age=31536000; SameSite=Lax';
             if (firestore) {
               await checkAndCreateUserProfile(firestore, result.user);
             }
@@ -172,6 +173,8 @@ export default function LoginPage() {
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Set session cookie so middleware allows protected routes
+      document.cookie = 'vidana_session=1; path=/; max-age=31536000; SameSite=Lax';
       // Let the useEffect handle redirection
       await checkAndCreateUserProfile(firestore, userCredential.user);
     } catch (err: any) {
@@ -202,6 +205,7 @@ export default function LoginPage() {
     
     try {
         const result = await signInWithPopup(auth, provider);
+        document.cookie = 'vidana_session=1; path=/; max-age=31536000; SameSite=Lax';
         await checkAndCreateUserProfile(firestore, result.user);
     } catch (error: any) {
         if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {

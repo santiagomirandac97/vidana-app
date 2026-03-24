@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser, useFirestore, useFirebase } from '@/firebase';
 import { signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -121,9 +122,20 @@ export default function LoginPage() {
   const [isGoogleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getRedirectPath = async (uid: string): Promise<string> => {
+    if (!firestore) return '/selection';
+    try {
+      const snap = await getDoc(doc(firestore, 'users', uid));
+      if (snap.exists() && snap.data()?.role === 'customer') return '/order';
+    } catch {
+      // fall through to default
+    }
+    return '/selection';
+  };
+
   useEffect(() => {
     if (!isUserLoading && user) {
-        router.replace('/selection');
+        getRedirectPath(user.uid).then((path) => router.replace(path));
         return;
     }
     // Handle redirect result (popup-blocked fallback)
@@ -135,7 +147,8 @@ export default function LoginPage() {
             if (firestore) {
               await checkAndCreateUserProfile(firestore, result.user);
             }
-            router.replace('/selection');
+            const path = await getRedirectPath(result.user.uid);
+            router.replace(path);
           }
         })
         .catch(() => {
@@ -316,6 +329,12 @@ export default function LoginPage() {
             </Link>
           </div>
         </div>
+
+        <p className="text-center text-sm text-muted-foreground mt-4">
+          <Link href="/order/signup" className="text-primary hover:underline">
+            ¿Quieres ordenar? Crea tu cuenta
+          </Link>
+        </p>
       </div>
 
       {/* Footer tagline */}

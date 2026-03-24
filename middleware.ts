@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Routes accessible without a session cookie
-const PUBLIC_PATH_PREFIXES = ['/login', '/signup', '/reset-password', '/survey'];
+const PUBLIC_PATH_PREFIXES = ['/login', '/signup', '/reset-password', '/survey', '/order/signup'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

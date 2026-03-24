@@ -19,31 +19,25 @@ export function OrderLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading } = useUser();
   const { firestore } = useFirebase();
 
-  // Signup page is standalone — render children without the order shell
-  if (isSignup) {
-    return <>{children}</>;
-  }
-
-  // Fetch user profile
+  // ALL hooks must be called unconditionally (React rules of hooks)
   const userProfileRef = useMemoFirebase(
-    () => (firestore && user ? doc(firestore, `users/${user.uid}`) : null),
-    [firestore, user]
+    () => (!isSignup && firestore && user ? doc(firestore, `users/${user.uid}`) : null),
+    [isSignup, firestore, user]
   );
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
-  // Fetch company name
   const companyDocRef = useMemoFirebase(
     () =>
-      firestore && userProfile?.companyId
+      !isSignup && firestore && userProfile?.companyId
         ? doc(firestore, `companies/${userProfile.companyId}`)
         : null,
-    [firestore, userProfile?.companyId]
+    [isSignup, firestore, userProfile?.companyId]
   );
   const { data: company } = useDoc<Company>(companyDocRef);
 
   // Auth guard — redirect non-customers to /selection
   useEffect(() => {
-    if (authLoading || profileLoading) return;
+    if (isSignup || authLoading || profileLoading) return;
     if (!user) {
       router.replace('/order/signup');
       return;
@@ -51,7 +45,12 @@ export function OrderLayout({ children }: { children: React.ReactNode }) {
     if (userProfile && userProfile.role !== 'customer') {
       router.replace('/selection');
     }
-  }, [authLoading, profileLoading, user, userProfile, router]);
+  }, [isSignup, authLoading, profileLoading, user, userProfile, router]);
+
+  // Signup page is standalone — render children without the order shell
+  if (isSignup) {
+    return <>{children}</>;
+  }
 
   // Loading state
   if (authLoading || profileLoading) {

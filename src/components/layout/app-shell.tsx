@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { doc } from 'firebase/firestore';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Sidebar } from './sidebar';
 import { MobileTopBar } from './mobile-top-bar';
@@ -8,6 +10,8 @@ import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { PageTransition } from '@/components/ui/page-transition';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { useToast } from '@/hooks/use-toast';
+import { useFirebase, useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { type UserProfile } from '@/lib/types';
 
 const STORAGE_KEY = 'vidana_sidebar_collapsed';
 
@@ -16,6 +20,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
+  const { user } = useUser();
+  const { firestore } = useFirebase();
+
+  const userProfileRef = useMemoFirebase(
+    () => firestore && user ? doc(firestore, `users/${user.uid}`) : null,
+    [firestore, user]
+  );
+  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
 
   useEffect(() => {
     setMounted(true);
@@ -44,6 +57,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       return next;
     });
   };
+
+  // Redirect customers away from admin routes
+  useEffect(() => {
+    if (userProfile && userProfile.role === 'customer') {
+      router.replace('/order');
+    }
+  }, [userProfile, router]);
+
+  // If the user is a customer, don't render the admin shell
+  if (userProfile?.role === 'customer') {
+    return null;
+  }
 
   // Avoid hydration mismatch — render without sidebar state until mounted
   if (!mounted) {

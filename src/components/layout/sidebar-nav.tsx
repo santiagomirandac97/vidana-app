@@ -6,7 +6,7 @@ import { type LucideIcon } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-export type UserRole = 'admin' | 'operations' | 'user';
+export type UserRole = 'admin' | 'operations' | 'user' | 'customer';
 
 export interface NavItem {
   href: string;
@@ -24,7 +24,7 @@ export interface NavGroup {
 }
 
 /** Role hierarchy: admin > operations > user */
-const ROLE_LEVEL: Record<UserRole, number> = { admin: 3, operations: 2, user: 1 };
+const ROLE_LEVEL: Record<UserRole, number> = { admin: 3, operations: 2, user: 1, customer: 0 };
 
 function hasAccess(userRole: UserRole, requiredRole: UserRole): boolean {
   return ROLE_LEVEL[userRole] >= ROLE_LEVEL[requiredRole];

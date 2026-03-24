@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ShieldAlert, Home, Loader2 } from 'lucide-react';
 
-type UserRole = 'admin' | 'operations' | 'user';
+type UserRole = 'admin' | 'operations' | 'user' | 'customer';
 
-const ROLE_LEVEL: Record<UserRole, number> = { admin: 3, operations: 2, user: 1 };
+const ROLE_LEVEL: Record<UserRole, number> = { admin: 3, operations: 2, user: 1, customer: 0 };
 
 interface PageLoadGuardProps {
   /** True while auth / profile / companies data is still loading */

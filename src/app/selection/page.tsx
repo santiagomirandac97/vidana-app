@@ -22,8 +22,8 @@ import { es } from 'date-fns/locale';
 
 const TZ = APP_TIMEZONE;
 
-type UserRole = 'admin' | 'operations' | 'user';
-const ROLE_LEVEL: Record<UserRole, number> = { admin: 3, operations: 2, user: 1 };
+type UserRole = 'admin' | 'operations' | 'user' | 'customer';
+const ROLE_LEVEL: Record<UserRole, number> = { admin: 3, operations: 2, user: 1, customer: 0 };
 
 const NAV_ITEMS: { href: string; label: string; icon: typeof ClipboardList; minRole?: UserRole }[] = [
   { href: '/main',          label: 'Registros',      icon: ClipboardList, minRole: 'operations' },

@@ -18,6 +18,10 @@ export type Company = {
   billingEmail?: string;        // invoice recipient email
   billingStatus?: Record<string, 'pendiente' | 'enviado' | 'pagado'>; // key = 'yyyy-MM'
   requiresEmployeeSelection?: boolean;  // true = Televisa mode
+  allowedCustomerDomains?: string[];
+  paymentMethods?: ('nomina' | 'efectivo' | 'tarjeta' | 'transferencia')[];
+  takeAwayEnabled?: boolean;
+  orderPortalEnabled?: boolean;
 };
 
 export interface RfidDevice {
@@ -69,13 +73,19 @@ export interface Consumption {
   paymentMethod?: 'cash' | 'card' | 'transfer';
   customerNote?: string;
   completedAt?: string; // ISO-8601 — set when kitchen marks the order complete
+  orderType?: 'eat_in' | 'take_away';
+  scheduledFor?: string;
+  selectedModifiers?: Record<string, string[]>;
+  specialInstructions?: Record<string, string>;
+  source?: 'pos' | 'portal';
+  customerEmail?: string;
 }
 
 export interface UserProfile {
     uid: string;
     name: string;
     email: string;
-    role: 'admin' | 'operations' | 'user';
+    role: 'admin' | 'operations' | 'user' | 'customer';
     companyId?: string;
     photoURL?: string;
     phone?: string;
@@ -93,8 +103,31 @@ export interface MenuItem {
     price: number;
     category: string;
     companyId: string;
+    description?: string;
+    imageUrl?: string;
+    modifiers?: MenuItemModifier[];
+    available?: boolean;
 }
 
+export interface MenuItemModifier {
+  id: string;
+  name: string;
+  group: string;
+  priceAdjustment: number;
+}
+
+export interface MenuSchedule {
+  id?: string;
+  companyId: string;
+  menuItemIds: string[];
+  name: string;
+  active: boolean;
+  timeRestriction?: {
+    startTime: string; // "HH:mm"
+    endTime: string;   // "HH:mm"
+  };
+  daysOfWeek?: number[]; // 0-6 (Sun-Sat), undefined = every day
+}
 
 // ─── Inventory ────────────────────────────────────────────────────────────────
 

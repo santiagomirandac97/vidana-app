@@ -25,22 +25,23 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Operaciones',
     items: [
-      { href: '/main',        label: 'Registros',      icon: ClipboardList },
-      { href: '/pos', label: 'POS', icon: ShoppingCart },
+      { href: '/main',        label: 'Registros',      icon: ClipboardList, minRole: 'operations' },
+      { href: '/pos',         label: 'POS',             icon: ShoppingCart },
       { href: '/command',     label: 'Comanda',         icon: ChefHat },
     ],
   },
   {
     label: 'Gestión',
+    minRole: 'operations',
     items: [
       { href: '/inventario',    label: 'Inventario',     icon: Package },
       { href: '/recetas',       label: 'Recetas',        icon: BookOpen },
-      { href: '/configuracion', label: 'Configuración',  icon: Settings, adminOnly: true },
+      { href: '/configuracion', label: 'Configuración',  icon: Settings, minRole: 'admin' },
     ],
   },
   {
     label: 'Finanzas',
-    adminOnly: true,
+    minRole: 'admin',
     items: [
       { href: '/admin',       label: 'Admin',       icon: BarChart2 },
       { href: '/costos',      label: 'Costos',      icon: TrendingDown },
@@ -51,7 +52,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: 'Satisfacción',
-    adminOnly: true,
+    minRole: 'admin',
     items: [
       { href: '/satisfaccion/encuestas', label: 'Encuestas', icon: SmilePlus },
     ],
@@ -73,7 +74,7 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
     [firestore, user]
   );
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
-  const isAdmin = userProfile?.role === 'admin';
+  const userRole = userProfile?.role ?? 'user';
 
   const handleLogout = useCallback(async () => {
     if (!app) return;
@@ -116,7 +117,7 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
         </div>
 
         {/* Nav */}
-        <SidebarNav groups={NAV_GROUPS} isAdmin={isAdmin} collapsed={collapsed} />
+        <SidebarNav groups={NAV_GROUPS} userRole={userRole} collapsed={collapsed} />
 
         {/* Footer */}
         <div className={cn(

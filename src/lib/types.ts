@@ -75,7 +75,7 @@ export interface UserProfile {
     uid: string;
     name: string;
     email: string;
-    role: 'admin' | 'user';
+    role: 'admin' | 'operations' | 'user';
     companyId?: string;
     photoURL?: string;
     phone?: string;
@@ -191,7 +191,7 @@ export interface WeeklyMenu {
 export interface UserInvite {
   id?: string;
   companyId: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'operations' | 'user';
   createdBy: string;       // admin uid
   createdAt: string;       // ISO-8601
   expiresAt: string;       // ISO-8601 (+7 days from createdAt)

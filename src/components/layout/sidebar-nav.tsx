@@ -6,33 +6,44 @@ import { type LucideIcon } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
+export type UserRole = 'admin' | 'operations' | 'user';
+
 export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  adminOnly?: boolean;
+  /** Minimum role required to see this item. Default: 'user' (everyone) */
+  minRole?: UserRole;
 }
 
 export interface NavGroup {
   label: string;
-  adminOnly?: boolean;
+  /** Minimum role required to see this group. Default: 'user' (everyone) */
+  minRole?: UserRole;
   items: NavItem[];
+}
+
+/** Role hierarchy: admin > operations > user */
+const ROLE_LEVEL: Record<UserRole, number> = { admin: 3, operations: 2, user: 1 };
+
+function hasAccess(userRole: UserRole, requiredRole: UserRole): boolean {
+  return ROLE_LEVEL[userRole] >= ROLE_LEVEL[requiredRole];
 }
 
 interface SidebarNavProps {
   groups: NavGroup[];
-  isAdmin: boolean;
+  userRole: UserRole;
   collapsed: boolean;
 }
 
-export function SidebarNav({ groups, isAdmin, collapsed }: SidebarNavProps) {
+export function SidebarNav({ groups, userRole, collapsed }: SidebarNavProps) {
   const pathname = usePathname();
 
   return (
     <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-0">
       {groups.map((group) => {
-        if (group.adminOnly && !isAdmin) return null;
-        const visibleItems = group.items.filter(item => !item.adminOnly || isAdmin);
+        if (group.minRole && !hasAccess(userRole, group.minRole)) return null;
+        const visibleItems = group.items.filter(item => !item.minRole || hasAccess(userRole, item.minRole));
         if (visibleItems.length === 0) return null;
 
         return (

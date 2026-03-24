@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ShieldAlert, Home, Loader2 } from 'lucide-react';
 
+type UserRole = 'admin' | 'operations' | 'user';
+
+const ROLE_LEVEL: Record<UserRole, number> = { admin: 3, operations: 2, user: 1 };
+
 interface PageLoadGuardProps {
   /** True while auth / profile / companies data is still loading */
   isLoading: boolean;
@@ -17,6 +21,8 @@ interface PageLoadGuardProps {
   userLoading: boolean;
   /** Role from the user profile */
   role?: string;
+  /** Minimum role needed to access this page (default: 'admin') */
+  minRole?: UserRole;
   /** Children to render when all guards pass */
   children: React.ReactNode;
 }
@@ -27,6 +33,7 @@ export function PageLoadGuard({
   user,
   userLoading,
   role,
+  minRole = 'admin',
   children,
 }: PageLoadGuardProps) {
   const router = useRouter();
@@ -70,7 +77,10 @@ export function PageLoadGuard({
   // Avoid flashing access-denied while auth resolves
   if (!userLoading && !user) return null;
 
-  if (!user || role !== 'admin') {
+  const userLevel = ROLE_LEVEL[(role as UserRole) ?? 'user'] ?? 0;
+  const requiredLevel = ROLE_LEVEL[minRole];
+
+  if (!user || userLevel < requiredLevel) {
     return (
       <AppShell>
         <div className="flex h-full w-full items-center justify-center">

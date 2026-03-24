@@ -273,7 +273,7 @@ export default function RecetasPage() {
     return null;
   }
 
-  if (!user || userProfile?.role !== 'admin') {
+  if (!user || (userProfile?.role !== 'admin' && userProfile?.role !== 'operations')) {
     return (
       <AppShell>
         <div className="flex h-full w-full items-center justify-center">

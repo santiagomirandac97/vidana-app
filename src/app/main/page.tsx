@@ -109,6 +109,12 @@ export default function MainPage() {
     }
   }, [selectedCompanyId]);
 
+  // Role guard: user role can only access POS and Comanda
+  if (!profileLoading && userProfile?.role === 'user') {
+    router.push('/selection');
+    return null;
+  }
+
   if (userLoading || !user || companiesLoading || profileLoading || !selectedCompanyId || !company || !allCompanies) {
     return (
       <AppShell>

@@ -39,7 +39,7 @@ export const UsuariosTab: FC = () => {
 
     const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
-    const handleRoleChange = (user: UserProfile, newRole: 'admin' | 'user') => {
+    const handleRoleChange = (user: UserProfile, newRole: 'admin' | 'operations' | 'user') => {
         if (!firestore) return;
         if (user.uid === currentUser?.uid) {
             toast({ variant: 'destructive', title: 'Error', description: 'No puede cambiar su propio rol.' });
@@ -127,8 +127,8 @@ export const UsuariosTab: FC = () => {
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-center">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                                                    {user.role}
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-green-100 text-green-800' : user.role === 'operations' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                    {user.role === 'operations' ? 'operaciones' : user.role}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -167,10 +167,13 @@ export const UsuariosTab: FC = () => {
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end">
                                                             <DropdownMenuItem onSelect={() => handleRoleChange(user, 'admin')} disabled={user.role === 'admin'}>
-                                                                Hacer Administrador
+                                                                Administrador
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onSelect={() => handleRoleChange(user, 'operations')} disabled={user.role === 'operations'}>
+                                                                Operaciones
                                                             </DropdownMenuItem>
                                                             <DropdownMenuItem onSelect={() => handleRoleChange(user, 'user')} disabled={user.role === 'user'}>
-                                                                Hacer Usuario
+                                                                Usuario
                                                             </DropdownMenuItem>
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
@@ -227,8 +230,8 @@ export const UsuariosTab: FC = () => {
                                         <TableRow key={invite.id} className="hover:bg-muted/30 transition-colors">
                                             <TableCell className="font-medium">{company?.name ?? invite.companyId}</TableCell>
                                             <TableCell>
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${invite.role === 'admin' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                                                    {invite.role}
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${invite.role === 'admin' ? 'bg-green-100 text-green-800' : invite.role === 'operations' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                    {invite.role === 'operations' ? 'operaciones' : invite.role}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-muted-foreground">{invite.email || '—'}</TableCell>
@@ -278,7 +281,7 @@ const GenerateInviteDialog: FC<GenerateInviteDialogProps> = ({ isOpen, onClose, 
     const { toast } = useToast();
 
     const [selectedCompanyId, setSelectedCompanyId] = useState('');
-    const [selectedRole, setSelectedRole] = useState<'admin' | 'user'>('user');
+    const [selectedRole, setSelectedRole] = useState<'admin' | 'operations' | 'user'>('user');
     const [email, setEmail] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [generatedLink, setGeneratedLink] = useState<string | null>(null);
@@ -356,12 +359,13 @@ const GenerateInviteDialog: FC<GenerateInviteDialogProps> = ({ isOpen, onClose, 
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Rol</label>
-                            <Select onValueChange={(v) => setSelectedRole(v as 'admin' | 'user')} value={selectedRole}>
+                            <Select onValueChange={(v) => setSelectedRole(v as 'admin' | 'operations' | 'user')} value={selectedRole}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="user">Usuario</SelectItem>
+                                    <SelectItem value="operations">Operaciones</SelectItem>
                                     <SelectItem value="admin">Administrador</SelectItem>
                                 </SelectContent>
                             </Select>

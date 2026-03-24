@@ -22,17 +22,20 @@ import { es } from 'date-fns/locale';
 
 const TZ = APP_TIMEZONE;
 
-const NAV_ITEMS = [
-  { href: '/main',        label: 'Registros',      icon: ClipboardList },
-  { href: '/pos-inditex', label: 'POS Inditex',    icon: ShoppingCart  },
-  { href: '/kiosk',       label: 'Kiosk Televisa', icon: Tablet        },
-  { href: '/command',     label: 'Comanda',        icon: ChefHat       },
-  { href: '/inventario',  label: 'Inventario',     icon: Package       },
-  { href: '/recetas',     label: 'Recetas',        icon: BookOpen      },
-  { href: '/configuracion', label: 'Configuración', icon: Settings     },
-  { href: '/admin',       label: 'Admin',          icon: AreaChart     },
-  { href: '/costos',      label: 'Costos',         icon: TrendingDown  },
-  { href: '/facturacion', label: 'Facturación',    icon: Receipt       },
+type UserRole = 'admin' | 'operations' | 'user';
+const ROLE_LEVEL: Record<UserRole, number> = { admin: 3, operations: 2, user: 1 };
+
+const NAV_ITEMS: { href: string; label: string; icon: typeof ClipboardList; minRole?: UserRole }[] = [
+  { href: '/main',          label: 'Registros',      icon: ClipboardList, minRole: 'operations' },
+  { href: '/pos-inditex',   label: 'POS Inditex',    icon: ShoppingCart  },
+  { href: '/kiosk',         label: 'Kiosk Televisa', icon: Tablet        },
+  { href: '/command',       label: 'Comanda',        icon: ChefHat       },
+  { href: '/inventario',    label: 'Inventario',     icon: Package,       minRole: 'operations' },
+  { href: '/recetas',       label: 'Recetas',        icon: BookOpen,      minRole: 'operations' },
+  { href: '/configuracion', label: 'Configuración',  icon: Settings,      minRole: 'admin' },
+  { href: '/admin',         label: 'Admin',          icon: AreaChart,     minRole: 'admin' },
+  { href: '/costos',        label: 'Costos',         icon: TrendingDown,  minRole: 'admin' },
+  { href: '/facturacion',   label: 'Facturación',    icon: Receipt,       minRole: 'admin' },
 ];
 
 export default function SelectionPage() {
@@ -62,12 +65,18 @@ export default function SelectionPage() {
   const { data: companies, isLoading: companiesLoading } = useCollection<Company>(companiesQuery);
 
   const isAdmin = userProfile?.role === 'admin';
+  const currentRole: UserRole = (userProfile?.role as UserRole) ?? 'user';
+  const visibleNavItems = NAV_ITEMS.filter(item => {
+    const required = ROLE_LEVEL[item.minRole ?? 'user'];
+    return ROLE_LEVEL[currentRole] >= required;
+  });
   const companyId = userProfile?.companyId;
 
+  const isOperationsOrAbove = currentRole === 'admin' || currentRole === 'operations';
   const consumptionsQuery = useMemoFirebase(
     () => {
       if (!firestore || !userProfile) return null;
-      if (isAdmin) {
+      if (isOperationsOrAbove) {
         return query(collectionGroup(firestore, 'consumptions'), where('timestamp', '>=', monthStart));
       }
       if (!companyId) return null;
@@ -76,7 +85,7 @@ export default function SelectionPage() {
         where('timestamp', '>=', monthStart)
       );
     },
-    [firestore, userProfile, isAdmin, companyId, monthStart]
+    [firestore, userProfile, isOperationsOrAbove, companyId, monthStart]
   );
   const { data: allConsumptions, isLoading: consumptionsLoading } = useCollection<Consumption>(consumptionsQuery);
 
@@ -90,7 +99,7 @@ export default function SelectionPage() {
   );
   const monthlyMeals = (allConsumptions ?? []).filter(c => !c.voided).length;
 
-  const activeCompaniesCount = isAdmin
+  const activeCompaniesCount = isOperationsOrAbove
     ? (companies ?? []).length
     : companyId ? 1 : 0;
 
@@ -152,7 +161,7 @@ export default function SelectionPage() {
         {/* Quick access grid */}
         <SectionLabel className="mb-5">Acceso rápido</SectionLabel>
         <StaggerChildren className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
-          {NAV_ITEMS.map(item => (
+          {visibleNavItems.map(item => (
             <StaggerItem key={item.href}>
               <button
                 onClick={() => router.push(item.href)}

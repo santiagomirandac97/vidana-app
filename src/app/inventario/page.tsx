@@ -132,7 +132,7 @@ export default function InventarioPage() {
   const ingredientsList = (ingredients ?? []).filter((i): i is Ingredient & { id: string } => !!i.id);
 
   return (
-    <PageLoadGuard isLoading={pageIsLoading} timedOut={loadTimeout} user={user} userLoading={userLoading} role={userProfile?.role}>
+    <PageLoadGuard isLoading={pageIsLoading} timedOut={loadTimeout} user={user} userLoading={userLoading} role={userProfile?.role} minRole="operations">
       <AppShell>
         <div className="p-6 lg:p-8">
           <PageHeader

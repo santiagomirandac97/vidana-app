@@ -60,6 +60,14 @@ service cloud.firestore {
     }
 
     /**
+     * @description Rules for menu schedules within a company (customer ordering portal).
+     */
+    match /companies/{companyId}/menuSchedules/{scheduleId} {
+      allow get, list: if request.auth != null;
+      allow create, update, delete: if request.auth != null && isUserAdmin(request.auth.uid);
+    }
+
+    /**
      * @description Rules for user profile documents.
      */
     match /users/{userId} {

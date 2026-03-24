@@ -148,7 +148,7 @@ export function OverviewTab({ surveys, companies, responses }: OverviewTabProps)
           <StaggerItem key={company.id}>
             <div
               className="rounded-xl border bg-card shadow-card hover:shadow-card-hover transition-all duration-200 p-5 cursor-pointer"
-              onClick={() => router.push(`/satisfaccion/encuestas/${surveyId}/resultados`)}
+              onClick={() => router.push(`/satisfaccion/encuestas/${surveyId}`)}
             >
               <p className="font-medium">{company.name}</p>
 

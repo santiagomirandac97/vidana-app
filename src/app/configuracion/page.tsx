@@ -13,19 +13,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { AppShell, PageHeader } from '@/components/layout';
-import { Loader2, ShieldAlert, Home, PlusCircle, Edit, CheckCircle2, XCircle, Wifi, WifiOff } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, PlusCircle, Edit, CheckCircle2, XCircle, Wifi, WifiOff, ShoppingBag } from 'lucide-react';
 import { SkeletonPageHeader, SkeletonTable } from '@/components/ui/skeleton-layouts';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { EmpresasTab } from './components/EmpresasTab';
 import { MenuTab } from './components/MenuTab';
 import { UsuariosTab } from './components/UsuariosTab';
+import { PortalTab } from './components/PortalTab';
 
 const TABS = [
     { value: 'companies', label: 'Gestionar Empresas' },
     { value: 'menus', label: 'Gestionar Menús' },
     { value: 'users', label: 'Gestionar Usuarios' },
     { value: 'rfid', label: 'Dispositivos RFID' },
+    { value: 'portal', label: 'Portal de Ordenes', icon: ShoppingBag },
 ];
 
 export default function ConfiguracionPage() {
@@ -133,6 +135,9 @@ const ConfiguracionDashboard: FC = () => {
                     </div>
                     <div className={activeTab === 'rfid' ? 'block' : 'hidden'}>
                         <RfidTab companies={companies} companiesLoading={companiesLoading} />
+                    </div>
+                    <div className={activeTab === 'portal' ? 'block' : 'hidden'}>
+                        <PortalTab companies={companies} companiesLoading={companiesLoading} />
                     </div>
                 </div>
             </div>

@@ -75,9 +75,17 @@ export function ConsumptionHistory({
 
   const [date, setDate] = useState<DateRange | undefined>();
 
+  // ── Source filter ──────────────────────────────────────────────────────────
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'pos' | 'portal'>('all');
+
   const activeMonthlyConsumptions = useMemo(
-    () => monthlyConsumptions.filter((c) => !c.voided),
-    [monthlyConsumptions]
+    () => {
+      let filtered = monthlyConsumptions.filter((c) => !c.voided);
+      if (sourceFilter === 'portal') filtered = filtered.filter((c) => c.source === 'portal');
+      else if (sourceFilter === 'pos') filtered = filtered.filter((c) => c.source !== 'portal');
+      return filtered;
+    },
+    [monthlyConsumptions, sourceFilter]
   );
 
   const {
@@ -345,6 +353,28 @@ export function ConsumptionHistory({
                 <Download className="mr-2 h-4 w-4" /> Exportar Reporte
               </Button>
 
+              {/* Source filter pills */}
+              <div className="flex items-center gap-2 mt-4">
+                {(['all', 'pos', 'portal'] as const).map((value) => {
+                  const labels: Record<typeof value, string> = { all: 'Todos', pos: 'POS', portal: 'Portal' };
+                  const isActive = sourceFilter === value;
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => setSourceFilter(value)}
+                      className={cn(
+                        'px-3 py-1 text-sm font-medium rounded-full border transition-colors',
+                        isActive
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-muted-foreground border-border hover:bg-muted'
+                      )}
+                    >
+                      {labels[value]}
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* Monthly consumptions list with pagination */}
               {activeMonthlyConsumptions.length > 0 && (
                 <div className="mt-4">
@@ -355,6 +385,7 @@ export function ConsumptionHistory({
                         <tr className="border-b bg-muted/30">
                           <th className="text-left px-3 py-2 font-medium">Nombre</th>
                           <th className="text-left px-3 py-2 font-medium">No. Empleado</th>
+                          <th className="text-left px-3 py-2 font-medium">Origen</th>
                           <th className="text-left px-3 py-2 font-medium">Fecha</th>
                         </tr>
                       </thead>
@@ -363,6 +394,21 @@ export function ConsumptionHistory({
                           <tr key={`${c.employeeNumber}-${c.timestamp}-${i}`} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                             <td className="px-3 py-2 font-medium">{c.name}</td>
                             <td className="px-3 py-2 font-mono text-muted-foreground">{c.employeeNumber}</td>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-1.5">
+                                {c.source === 'portal' ? (
+                                  <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">Portal</span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">POS</span>
+                                )}
+                                {c.orderType === 'take_away' && (
+                                  <span className="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded-full">Para llevar</span>
+                                )}
+                                {c.orderType === 'eat_in' && (
+                                  <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Comer aquí</span>
+                                )}
+                              </div>
+                            </td>
                             <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
                               {formatInTimeZone(new Date(c.timestamp), APP_TIMEZONE, 'dd/MM/yyyy HH:mm')}
                             </td>

@@ -63,25 +63,52 @@ export const PendingOrderCard: FC<PendingOrderCardProps> = ({ order, onComplete 
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-lg leading-tight">{order.name}</CardTitle>
-          {order.orderNumber && (
-            <span className="text-xs font-mono text-muted-foreground shrink-0 mt-0.5">
-              #{order.orderNumber}
-            </span>
+          <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+            {order.source === 'portal' && (
+              <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">Portal</span>
+            )}
+            {order.orderNumber && (
+              <span className="text-xs font-mono text-muted-foreground">
+                #{order.orderNumber}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <p className="text-sm text-muted-foreground font-mono">#{order.employeeNumber}</p>
+          {order.source === 'portal' && order.orderType === 'take_away' && (
+            <span className="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded-full">Para llevar</span>
+          )}
+          {order.source === 'portal' && order.orderType === 'eat_in' && (
+            <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Comer aquí</span>
           )}
         </div>
-        <p className="text-sm text-muted-foreground font-mono">#{order.employeeNumber}</p>
+        {order.scheduledFor && (
+          <p className="text-xs text-indigo-700 dark:text-indigo-400 font-medium">
+            Programado: {new Date(order.scheduledFor).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col flex-1 gap-3">
         {/* Items list */}
         {hasItems ? (
           <ul className="space-y-1 flex-1">
             {(order.items ?? []).map((item) => (
-              <li
-                key={item.itemId}
-                className="flex justify-between items-baseline text-sm"
-              >
-                <span className="font-medium">{item.name}</span>
-                <span className="text-muted-foreground font-mono text-xs">x{item.quantity}</span>
+              <li key={item.itemId} className="text-sm">
+                <div className="flex justify-between items-baseline">
+                  <span className="font-medium">{item.name}</span>
+                  <span className="text-muted-foreground font-mono text-xs">x{item.quantity}</span>
+                </div>
+                {order.selectedModifiers?.[item.itemId] && order.selectedModifiers[item.itemId].length > 0 && (
+                  <p className="text-xs text-purple-700 dark:text-purple-400 ml-2">
+                    + {order.selectedModifiers[item.itemId].join(', ')}
+                  </p>
+                )}
+                {order.specialInstructions?.[item.itemId] && (
+                  <p className="text-xs text-orange-700 dark:text-orange-400 ml-2 italic">
+                    &quot;{order.specialInstructions[item.itemId]}&quot;
+                  </p>
+                )}
               </li>
             ))}
           </ul>

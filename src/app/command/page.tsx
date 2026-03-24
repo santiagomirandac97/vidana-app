@@ -23,7 +23,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ChefHat, ChevronDown, Bell, BellOff } from 'lucide-react';
 import { AppShell, PageHeader } from '@/components/layout';
-import { getTodayInMexicoCity } from '@/lib/utils';
+import { cn, getTodayInMexicoCity } from '@/lib/utils';
 import { fromZonedTime } from 'date-fns-tz';
 import { APP_TIMEZONE } from '@/lib/constants';
 import { PendingOrderCard, CompletedOrderRow } from './components';
@@ -208,7 +208,21 @@ const CommandDashboard: FC<CommandDashboardProps> = ({ isAdmin, defaultCompanyId
     }
   };
 
-  const pendingCount = pendingOrders?.length ?? 0;
+  // ── Source filter ────────────────────────────────────────────────────────
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'pos' | 'portal'>('all');
+
+  const filterBySource = (orders: Consumption[] | null | undefined) => {
+    if (!orders) return [];
+    if (sourceFilter === 'all') return orders;
+    if (sourceFilter === 'portal') return orders.filter((o) => o.source === 'portal');
+    // 'pos' = source is undefined or not 'portal'
+    return orders.filter((o) => o.source !== 'portal');
+  };
+
+  const filteredPending = filterBySource(pendingOrders);
+  const filteredCompleted = filterBySource(completedOrders);
+
+  const pendingCount = filteredPending.length;
   const [completedOpen, setCompletedOpen] = useState(true);
 
   return (
@@ -236,6 +250,28 @@ const CommandDashboard: FC<CommandDashboardProps> = ({ isAdmin, defaultCompanyId
             </Select>
           </div>
         )}
+
+        {/* Source filter pills */}
+        <div className="flex items-center gap-2 mb-4">
+          {(['all', 'pos', 'portal'] as const).map((value) => {
+            const labels: Record<typeof value, string> = { all: 'Todos', pos: 'POS', portal: 'Portal' };
+            const isActive = sourceFilter === value;
+            return (
+              <button
+                key={value}
+                onClick={() => setSourceFilter(value)}
+                className={cn(
+                  'px-3 py-1 text-sm font-medium rounded-full border transition-colors',
+                  isActive
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background text-muted-foreground border-border hover:bg-muted'
+                )}
+              >
+                {labels[value]}
+              </button>
+            );
+          })}
+        </div>
 
         {/* Header row: pending count + mute toggle */}
         <div className="flex items-center gap-3 mb-6">
@@ -280,7 +316,7 @@ const CommandDashboard: FC<CommandDashboardProps> = ({ isAdmin, defaultCompanyId
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {(pendingOrders ?? []).map((order) => (
+              {filteredPending.map((order) => (
                 <PendingOrderCard
                   key={order.id}
                   order={order}
@@ -300,7 +336,7 @@ const CommandDashboard: FC<CommandDashboardProps> = ({ isAdmin, defaultCompanyId
               />
               Completados Hoy
               <Badge variant="secondary" className="ml-1 normal-case font-normal">
-                {completedOrders?.length ?? 0}
+                {filteredCompleted.length}
               </Badge>
             </button>
           </CollapsibleTrigger>
@@ -310,13 +346,13 @@ const CommandDashboard: FC<CommandDashboardProps> = ({ isAdmin, defaultCompanyId
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="text-sm">Cargando completados...</span>
               </div>
-            ) : !completedOrders || completedOrders.length === 0 ? (
+            ) : filteredCompleted.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4">
                 No hay órdenes completadas hoy.
               </p>
             ) : (
               <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
-                {completedOrders.map((order) => (
+                {filteredCompleted.map((order) => (
                   <CompletedOrderRow key={order.id} order={order} />
                 ))}
               </div>

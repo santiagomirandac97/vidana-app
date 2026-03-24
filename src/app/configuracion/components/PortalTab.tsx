@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, X } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/skeleton-layouts';
+import { MenuScheduleManager } from './MenuScheduleManager';
 
 const PAYMENT_OPTIONS = [
     { value: 'nomina' as const, label: 'Nomina' },
@@ -232,6 +233,10 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
                         </div>
                     </CardContent>
                 </Card>
+            )}
+
+            {selectedCompanyId && !companyDocLoading && companyDoc && orderPortalEnabled && (
+                <MenuScheduleManager companyId={selectedCompanyId} />
             )}
         </div>
     );

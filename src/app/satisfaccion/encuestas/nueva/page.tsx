@@ -188,15 +188,13 @@ export default function NuevaEncuestaPage() {
                       id={q.id}
                       checked={selectedIds.includes(q.id)}
                       onCheckedChange={() => toggleQuestion(q.id)}
-                      disabled={
-                        !selectedIds.includes(q.id) && selectedIds.length >= 8
-                      }
+                      disabled={false}
                       className="mt-0.5"
                     />
                     <Label htmlFor={q.id} className="leading-snug font-normal cursor-pointer">
                       {q.text}
                       <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                        {q.type === 'star' ? '⭐ Estrellas' : q.type === 'emoji' ? '😊 Emojis' : '✏️ Texto'}
+                        {q.type === 'star' ? '⭐ Estrellas' : q.type === 'emoji' ? '😊 Emojis' : q.type === 'multiple_choice' ? '📋 Opción múltiple' : q.type === 'multi_select' ? '☑️ Multi-selección' : q.type === 'nps' ? '📊 NPS (0-10)' : '✏️ Texto'}
                       </span>
                     </Label>
                   </div>

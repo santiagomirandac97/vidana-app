@@ -264,7 +264,7 @@ export interface Survey {
   name: string;           // "Satisfacción Enero 2026"
   companyId: string;      // ties to existing Company doc
   status: 'active' | 'closed';
-  questions: SurveyQuestion[];  // ordered, 5–8 items
+  questions: SurveyQuestion[];  // ordered, no limit
   createdAt: string;      // ISO-8601
   createdBy: string;      // admin uid
 }

@@ -69,8 +69,8 @@ export default function NuevaEncuestaPage() {
   // Step 1 validation: both fields required
   const step1Valid = companyId.length > 0 && surveyName.trim().length > 0;
 
-  // Step 2 validation: 5–8 questions
-  const step2Valid = selectedIds.length >= 5 && selectedIds.length <= 8;
+  // Step 2 validation: at least 1 question, no upper limit
+  const step2Valid = selectedIds.length >= 1;
 
   const handlePublish = async () => {
     if (!firestore || !user || !step2Valid) return;
@@ -174,14 +174,11 @@ export default function NuevaEncuestaPage() {
         {step === 2 && (
           <div className="rounded-lg border bg-card shadow-card p-6 space-y-5">
             <div>
-              <p className="text-sm font-medium mb-1">Selecciona entre 5 y 8 preguntas</p>
+              <p className="text-sm font-medium mb-1">Selecciona las preguntas para tu encuesta</p>
               <p className="text-xs text-muted-foreground mb-4">
                 {selectedIds.length} seleccionada{selectedIds.length !== 1 ? 's' : ''}
-                {!step2Valid && selectedIds.length > 0 && selectedIds.length < 5 && (
-                  <span className="text-destructive ml-2">— mínimo 5</span>
-                )}
-                {selectedIds.length > 8 && (
-                  <span className="text-destructive ml-2">— máximo 8</span>
+                {selectedIds.length === 0 && (
+                  <span className="text-destructive ml-2">— selecciona al menos 1</span>
                 )}
               </p>
               <div className="space-y-3">

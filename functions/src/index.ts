@@ -1,4 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { initializeApp } from 'firebase-admin/app';
@@ -345,5 +347,249 @@ export const sendPasswordReset = onCall(
     await rateLimitRef.set({ timestamp: FieldValue.serverTimestamp() });
 
     return { success: true };
+  }
+);
+
+// --- Order Confirmation Email (Firestore onCreate) ---
+
+function buildOrderConfirmationHtml(data: {
+  orderNumber: string;
+  companyName: string;
+  orderType: string;
+  scheduledFor: string | null;
+  items: Array<{ name: string; quantity: number; price: number }>;
+  paymentMethod: string;
+  total: number;
+  customerNote?: string;
+}): string {
+  const orderTypeBadge = data.orderType === 'takeout'
+    ? '<span style="display:inline-block;background-color:#fef3c7;color:#92400e;font-size:13px;font-weight:600;padding:6px 14px;border-radius:20px;">Para llevar</span>'
+    : '<span style="display:inline-block;background-color:#dbeafe;color:#1e40af;font-size:13px;font-weight:600;padding:6px 14px;border-radius:20px;">Comer aquí</span>';
+
+  const timeDisplay = data.scheduledFor
+    ? `<p style="margin:0 0 4px;font-size:14px;color:#6b7280;">Programado para:</p><p style="margin:0;font-size:16px;font-weight:600;color:#111827;">${escapeHtml(data.scheduledFor)}</p>`
+    : '<p style="margin:0;font-size:14px;color:#6b7280;">Lo antes posible</p>';
+
+  const itemsRows = data.items.map((item) =>
+    `<tr style="border-bottom:1px solid #e5e7eb;">
+      <td style="padding:10px 0;font-size:14px;color:#374151;">${escapeHtml(item.name)}</td>
+      <td style="padding:10px 8px;font-size:14px;color:#374151;text-align:center;">${item.quantity}</td>
+      <td style="padding:10px 0;font-size:14px;color:#374151;text-align:right;">$${(item.price * item.quantity).toFixed(2)}</td>
+    </tr>`
+  ).join('');
+
+  const noteSection = data.customerNote
+    ? `<div style="margin-top:16px;padding:12px;background-color:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
+        <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Nota</p>
+        <p style="margin:0;font-size:14px;color:#374151;">${escapeHtml(data.customerNote)}</p>
+      </div>`
+    : '';
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 0;">
+    <tr><td align="center">
+      <table width="420" cellpadding="0" cellspacing="0" style="max-width:420px;width:100%;">
+        <!-- Header gradient bar -->
+        <tr><td style="background:linear-gradient(135deg,#2563eb 0%,#3730a3 100%);height:8px;border-radius:12px 12px 0 0;"></td></tr>
+        <!-- Card -->
+        <tr><td style="background-color:#ffffff;padding:40px 32px 32px;border-radius:0 0 12px 12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+          <!-- Logo -->
+          <div style="text-align:center;margin-bottom:32px;">
+            <img src="https://vidana.com.mx/logos/logo.png" alt="Vidana" width="160" height="53" style="display:inline-block;width:160px;height:auto;" />
+          </div>
+          <!-- Heading -->
+          <h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#111827;text-align:center;">Tu orden ha sido recibida</h1>
+          <p style="margin:0 0 24px;font-size:14px;color:#6b7280;text-align:center;">${escapeHtml(data.companyName)}</p>
+          <!-- Order number -->
+          <div style="text-align:center;margin-bottom:20px;">
+            <p style="margin:0 0 4px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Número de orden</p>
+            <p style="margin:0;font-size:32px;font-weight:700;color:#111827;">#${escapeHtml(data.orderNumber)}</p>
+          </div>
+          <!-- Order type badge -->
+          <div style="text-align:center;margin-bottom:20px;">
+            ${orderTypeBadge}
+          </div>
+          <!-- Scheduled time -->
+          <div style="text-align:center;margin-bottom:24px;">
+            ${timeDisplay}
+          </div>
+          <!-- Divider -->
+          <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 16px;" />
+          <!-- Items table -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+            <tr style="border-bottom:2px solid #e5e7eb;">
+              <td style="padding:8px 0;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Artículo</td>
+              <td style="padding:8px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;text-align:center;">Cant.</td>
+              <td style="padding:8px 0;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;text-align:right;">Precio</td>
+            </tr>
+            ${itemsRows}
+          </table>
+          ${noteSection}
+          <!-- Payment method -->
+          <div style="margin-top:16px;padding:12px 0;border-top:1px solid #e5e7eb;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="font-size:14px;color:#6b7280;">Método de pago</td>
+                <td style="font-size:14px;color:#374151;text-align:right;">${escapeHtml(data.paymentMethod)}</td>
+              </tr>
+            </table>
+          </div>
+          <!-- Total -->
+          <div style="padding:12px 0;border-top:2px solid #111827;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="font-size:16px;font-weight:700;color:#111827;">Total</td>
+                <td style="font-size:16px;font-weight:700;color:#111827;text-align:right;">$${data.total.toFixed(2)} MXN</td>
+              </tr>
+            </table>
+          </div>
+        </td></tr>
+        <!-- Footer -->
+        <tr><td style="padding:24px 0;text-align:center;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;">Vidana — Buen provecho</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+export const sendOrderConfirmation = onDocumentCreated(
+  {
+    document: 'companies/{companyId}/consumptions/{consumptionId}',
+    secrets: [resendApiKey],
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+
+    const data = snapshot.data();
+    if (data.source !== 'portal' || !data.customerEmail) return;
+
+    const companyId = event.params.companyId;
+
+    // Fetch company name
+    const companyDoc = await getFirestore().doc(`companies/${companyId}`).get();
+    const companyName = companyDoc.data()?.name || 'Vidana';
+
+    const orderNumber = data.orderNumber?.toString() || event.params.consumptionId;
+    const orderType = data.orderType || 'dineIn';
+    const scheduledFor = data.scheduledFor
+      ? new Date(data.scheduledFor.toDate ? data.scheduledFor.toDate() : data.scheduledFor).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
+      : null;
+
+    const items: Array<{ name: string; quantity: number; price: number }> = (data.items || []).map((item: any) => ({
+      name: item.name || '',
+      quantity: item.quantity || 1,
+      price: item.price || 0,
+    }));
+
+    const paymentMethod = data.paymentMethod || 'No especificado';
+    const total = typeof data.total === 'number' ? data.total : items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const customerNote = data.customerNote || '';
+
+    const html = buildOrderConfirmationHtml({
+      orderNumber,
+      companyName,
+      orderType,
+      scheduledFor,
+      items,
+      paymentMethod,
+      total,
+      customerNote: customerNote || undefined,
+    });
+
+    const resend = new Resend(resendApiKey.value());
+    const { error } = await resend.emails.send({
+      from: 'Vidana <no-reply@vidana.com.mx>',
+      to: [data.customerEmail],
+      subject: `Tu orden #${orderNumber} en ${companyName}`,
+      html,
+    });
+
+    if (error) {
+      console.error('[sendOrderConfirmation] Resend error:', JSON.stringify(error));
+    }
+  }
+);
+
+// --- Order Ready Email (Firestore onUpdate) ---
+
+function buildOrderReadyHtml(orderNumber: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 0;">
+    <tr><td align="center">
+      <table width="420" cellpadding="0" cellspacing="0" style="max-width:420px;width:100%;">
+        <!-- Header gradient bar -->
+        <tr><td style="background:linear-gradient(135deg,#2563eb 0%,#3730a3 100%);height:8px;border-radius:12px 12px 0 0;"></td></tr>
+        <!-- Card -->
+        <tr><td style="background-color:#ffffff;padding:40px 32px 32px;border-radius:0 0 12px 12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+          <!-- Logo -->
+          <div style="text-align:center;margin-bottom:32px;">
+            <img src="https://vidana.com.mx/logos/logo.png" alt="Vidana" width="160" height="53" style="display:inline-block;width:160px;height:auto;" />
+          </div>
+          <!-- Heading -->
+          <h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:#111827;text-align:center;">Tu orden está lista para recoger</h1>
+          <!-- Order number -->
+          <div style="text-align:center;margin:24px 0;">
+            <p style="margin:0 0 4px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Número de orden</p>
+            <p style="margin:0;font-size:32px;font-weight:700;color:#111827;">#${escapeHtml(orderNumber)}</p>
+          </div>
+          <!-- CTA -->
+          <div style="text-align:center;margin:24px 0;padding:20px;background-color:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0;">
+            <p style="margin:0;font-size:16px;font-weight:600;color:#166534;">Acércate al mostrador</p>
+          </div>
+          <!-- Divider -->
+          <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+          <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">Gracias por tu preferencia.</p>
+        </td></tr>
+        <!-- Footer -->
+        <tr><td style="padding:24px 0;text-align:center;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;">Vidana — Buen provecho</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+export const sendOrderReady = onDocumentUpdated(
+  {
+    document: 'companies/{companyId}/consumptions/{consumptionId}',
+    secrets: [resendApiKey],
+  },
+  async (event) => {
+    const change = event.data;
+    if (!change) return;
+
+    const before = change.before.data();
+    const after = change.after.data();
+
+    if (after.source !== 'portal' || !after.customerEmail) return;
+    if (before.status === after.status || before.status !== 'pending' || after.status !== 'completed') return;
+
+    const orderNumber = after.orderNumber?.toString() || event.params.consumptionId;
+
+    const resend = new Resend(resendApiKey.value());
+    const { error } = await resend.emails.send({
+      from: 'Vidana <no-reply@vidana.com.mx>',
+      to: [after.customerEmail],
+      subject: `¡Tu orden #${orderNumber} está lista!`,
+      html: buildOrderReadyHtml(orderNumber),
+    });
+
+    if (error) {
+      console.error('[sendOrderReady] Resend error:', JSON.stringify(error));
+    }
   }
 );

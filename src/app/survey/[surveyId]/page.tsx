@@ -22,7 +22,7 @@ export default function PublicSurveyPage() {
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [answers, setAnswers] = useState<Record<string, number | string>>({});
+  const [answers, setAnswers] = useState<Record<string, number | string | string[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [alreadySubmitted] = useState(() => {
@@ -49,7 +49,7 @@ export default function PublicSurveyPage() {
     })();
   }, [firestore, surveyId]);
 
-  const setAnswer = (questionId: string, value: number | string) => {
+  const setAnswer = (questionId: string, value: number | string | string[]) => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));
   };
 
@@ -60,6 +60,9 @@ export default function PublicSurveyPage() {
       .every(q => {
         const a = answers[q.id];
         if (q.type === 'text') return true; // text questions are always optional (open_text in library has required:false)
+        if (q.type === 'multiple_choice') return typeof a === 'string' && a.length > 0;
+        if (q.type === 'multi_select') return Array.isArray(a) && a.length > 0;
+        if (q.type === 'nps') return typeof a === 'number' && a >= 0;
         return typeof a === 'number' && a > 0;
       }) ?? false;
 
@@ -206,6 +209,90 @@ export default function PublicSurveyPage() {
                     className="resize-none"
                     rows={3}
                   />
+                )}
+
+                {q.type === 'multiple_choice' && q.options && (
+                  <div className="flex flex-col gap-2">
+                    {q.options.map(option => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setAnswer(q.id, option)}
+                        className={`px-4 py-2.5 text-sm text-left rounded-xl border transition-all duration-200 ${
+                          answers[q.id] === option
+                            ? 'border-primary bg-primary/5 text-primary font-medium'
+                            : 'border-border hover:border-primary/30 hover:bg-muted/30'
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {q.type === 'multi_select' && q.options && (() => {
+                  const selected = (Array.isArray(answers[q.id]) ? answers[q.id] : []) as string[];
+                  const atMax = q.maxSelections ? selected.length >= q.maxSelections : false;
+                  return (
+                    <div className="flex flex-col gap-2">
+                      {q.options.map(option => {
+                        const isSelected = selected.includes(option);
+                        const isDisabled = !isSelected && atMax;
+                        return (
+                          <button
+                            key={option}
+                            type="button"
+                            disabled={isDisabled}
+                            onClick={() => {
+                              const next = isSelected
+                                ? selected.filter(s => s !== option)
+                                : [...selected, option];
+                              setAnswer(q.id, next);
+                            }}
+                            className={`px-4 py-2.5 text-sm text-left rounded-xl border transition-all duration-200 ${
+                              isSelected
+                                ? 'border-primary bg-primary/5 text-primary font-medium'
+                                : isDisabled
+                                  ? 'border-border opacity-50 cursor-not-allowed'
+                                  : 'border-border hover:border-primary/30 hover:bg-muted/30'
+                            }`}
+                          >
+                            {option}
+                          </button>
+                        );
+                      })}
+                      {q.maxSelections && (
+                        <p className="text-xs text-muted-foreground">
+                          Selecciona máximo {q.maxSelections}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {q.type === 'nps' && (
+                  <div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Array.from({ length: 11 }, (_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setAnswer(q.id, i)}
+                          className={`h-10 w-10 rounded-xl border text-sm font-mono transition-all duration-200 ${
+                            answers[q.id] === i
+                              ? 'border-primary bg-primary text-white'
+                              : 'border-border hover:border-primary/30'
+                          }`}
+                        >
+                          {i}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex justify-between mt-1.5">
+                      <span className="text-xs text-muted-foreground">Nada probable</span>
+                      <span className="text-xs text-muted-foreground">Muy probable</span>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

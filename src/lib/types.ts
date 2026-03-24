@@ -248,11 +248,15 @@ export interface OperationalCost {
 
 // ─── Surveys ─────────────────────────────────────────────────────────────────
 
+export type SurveyQuestionType = 'star' | 'emoji' | 'text' | 'multiple_choice' | 'multi_select' | 'nps';
+
 export interface SurveyQuestion {
   id: string;       // stable slug — used as key in answers Record (e.g. 'food_quality')
   text: string;     // question label shown to respondent
-  type: 'star' | 'emoji' | 'text';
+  type: SurveyQuestionType;
   required: boolean;
+  options?: string[];    // choices for multiple_choice and multi_select
+  maxSelections?: number; // for multi_select — max items user can pick
 }
 
 export interface Survey {
@@ -270,5 +274,5 @@ export interface SurveyResponse {
   surveyId: string;
   companyId: string;                        // denormalized
   submittedAt: string;                      // ISO-8601
-  answers: Record<string, number | string>; // questionId → 1–5 for ratings, string for text
+  answers: Record<string, number | string | string[]>; // questionId → 1–5 for ratings, string for text/mc, string[] for multi_select, number 0–10 for nps
 }

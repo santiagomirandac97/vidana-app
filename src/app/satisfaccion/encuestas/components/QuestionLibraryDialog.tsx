@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { useFirebase, useMemoFirebase, useDoc } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import type { SurveyQuestion } from '@/lib/types';
+import type { SurveyQuestion, SurveyQuestionType } from '@/lib/types';
 import { SURVEY_QUESTION_LIBRARY } from '@/lib/survey-questions';
 import {
   Plus,
@@ -33,13 +33,19 @@ interface QuestionLibraryDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const TYPE_LABELS: Record<SurveyQuestion['type'], string> = {
+const TYPE_LABELS: Record<SurveyQuestionType, string> = {
   star: '⭐ Estrellas',
   emoji: '😊 Emojis',
   text: '✏️ Texto',
+  multiple_choice: '📋 Opción múltiple',
+  multi_select: '☑️ Multi-selección',
+  nps: '📊 NPS (0-10)',
 };
 
-const TYPE_CYCLE: SurveyQuestion['type'][] = ['star', 'emoji', 'text'];
+const TYPE_CYCLE: SurveyQuestionType[] = ['star', 'emoji', 'text', 'multiple_choice', 'multi_select', 'nps'];
+
+const DEFAULT_OPTIONS = ['Opción 1', 'Opción 2', 'Opción 3'];
+const NEEDS_OPTIONS = (t: SurveyQuestionType) => t === 'multiple_choice' || t === 'multi_select';
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -68,6 +74,8 @@ export function QuestionLibraryDialog({
   const [newText, setNewText] = useState('');
   const [newType, setNewType] = useState<SurveyQuestion['type']>('star');
   const [newRequired, setNewRequired] = useState(true);
+  const [newOptions, setNewOptions] = useState<string[]>([...DEFAULT_OPTIONS]);
+  const [newMaxSelections, setNewMaxSelections] = useState(3);
 
   // Initialise local questions from Firestore or fallback
   useEffect(() => {
@@ -89,6 +97,8 @@ export function QuestionLibraryDialog({
       setNewText('');
       setNewType('star');
       setNewRequired(true);
+      setNewOptions([...DEFAULT_OPTIONS]);
+      setNewMaxSelections(3);
     }
   }, [open]);
 
@@ -113,10 +123,23 @@ export function QuestionLibraryDialog({
     [],
   );
 
-  const cycleType = useCallback((id: string, currentType: SurveyQuestion['type']) => {
+  const cycleType = useCallback((id: string, currentType: SurveyQuestionType) => {
     const idx = TYPE_CYCLE.indexOf(currentType);
     const nextType = TYPE_CYCLE[(idx + 1) % TYPE_CYCLE.length];
-    updateQuestion(id, { type: nextType });
+    const patch: Partial<SurveyQuestion> = { type: nextType };
+    if (NEEDS_OPTIONS(nextType)) {
+      // Add default options if switching into a choice type and question has none
+      setLocalQuestions((prev) =>
+        prev.map((q) => {
+          if (q.id !== id) return q;
+          const opts = q.options?.length ? q.options : [...DEFAULT_OPTIONS];
+          const ms = nextType === 'multi_select' ? (q.maxSelections ?? 3) : undefined;
+          return { ...q, type: nextType, options: opts, maxSelections: ms };
+        }),
+      );
+      return;
+    }
+    updateQuestion(id, patch);
   }, [updateQuestion]);
 
   const deleteQuestion = useCallback(
@@ -154,13 +177,17 @@ export function QuestionLibraryDialog({
       text: newText.trim(),
       type: newType,
       required: newRequired,
+      ...(NEEDS_OPTIONS(newType) ? { options: [...newOptions] } : {}),
+      ...(newType === 'multi_select' ? { maxSelections: newMaxSelections } : {}),
     };
     setLocalQuestions((prev) => [...prev, q]);
     setNewText('');
     setNewType('star');
     setNewRequired(true);
+    setNewOptions([...DEFAULT_OPTIONS]);
+    setNewMaxSelections(3);
     setShowAddForm(false);
-  }, [newText, newType, newRequired]);
+  }, [newText, newType, newRequired, newOptions, newMaxSelections]);
 
   const handleSave = useCallback(async () => {
     if (!docRef) return;
@@ -205,86 +232,144 @@ export function QuestionLibraryDialog({
           ) : (
             <>
               {localQuestions.map((q, index) => (
-                <div
-                  key={q.id}
-                  className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
-                >
-                  {/* Reorder buttons */}
-                  <div className="flex flex-col gap-0.5">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      disabled={index === 0}
-                      onClick={() => moveQuestion(index, 'up')}
-                    >
-                      <ChevronUp className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      disabled={index === localQuestions.length - 1}
-                      onClick={() => moveQuestion(index, 'down')}
-                    >
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-
-                  {/* Question text — inline editing */}
-                  <div className="flex-1 min-w-0">
-                    {editingId === q.id ? (
-                      <Input
-                        autoFocus
-                        value={editingText}
-                        onChange={(e) => setEditingText(e.target.value)}
-                        onBlur={commitEditing}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') commitEditing();
-                          if (e.key === 'Escape') {
-                            setEditingId(null);
-                            setEditingText('');
-                          }
-                        }}
-                        className="h-8 text-sm"
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className="text-sm text-left truncate w-full hover:underline cursor-text"
-                        onClick={() => startEditing(q)}
+                <div key={q.id} className="space-y-0">
+                  <div className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
+                    {/* Reorder buttons */}
+                    <div className="flex flex-col gap-0.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        disabled={index === 0}
+                        onClick={() => moveQuestion(index, 'up')}
                       >
-                        {q.text}
-                      </button>
-                    )}
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        disabled={index === localQuestions.length - 1}
+                        onClick={() => moveQuestion(index, 'down')}
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+
+                    {/* Question text — inline editing */}
+                    <div className="flex-1 min-w-0">
+                      {editingId === q.id ? (
+                        <Input
+                          autoFocus
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          onBlur={commitEditing}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitEditing();
+                            if (e.key === 'Escape') {
+                              setEditingId(null);
+                              setEditingText('');
+                            }
+                          }}
+                          className="h-8 text-sm"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className="text-sm text-left truncate w-full hover:underline cursor-text"
+                          onClick={() => startEditing(q)}
+                        >
+                          {q.text}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Type badge (clickable to cycle) */}
+                    <button
+                      type="button"
+                      className="px-2 py-0.5 text-xs rounded-full bg-muted hover:bg-muted/70 transition-colors whitespace-nowrap shrink-0"
+                      onClick={() => cycleType(q.id, q.type)}
+                      title="Clic para cambiar tipo"
+                    >
+                      {TYPE_LABELS[q.type]}
+                    </button>
+
+                    {/* Required toggle */}
+                    <Switch
+                      checked={q.required}
+                      onCheckedChange={(val) => updateQuestion(q.id, { required: val })}
+                      className="shrink-0"
+                    />
+
+                    {/* Delete */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive shrink-0"
+                      onClick={() => deleteQuestion(q.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
 
-                  {/* Type badge (clickable to cycle) */}
-                  <button
-                    type="button"
-                    className="px-2 py-0.5 text-xs rounded-full bg-muted hover:bg-muted/70 transition-colors whitespace-nowrap shrink-0"
-                    onClick={() => cycleType(q.id, q.type)}
-                    title="Clic para cambiar tipo"
-                  >
-                    {TYPE_LABELS[q.type]}
-                  </button>
+                  {/* Options editing for multiple_choice / multi_select */}
+                  {NEEDS_OPTIONS(q.type) && (
+                    <div className="ml-10 mr-3 mt-1 mb-1 p-2 rounded-md border border-dashed bg-muted/10 space-y-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">Opciones</span>
+                      {(q.options ?? []).map((opt, oi) => (
+                        <div key={oi} className="flex items-center gap-1.5">
+                          <Input
+                            value={opt}
+                            onChange={(e) => {
+                              const updated = [...(q.options ?? [])];
+                              updated[oi] = e.target.value;
+                              updateQuestion(q.id, { options: updated });
+                            }}
+                            className="h-7 text-xs flex-1"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive hover:text-destructive shrink-0"
+                            onClick={() => {
+                              const updated = (q.options ?? []).filter((_, i) => i !== oi);
+                              updateQuestion(q.id, { options: updated });
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs"
+                        onClick={() => {
+                          const updated = [...(q.options ?? []), `Opción ${(q.options?.length ?? 0) + 1}`];
+                          updateQuestion(q.id, { options: updated });
+                        }}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Agregar opción
+                      </Button>
 
-                  {/* Required toggle */}
-                  <Switch
-                    checked={q.required}
-                    onCheckedChange={(val) => updateQuestion(q.id, { required: val })}
-                    className="shrink-0"
-                  />
-
-                  {/* Delete */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive shrink-0"
-                    onClick={() => deleteQuestion(q.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                      {q.type === 'multi_select' && (
+                        <div className="flex items-center gap-2 pt-1">
+                          <span className="text-xs text-muted-foreground">Máx. selecciones:</span>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={q.options?.length ?? 10}
+                            value={q.maxSelections ?? 3}
+                            onChange={(e) =>
+                              updateQuestion(q.id, { maxSelections: Math.max(1, Number(e.target.value) || 1) })
+                            }
+                            className="h-7 w-16 text-xs"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -304,14 +389,19 @@ export function QuestionLibraryDialog({
                   />
                   <div className="flex items-center gap-3 flex-wrap">
                     {/* Type selector */}
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-wrap">
                       {TYPE_CYCLE.map((t) => (
                         <Button
                           key={t}
                           variant={newType === t ? 'default' : 'outline'}
                           size="sm"
                           className="text-xs h-7"
-                          onClick={() => setNewType(t)}
+                          onClick={() => {
+                            setNewType(t);
+                            if (NEEDS_OPTIONS(t) && newOptions.length === 0) {
+                              setNewOptions([...DEFAULT_OPTIONS]);
+                            }
+                          }}
                         >
                           {TYPE_LABELS[t]}
                         </Button>
@@ -326,28 +416,81 @@ export function QuestionLibraryDialog({
                       />
                       Obligatoria
                     </label>
+                  </div>
 
-                    <div className="ml-auto flex gap-2">
+                  {/* Options for multiple_choice / multi_select */}
+                  {NEEDS_OPTIONS(newType) && (
+                    <div className="p-2 rounded-md border border-dashed bg-muted/10 space-y-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">Opciones</span>
+                      {newOptions.map((opt, oi) => (
+                        <div key={oi} className="flex items-center gap-1.5">
+                          <Input
+                            value={opt}
+                            onChange={(e) => {
+                              const updated = [...newOptions];
+                              updated[oi] = e.target.value;
+                              setNewOptions(updated);
+                            }}
+                            className="h-7 text-xs flex-1"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive hover:text-destructive shrink-0"
+                            onClick={() => setNewOptions(newOptions.filter((_, i) => i !== oi))}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => {
-                          setShowAddForm(false);
-                          setNewText('');
-                        }}
+                        className="h-6 text-xs"
+                        onClick={() => setNewOptions([...newOptions, `Opción ${newOptions.length + 1}`])}
                       >
-                        Cancelar
+                        <Plus className="h-3 w-3 mr-1" />
+                        Agregar opción
                       </Button>
-                      <Button
-                        size="sm"
-                        className="h-7 text-xs"
-                        disabled={!newText.trim()}
-                        onClick={addQuestion}
-                      >
-                        Agregar
-                      </Button>
+
+                      {newType === 'multi_select' && (
+                        <div className="flex items-center gap-2 pt-1">
+                          <span className="text-xs text-muted-foreground">Máx. selecciones:</span>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={newOptions.length || 10}
+                            value={newMaxSelections}
+                            onChange={(e) => setNewMaxSelections(Math.max(1, Number(e.target.value) || 1))}
+                            className="h-7 w-16 text-xs"
+                          />
+                        </div>
+                      )}
                     </div>
+                  )}
+
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setShowAddForm(false);
+                        setNewText('');
+                        setNewOptions([...DEFAULT_OPTIONS]);
+                        setNewMaxSelections(3);
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={!newText.trim()}
+                      onClick={addQuestion}
+                    >
+                      Agregar
+                    </Button>
                   </div>
                 </div>
               ) : (

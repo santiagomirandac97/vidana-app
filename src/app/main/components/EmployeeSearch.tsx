@@ -15,11 +15,11 @@ import {
 } from 'lucide-react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, query, where, orderBy, limit, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, updateDoc, doc, addDoc } from 'firebase/firestore';
 import { formatInTimeZone } from 'date-fns-tz';
 import { APP_TIMEZONE } from '@/lib/constants';
 
-import { type Company, type Employee, type Consumption, type RfidDevice } from '@/lib/types';
+import { type Company, type Employee, type Consumption, type RfidDevice, type RfidTap } from '@/lib/types';
 import { cn, getTodayInMexicoCity, formatTimestamp } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,13 +48,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-interface TapLogEntry {
-  cardNumber: string;
-  employeeName?: string;
-  timestamp: string;
-  result: 'registered' | 'already-eaten' | 'unknown-card';
-}
-
 interface EmployeeSearchProps {
   companyId: string;
   company: Company;
@@ -77,7 +70,6 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
   // ─── Tap tab state ────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('number');
   const [deviceConnected, setDeviceConnected] = useState(false);
-  const [tapLog, setTapLog] = useState<TapLogEntry[]>([]);
   const [simulateCardInput, setSimulateCardInput] = useState('');
   const [showSimulateInput, setShowSimulateInput] = useState(false);
 
@@ -134,99 +126,126 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
   const { data: rfidDevices } = useCollection<RfidDevice>(rfidDeviceQuery);
   const rfidDevice = rfidDevices?.[0] ?? null;
 
+  // ─── RFID Taps queries ─────────────────────────────────────────────────────
+  const pendingTapsQuery = useMemoFirebase(
+    () =>
+      firestore && companyId
+        ? query(
+            collection(firestore, `companies/${companyId}/rfidTaps`),
+            where('status', '==', 'pending'),
+            orderBy('timestamp', 'desc'),
+            limit(20)
+          )
+        : null,
+    [firestore, companyId]
+  );
+  const { data: pendingTaps } = useCollection<RfidTap>(pendingTapsQuery);
+
+  const recentTapsQuery = useMemoFirebase(
+    () =>
+      firestore && companyId
+        ? query(
+            collection(firestore, `companies/${companyId}/rfidTaps`),
+            orderBy('timestamp', 'desc'),
+            limit(10)
+          )
+        : null,
+    [firestore, companyId]
+  );
+  const { data: recentTaps } = useCollection<RfidTap>(recentTapsQuery);
+
   // ─── Stable ref for registerConsumption (used by handleCardTap) ─────────────
   const registerConsumptionRef = useRef<(employee: Employee) => void>(() => {});
 
-  // ─── Tap processing ────────────────────────────────────────────────────────────
+  // ─── Tap processing (called from Firestore listener) ─────────────────────────
   const handleCardTap = useCallback(
-    (cardNumber: string) => {
+    (cardNumber: string, tapDocId?: string) => {
+      if (!firestore || !companyId) return;
+
       // 1. Find employee by cardNumber
       const employee = employees?.find((e) => e.cardNumber === cardNumber && e.active);
       if (!employee) {
-        setTapLog((prev) => [
-          {
-            cardNumber,
-            timestamp: new Date().toISOString(),
-            result: 'unknown-card' as const,
-          },
-          ...prev,
-        ].slice(0, 5));
+        if (tapDocId) {
+          updateDoc(
+            doc(firestore, `companies/${companyId}/rfidTaps/${tapDocId}`),
+            { status: 'unknown-card', processedAt: new Date().toISOString() }
+          ).catch(() => {});
+        }
         return;
       }
+
       // 2. Check if already eaten today
       const alreadyAte = todaysConsumptions?.some(
         (c) => c.employeeId === employee.id && !c.voided
       );
       if (alreadyAte) {
-        setTapLog((prev) => [
-          {
-            cardNumber,
-            employeeName: employee.name,
-            timestamp: new Date().toISOString(),
-            result: 'already-eaten' as const,
-          },
-          ...prev,
-        ].slice(0, 5));
+        if (tapDocId) {
+          updateDoc(
+            doc(firestore, `companies/${companyId}/rfidTaps/${tapDocId}`),
+            {
+              status: 'already-eaten',
+              employeeId: employee.id,
+              employeeName: employee.name,
+              processedAt: new Date().toISOString(),
+            }
+          ).catch(() => {});
+        }
         return;
       }
+
       // 3. Register consumption — reuse existing flow via stable ref
-      setTapLog((prev) => [
-        {
-          cardNumber,
-          employeeName: employee.name,
-          timestamp: new Date().toISOString(),
-          result: 'registered' as const,
-        },
-        ...prev,
-      ].slice(0, 5));
       registerConsumptionRef.current(employee);
+
+      if (tapDocId) {
+        updateDoc(
+          doc(firestore, `companies/${companyId}/rfidTaps/${tapDocId}`),
+          {
+            status: 'registered',
+            employeeId: employee.id,
+            employeeName: employee.name,
+            processedAt: new Date().toISOString(),
+          }
+        ).catch(() => {});
+      }
     },
-    [employees, todaysConsumptions]
+    [employees, todaysConsumptions, firestore, companyId]
   );
 
-  // ─── Device connectivity polling ──────────────────────────────────────────────
+  // ─── Process pending taps from Firestore ────────────────────────────────────
+  const processingTapsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!pendingTaps || pendingTaps.length === 0) return;
+
+    for (const tap of pendingTaps) {
+      if (!tap.id || processingTapsRef.current.has(tap.id)) continue;
+      processingTapsRef.current.add(tap.id);
+      handleCardTap(tap.cardNumber, tap.id);
+    }
+  }, [pendingTaps, handleCardTap]);
+
+  // ─── Device connectivity (based on lastSeen from Cloud Run) ──────────────────
   useEffect(() => {
     if (activeTab !== 'tap' || !rfidDevice) {
       setDeviceConnected(false);
       return;
     }
 
-    let cancelled = false;
-
-    const ping = async () => {
-      try {
-        await fetch(`http://${rfidDevice.ipAddress}/`, {
-          mode: 'no-cors',
-          signal: AbortSignal.timeout(3000),
-        });
-        if (!cancelled) {
-          setDeviceConnected(true);
-          // Update lastSeen in Firestore
-          if (firestore && companyId && rfidDevice.id) {
-            updateDoc(
-              doc(firestore, `companies/${companyId}/rfidDevices/${rfidDevice.id}`),
-              { lastSeen: new Date().toISOString() }
-            ).catch(() => {});
-          }
-        }
-      } catch {
-        if (!cancelled) setDeviceConnected(false);
+    const checkConnection = () => {
+      if (!rfidDevice.lastSeen) {
+        setDeviceConnected(false);
+        return;
       }
-
-      // TODO: Poll IDEMIA transaction log API for new card taps
-      // The actual API endpoint and response format are TBD.
-      // When implemented, parse new transactions since last poll,
-      // extract card UIDs, and call handleCardTap(cardUid) for each.
+      const lastSeenDate = new Date(rfidDevice.lastSeen);
+      const secondsAgo = (Date.now() - lastSeenDate.getTime()) / 1000;
+      setDeviceConnected(secondsAgo <= 30);
     };
 
-    ping(); // initial ping
-    const intervalId = setInterval(ping, 3000);
+    checkConnection();
+    const intervalId = setInterval(checkConnection, 5000);
 
-    return () => {
-      cancelled = true;
-      clearInterval(intervalId);
-    };
-  }, [activeTab, rfidDevice, firestore, companyId, handleCardTap]);
+    return () => clearInterval(intervalId);
+  }, [activeTab, rfidDevice]);
 
   useEffect(() => {
     if (companyId) {
@@ -563,7 +582,7 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
                 </p>
 
                 {/* Simulate Tap button (development only) */}
-                {process.env.NODE_ENV === 'development' && (
+                {process.env.NODE_ENV === 'development' && firestore && companyId && (
                   <div className="w-full max-w-xs space-y-2">
                     {!showSimulateInput ? (
                       <Button
@@ -584,7 +603,16 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && simulateCardInput.trim()) {
-                              handleCardTap(simulateCardInput.trim());
+                              addDoc(
+                                collection(firestore, `companies/${companyId}/rfidTaps`),
+                                {
+                                  deviceId: rfidDevice?.id ?? 'simulated',
+                                  companyId,
+                                  cardNumber: simulateCardInput.trim(),
+                                  timestamp: new Date().toISOString(),
+                                  status: 'pending',
+                                }
+                              ).catch(() => {});
                               setSimulateCardInput('');
                             }
                           }}
@@ -594,7 +622,16 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
                           className="h-8"
                           disabled={!simulateCardInput.trim()}
                           onClick={() => {
-                            handleCardTap(simulateCardInput.trim());
+                            addDoc(
+                              collection(firestore, `companies/${companyId}/rfidTaps`),
+                              {
+                                deviceId: rfidDevice?.id ?? 'simulated',
+                                companyId,
+                                cardNumber: simulateCardInput.trim(),
+                                timestamp: new Date().toISOString(),
+                                status: 'pending',
+                              }
+                            ).catch(() => {});
                             setSimulateCardInput('');
                           }}
                         >
@@ -617,37 +654,40 @@ export function EmployeeSearch({ companyId, company }: EmployeeSearchProps) {
                 )}
 
                 {/* Recent tap log */}
-                {tapLog.length > 0 && (
+                {recentTaps && recentTaps.length > 0 && (
                   <div className="w-full mt-4 space-y-2">
                     <SectionLabel>Últimos taps</SectionLabel>
                     <div className="space-y-1.5">
-                      {tapLog.map((entry, idx) => (
+                      {recentTaps.map((tap) => (
                         <div
-                          key={`${entry.timestamp}-${idx}`}
+                          key={tap.id}
                           className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
                         >
                           <div className="flex flex-col">
                             <span className="font-medium">
-                              {entry.employeeName ?? `Tarjeta ${entry.cardNumber}`}
+                              {tap.employeeName ?? `Tarjeta ${tap.cardNumber}`}
                             </span>
                             <span className="text-xs text-muted-foreground font-mono">
-                              {formatTimestamp(entry.timestamp)}
+                              {formatTimestamp(tap.timestamp)}
                             </span>
                           </div>
                           <span
                             className={cn(
                               'text-xs font-medium px-2 py-0.5 rounded-full',
-                              entry.result === 'registered' &&
+                              tap.status === 'registered' &&
                                 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-                              entry.result === 'already-eaten' &&
+                              tap.status === 'already-eaten' &&
                                 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-                              entry.result === 'unknown-card' &&
-                                'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                              tap.status === 'unknown-card' &&
+                                'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+                              tap.status === 'pending' &&
+                                'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
                             )}
                           >
-                            {entry.result === 'registered' && 'Registrado'}
-                            {entry.result === 'already-eaten' && 'Ya registrado hoy'}
-                            {entry.result === 'unknown-card' && 'Tarjeta no reconocida'}
+                            {tap.status === 'registered' && 'Registrado'}
+                            {tap.status === 'already-eaten' && 'Ya registrado hoy'}
+                            {tap.status === 'unknown-card' && 'Tarjeta no reconocida'}
+                            {tap.status === 'pending' && 'Procesando...'}
                           </span>
                         </div>
                       ))}

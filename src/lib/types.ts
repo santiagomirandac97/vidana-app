@@ -27,11 +27,29 @@ export type Company = {
 export interface RfidDevice {
   id?: string;
   name: string;                    // e.g., "IDEMIA Comedor Principal"
-  ipAddress: string;               // e.g., "192.168.1.10"
+  ipAddress: string;               // public IP or hostname, e.g., "203.0.113.10"
+  port?: number;                   // device HTTP port (default 80)
   type: 'idemia-morphoaccess';     // extensible for future device types
   companyId: string;
   active: boolean;
   lastSeen?: string;               // ISO timestamp of last successful poll
+  username?: string;               // device admin username
+  password?: string;               // device admin password (encrypted in production)
+  pollIntervalMs?: number;         // polling interval (default 2000)
+}
+
+/** A single RFID tap event written by the Cloud Run poller */
+export interface RfidTap {
+  id?: string;
+  deviceId: string;
+  companyId: string;
+  cardNumber: string;              // card UID from the IDEMIA reader
+  timestamp: string;               // ISO-8601 when the tap occurred on the device
+  processedAt?: string;            // ISO-8601 when the app processed this tap
+  status: 'pending' | 'registered' | 'already-eaten' | 'unknown-card';
+  employeeId?: string;             // matched employee ID (if found)
+  employeeName?: string;           // matched employee name (for display)
+  consumptionId?: string;          // created consumption ID (if registered)
 }
 
 export interface Employee {

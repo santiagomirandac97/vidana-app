@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { AppShell, PageHeader } from '@/components/layout';
-import { Loader2, ShieldAlert, Home, PlusCircle, Edit, CheckCircle2, XCircle, Wifi, WifiOff, ShoppingBag } from 'lucide-react';
+import { Loader2, ShieldAlert, Home, PlusCircle, Edit, Wifi, WifiOff, ShoppingBag } from 'lucide-react';
 import { SkeletonPageHeader, SkeletonTable } from '@/components/ui/skeleton-layouts';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -188,10 +188,11 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
     const [formName, setFormName] = useState('');
     const [formIp, setFormIp] = useState('');
     const [formType, setFormType] = useState<'idemia-morphoaccess'>('idemia-morphoaccess');
+    const [formPort, setFormPort] = useState('80');
+    const [formUsername, setFormUsername] = useState('');
+    const [formPassword, setFormPassword] = useState('');
+    const [formPollInterval, setFormPollInterval] = useState('2000');
     const [saving, setSaving] = useState(false);
-
-    // Connection test state
-    const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
 
     // Load devices for each company
     const [allDevices, setAllDevices] = useState<DeviceWithCompanyName[]>([]);
@@ -249,7 +250,10 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
         setFormName('');
         setFormIp('');
         setFormType('idemia-morphoaccess');
-        setTestStatus('idle');
+        setFormPort('80');
+        setFormUsername('');
+        setFormPassword('');
+        setFormPollInterval('2000');
         setDialogOpen(true);
     }, [companies]);
 
@@ -259,31 +263,12 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
         setFormName(device.name);
         setFormIp(device.ipAddress);
         setFormType(device.type);
-        setTestStatus('idle');
+        setFormPort(String(device.port ?? 80));
+        setFormUsername(device.username ?? '');
+        setFormPassword(device.password ?? '');
+        setFormPollInterval(String(device.pollIntervalMs ?? 2000));
         setDialogOpen(true);
     }, []);
-
-    const testConnection = useCallback(async () => {
-        if (!formIp || !IP_REGEX.test(formIp)) {
-            toast({ title: 'IP inválida', description: 'Ingrese una dirección IP válida.', variant: 'destructive' });
-            return;
-        }
-        if (isBlockedIp(formIp)) {
-            toast({ title: 'IP bloqueada', description: 'No se permite conectar a esta dirección IP.', variant: 'destructive' });
-            return;
-        }
-        setTestStatus('testing');
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3000);
-        try {
-            await fetch(`http://${formIp}/`, { signal: controller.signal, mode: 'no-cors' });
-            clearTimeout(timeout);
-            setTestStatus('success');
-        } catch {
-            clearTimeout(timeout);
-            setTestStatus('error');
-        }
-    }, [formIp, toast]);
 
     const handleSave = useCallback(async () => {
         if (!firestore) return;
@@ -306,13 +291,17 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
 
         setSaving(true);
         try {
-            const data = {
+            const data: Record<string, any> = {
                 name: formName.trim(),
                 ipAddress: formIp.trim(),
                 type: formType,
                 companyId: formCompanyId,
                 active: true,
+                port: parseInt(formPort) || 80,
+                pollIntervalMs: parseInt(formPollInterval) || 2000,
             };
+            if (formUsername) data.username = formUsername;
+            if (formPassword) data.password = formPassword;
 
             if (editingDevice) {
                 const deviceRef = doc(firestore, `companies/${editingDevice.companyId}/rfidDevices/${editingDevice.id}`);
@@ -329,7 +318,7 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
         } finally {
             setSaving(false);
         }
-    }, [firestore, formCompanyId, formName, formIp, formType, editingDevice, toast]);
+    }, [firestore, formCompanyId, formName, formIp, formType, formPort, formUsername, formPassword, formPollInterval, editingDevice, toast]);
 
     const toggleActive = useCallback(async (device: DeviceWithCompanyName) => {
         if (!firestore) return;
@@ -375,6 +364,7 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
                                     <TableHead>Empresa</TableHead>
                                     <TableHead>Nombre</TableHead>
                                     <TableHead>IP</TableHead>
+                                    <TableHead>Puerto</TableHead>
                                     <TableHead>Tipo</TableHead>
                                     <TableHead>Estado</TableHead>
                                     <TableHead>Última conexión</TableHead>
@@ -389,6 +379,7 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
                                             <TableCell>{device.companyName}</TableCell>
                                             <TableCell className="font-medium">{device.name}</TableCell>
                                             <TableCell className="font-mono text-sm">{device.ipAddress}</TableCell>
+                                            <TableCell className="font-mono text-sm">{device.port ?? 80}</TableCell>
                                             <TableCell className="text-sm">IDEMIA MorphoAccess</TableCell>
                                             <TableCell>
                                                 <span className="flex items-center gap-1.5">
@@ -474,6 +465,18 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
                             />
                         </div>
 
+                        {/* Port */}
+                        <div className="space-y-2">
+                            <Label>Puerto</Label>
+                            <Input
+                                type="number"
+                                placeholder="80"
+                                value={formPort}
+                                onChange={e => setFormPort(e.target.value)}
+                                className="font-mono"
+                            />
+                        </div>
+
                         {/* Device Type */}
                         <div className="space-y-2">
                             <Label>Tipo de Dispositivo</Label>
@@ -487,23 +490,51 @@ const RfidTab: FC<{ companies: Company[] | null; companiesLoading: boolean }> = 
                             </Select>
                         </div>
 
-                        {/* Test Connection */}
-                        <div className="flex items-center gap-3">
-                            <Button type="button" variant="outline" size="sm" onClick={testConnection} disabled={testStatus === 'testing'}>
-                                {testStatus === 'testing' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Probar Conexión
-                            </Button>
-                            {testStatus === 'success' && (
-                                <span className="flex items-center gap-1 text-sm text-green-600">
-                                    <CheckCircle2 className="h-4 w-4" /> Conexión exitosa
-                                </span>
-                            )}
-                            {testStatus === 'error' && (
-                                <span className="flex items-center gap-1 text-sm text-destructive">
-                                    <XCircle className="h-4 w-4" /> Sin respuesta
-                                </span>
-                            )}
+                        {/* Device Credentials */}
+                        <div className="space-y-2">
+                            <Label>Usuario del dispositivo</Label>
+                            <Input
+                                placeholder="admin"
+                                value={formUsername}
+                                onChange={e => setFormUsername(e.target.value)}
+                            />
                         </div>
+                        <div className="space-y-2">
+                            <Label>Contraseña del dispositivo</Label>
+                            <Input
+                                type="password"
+                                value={formPassword}
+                                onChange={e => setFormPassword(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Poll Interval */}
+                        <div className="space-y-2">
+                            <Label>Intervalo de polling (ms)</Label>
+                            <Input
+                                type="number"
+                                placeholder="2000"
+                                min={500}
+                                max={10000}
+                                value={formPollInterval}
+                                onChange={e => setFormPollInterval(e.target.value)}
+                                className="font-mono"
+                            />
+                        </div>
+
+                        {/* Last Seen Status (edit mode only) */}
+                        {editingDevice && (
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className={cn(
+                                    'inline-block h-2.5 w-2.5 rounded-full',
+                                    isDeviceOnline(editingDevice.lastSeen) ? 'bg-green-500' : 'bg-red-500'
+                                )} />
+                                <span className="text-muted-foreground">
+                                    {isDeviceOnline(editingDevice.lastSeen) ? 'En línea' : 'Sin conexión'}
+                                    {' — '}Última vez: {formatLastSeen(editingDevice.lastSeen)}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     <DialogFooter>

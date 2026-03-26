@@ -239,6 +239,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // — RFID Taps (written by Cloud Run poller, read by app) ————————
+
+    match /companies/{companyId}/rfidTaps/{tapId} {
+      allow get, list: if request.auth != null;
+      allow create: if request.auth != null;  // Cloud Run service account
+      allow update: if request.auth != null;  // app updates status after processing
+      allow delete: if false;
+    }
+
     match /companies/{companyId}/staff/{staffId}/bonuses/{bonusId} {
       allow get, list: if request.auth != null && isUserAdmin(request.auth.uid);
       allow create, update: if request.auth != null && isUserAdmin(request.auth.uid)

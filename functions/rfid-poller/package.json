@@ -1,0 +1,24 @@
+{
+  "name": "rfid-poller",
+  "version": "1.0.0",
+  "description": "Cloud Run service that polls IDEMIA MorphoAccess devices for RFID tap events",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "MOCK_MODE=true ts-node src/index.ts"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "firebase-admin": "^12.8.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

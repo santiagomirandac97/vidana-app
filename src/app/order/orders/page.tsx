@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { doc, collection, query, where, orderBy } from 'firebase/firestore';
+import { doc, collection, query, where } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import { ClipboardList, Package, ArrowRight, RotateCcw } from 'lucide-react';
 import { formatDistanceToNow, format, isToday, isYesterday, parseISO } from 'date-fns';
@@ -175,19 +175,27 @@ function OrdersContent() {
   const uid = user?.uid;
 
   // 2. Fetch consumptions for this user from portal
+  // Single equality filter avoids composite index requirement; filter + sort client-side
   const consumptionsQuery = useMemoFirebase(
     () =>
       firestore && companyId && uid
         ? query(
             collection(firestore, `companies/${companyId}/consumptions`),
-            where('source', '==', 'portal'),
             where('employeeId', '==', uid),
-            orderBy('timestamp', 'desc'),
           )
         : null,
     [firestore, companyId, uid],
   );
-  const { data: consumptions, isLoading: consumptionsLoading } = useCollection<Consumption>(consumptionsQuery);
+  const { data: rawConsumptions, isLoading: consumptionsLoading } = useCollection<Consumption>(consumptionsQuery);
+
+  // Filter to portal orders and sort by timestamp desc client-side
+  const consumptions = useMemo(
+    () =>
+      (rawConsumptions ?? [])
+        .filter((c) => c.source === 'portal')
+        .sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
+    [rawConsumptions],
+  );
 
   // Split active / past
   const activeOrders = useMemo(

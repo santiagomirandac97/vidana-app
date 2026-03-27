@@ -13,7 +13,7 @@ export function MenuHero({ schedules, companyName }: MenuHeroProps) {
   const hasTimeRestrictions = activeSchedules.some((s) => s.timeRestriction);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl h-44 md:h-52" style={{ backgroundColor: '#ef3340' }}>
+    <div className="relative overflow-hidden rounded-t-2xl rounded-b-xl h-44 md:h-52" style={{ backgroundColor: '#ef3340' }}>
       {/* Brand background image */}
       <img
         src="/nmas-hero.png"

@@ -200,12 +200,13 @@ export default function OrderPage() {
   };
 
   return (
-    <div className="space-y-3 px-4 md:px-6 lg:px-8 pb-4">
+    <div className="space-y-3 pb-4">
       <MenuHero
         schedules={activeSchedules}
         companyName={(company as any)?.portalDisplayName ?? company?.name ?? ''}
       />
 
+      <div className="px-4 md:px-6 lg:px-8 space-y-3">
       {menuItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <p className="text-muted-foreground text-sm">
@@ -301,6 +302,7 @@ export default function OrderPage() {
       />
 
       <FloatingCartBar />
+      </div>
     </div>
   );
 }

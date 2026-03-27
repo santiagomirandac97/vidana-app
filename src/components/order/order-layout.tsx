@@ -74,8 +74,8 @@ export function OrderLayout({ children }: { children: React.ReactNode }) {
         <OrderHeader companyName={companyName} />
 
         {/* White content card */}
-        <main className="flex-1 pb-28 md:pb-6 max-w-5xl mx-auto w-full px-3 md:px-4 pt-3 md:pt-4">
-          <div className="bg-white rounded-2xl shadow-xl min-h-full px-0 pb-4">
+        <main className="flex-1 pb-28 md:pb-6 max-w-5xl mx-auto w-full px-3 md:px-4 pt-0">
+          <div className="bg-white rounded-b-2xl shadow-xl min-h-full px-0 pb-4">
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}

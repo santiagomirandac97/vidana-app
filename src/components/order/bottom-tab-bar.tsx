@@ -6,8 +6,8 @@ import { UtensilsCrossed, ClipboardList, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const tabs = [
-  { href: '/order', label: 'Menu', icon: UtensilsCrossed },
-  { href: '/order/orders', label: 'Ordenes', icon: ClipboardList },
+  { href: '/order', label: 'Menú', icon: UtensilsCrossed },
+  { href: '/order/orders', label: 'Órdenes', icon: ClipboardList },
   { href: '/order/profile', label: 'Perfil', icon: User },
 ] as const;
 
@@ -20,11 +20,8 @@ export function BottomTabBar() {
   };
 
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white md:hidden"
-      style={{ boxShadow: '0 -2px 10px rgba(0,0,0,0.05)' }}
-    >
-      <div className="flex items-center justify-around h-16 pb-6">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-border/20 md:hidden">
+      <div className="flex items-center justify-around h-16 pb-[env(safe-area-inset-bottom)]">
         {tabs.map(({ href, label, icon: Icon }) => {
           const active = isActive(href);
           return (
@@ -32,12 +29,32 @@ export function BottomTabBar() {
               key={href}
               href={href}
               className={cn(
-                'flex flex-col items-center gap-0.5 pt-2 min-w-[64px] transition-colors',
-                active ? 'text-primary' : 'text-muted-foreground'
+                'flex flex-col items-center gap-1 pt-2 min-w-[64px] active:scale-95 transition-transform',
+                active ? 'text-foreground' : 'text-muted-foreground'
               )}
             >
-              <Icon size={22} fill={active ? 'currentColor' : 'none'} />
-              <span className="text-[11px] font-medium">{label}</span>
+              <div className="relative flex flex-col items-center">
+                {/* Active dot indicator */}
+                {active && (
+                  <span className="absolute -top-1.5 w-[5px] h-[5px] rounded-full bg-primary" />
+                )}
+                <div
+                  className={cn(
+                    'flex items-center justify-center w-8 h-8 rounded-full transition-colors',
+                    active && 'bg-primary/10'
+                  )}
+                >
+                  <Icon size={20} fill={active ? 'currentColor' : 'none'} strokeWidth={active ? 1.5 : 2} />
+                </div>
+              </div>
+              <span
+                className={cn(
+                  'text-[11px]',
+                  active ? 'font-semibold text-foreground' : 'text-muted-foreground'
+                )}
+              >
+                {label}
+              </span>
             </Link>
           );
         })}

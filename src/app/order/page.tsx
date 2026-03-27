@@ -41,9 +41,11 @@ function isScheduleActiveNow(schedule: MenuSchedule): boolean {
 
 function SkeletonCardGrid() {
   return (
-    <div className="space-y-6">
+    <div className="px-4 md:px-6 lg:px-8 space-y-4">
       {/* Hero skeleton */}
-      <Skeleton className="h-[120px] md:h-[160px] rounded-2xl" />
+      <Skeleton className="h-32 md:h-40 rounded-2xl" />
+      {/* Search skeleton */}
+      <Skeleton className="h-11 rounded-xl" />
       {/* Pills skeleton */}
       <div className="flex gap-2">
         {Array.from({ length: 5 }).map((_, i) => (
@@ -51,10 +53,10 @@ function SkeletonCardGrid() {
         ))}
       </div>
       {/* Cards skeleton */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+        {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="rounded-2xl overflow-hidden bg-white shadow-sm">
-            <Skeleton className="aspect-video w-full" />
+            <Skeleton className="aspect-[4/3] w-full" />
             <div className="p-3 space-y-2">
               <Skeleton className="h-4 w-3/4" />
               <Skeleton className="h-3 w-full" />
@@ -169,6 +171,23 @@ export default function OrderPage() {
       : menuItems.filter((i) => i.category === activeCategory);
   }, [menuItems, activeCategory, searchQuery, isSearching]);
 
+  // Group items by category for section headers
+  const groupedItems = useMemo(() => {
+    if (isSearching || activeCategory !== 'Todos') return null;
+    const groups: { category: string; items: MenuItem[] }[] = [];
+    const catMap = new Map<string, MenuItem[]>();
+    for (const item of visibleItems) {
+      const cat = item.category || 'Otros';
+      if (!catMap.has(cat)) catMap.set(cat, []);
+      catMap.get(cat)!.push(item);
+    }
+    const sortedCats = Array.from(catMap.keys()).sort();
+    for (const cat of sortedCats) {
+      groups.push({ category: cat, items: catMap.get(cat)! });
+    }
+    return groups;
+  }, [visibleItems, isSearching, activeCategory]);
+
   const isLoading = profileLoading || schedulesLoading || itemsLoading;
 
   if (isLoading) {
@@ -181,7 +200,7 @@ export default function OrderPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 px-4 md:px-6 lg:px-8 pb-4">
       <MenuHero
         schedules={activeSchedules}
         companyName={company?.name ?? ''}
@@ -198,8 +217,8 @@ export default function OrderPage() {
         </div>
       ) : (
         <>
-          {/* Search bar */}
-          <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm pb-2 -mt-1 pt-1">
+          {/* Sticky search bar */}
+          <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-sm pb-1 pt-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
@@ -208,7 +227,7 @@ export default function OrderPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar en el menú..."
-                className="w-full rounded-xl bg-white shadow-sm border border-border/50 px-4 py-3 pl-10 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+                className="w-full rounded-xl bg-muted/50 px-4 py-2.5 pl-10 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
               />
               {isSearching && (
                 <button
@@ -233,15 +252,35 @@ export default function OrderPage() {
             />
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-            {visibleItems.map((item) => (
-              <MenuCard
-                key={item.id}
-                menuItem={item}
-                onTap={() => handleTapItem(item)}
-              />
-            ))}
-          </div>
+          {/* Grouped view with category headers */}
+          {groupedItems ? (
+            <div>
+              {groupedItems.map((group) => (
+                <div key={group.category}>
+                  <h2 className="text-lg font-bold mt-6 mb-3">{group.category}</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+                    {group.items.map((item) => (
+                      <MenuCard
+                        key={item.id}
+                        menuItem={item}
+                        onTap={() => handleTapItem(item)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+              {visibleItems.map((item) => (
+                <MenuCard
+                  key={item.id}
+                  menuItem={item}
+                  onTap={() => handleTapItem(item)}
+                />
+              ))}
+            </div>
+          )}
 
           {visibleItems.length === 0 && (
             <div className="flex items-center justify-center py-12">

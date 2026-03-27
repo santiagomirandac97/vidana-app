@@ -68,7 +68,7 @@ export function OrderSuccess({ orderNumber, onDismiss }: OrderSuccessProps) {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-white"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
       >
         {/* Confetti CSS */}
         <style>{confettiKeyframes}</style>
@@ -90,31 +90,37 @@ export function OrderSuccess({ orderNumber, onDismiss }: OrderSuccessProps) {
           />
         ))}
 
-        {/* Content */}
-        <div className="flex flex-col items-center text-center px-6 relative z-10">
+        {/* Content card */}
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 20, delay: 0.1 }}
+          className="bg-white rounded-2xl shadow-xl mx-6 p-8 flex flex-col items-center text-center relative z-10 max-w-sm w-full"
+        >
           {/* Check icon with scale-in */}
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.3 }}
+            className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center"
           >
-            <CheckCircle className="w-20 h-20 text-green-500" strokeWidth={1.5} />
+            <CheckCircle className="w-12 h-12 text-green-500" strokeWidth={1.5} />
           </motion.div>
-
-          <motion.h1
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="text-2xl font-bold mt-6"
-          >
-            {'\u00A1'}Tu orden ha sido recibida!
-          </motion.h1>
 
           <motion.p
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.55 }}
-            className="text-4xl font-mono font-bold mt-4 text-primary"
+            transition={{ delay: 0.5 }}
+            className="text-lg text-muted-foreground mt-5"
+          >
+            Tu orden ha sido recibida
+          </motion.p>
+
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="text-3xl font-mono font-bold mt-2 text-primary"
           >
             #{orderNumber}
           </motion.p>
@@ -122,7 +128,7 @@ export function OrderSuccess({ orderNumber, onDismiss }: OrderSuccessProps) {
           <motion.p
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
+            transition={{ delay: 0.75 }}
             className="text-muted-foreground text-sm mt-3"
           >
             {`Confirmaci\u00F3n enviada a tu correo`}
@@ -131,12 +137,12 @@ export function OrderSuccess({ orderNumber, onDismiss }: OrderSuccessProps) {
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.85 }}
-            className="flex flex-col gap-3 mt-8 w-full max-w-xs"
+            transition={{ delay: 0.9 }}
+            className="flex flex-col gap-3 mt-8 w-full"
           >
             <Button
               size="lg"
-              className="w-full rounded-xl"
+              className="w-full rounded-full"
               onClick={() => {
                 onDismiss();
                 router.push('/order/orders');
@@ -147,16 +153,16 @@ export function OrderSuccess({ orderNumber, onDismiss }: OrderSuccessProps) {
             <Button
               variant="outline"
               size="lg"
-              className="w-full rounded-xl"
+              className="w-full rounded-full"
               onClick={() => {
                 onDismiss();
                 router.push('/order');
               }}
             >
-              Ordenar m{'\u00E1'}s
+              Seguir ordenando
             </Button>
           </motion.div>
-        </div>
+        </motion.div>
       </motion.div>
     </AnimatePresence>
   );

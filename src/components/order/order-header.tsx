@@ -23,15 +23,15 @@ const orderTypeLabels: Record<string, string> = {
 
 function StatusIndicators({ orderType }: { orderType?: string }) {
   return (
-    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+    <div className="flex items-center gap-2.5 text-[11px] text-muted-foreground">
       {/* Open/Closed */}
       <span className="flex items-center gap-1">
-        <Circle size={8} className="fill-emerald-500 text-emerald-500" />
+        <Circle size={6} className="fill-emerald-500 text-emerald-500" />
         Abierto
       </span>
       {/* Estimated time */}
       <span className="flex items-center gap-1">
-        <Clock size={12} />
+        <Clock size={11} />
         15-20 min
       </span>
       {/* Order type */}
@@ -54,9 +54,9 @@ export function OrderHeader({ companyName }: OrderHeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-sm">
+    <header className="sticky top-0 z-50 bg-white border-b border-border/20">
       {/* Mobile header */}
-      <div className="flex md:hidden flex-col items-center justify-center py-2 px-4">
+      <div className="flex md:hidden flex-col items-center justify-center py-2.5 px-4">
         <span className="text-base font-semibold text-foreground truncate">
           {companyName}
         </span>

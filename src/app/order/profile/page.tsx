@@ -33,7 +33,7 @@ function ProfileSkeleton() {
     <div className="space-y-4">
       {/* User info card */}
       <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center gap-3">
-        <Skeleton className="w-16 h-16 rounded-full" />
+        <Skeleton className="w-20 h-20 rounded-full" />
         <Skeleton className="h-6 w-40" />
         <Skeleton className="h-4 w-52" />
         <Skeleton className="h-4 w-32" />
@@ -42,12 +42,12 @@ function ProfileSkeleton() {
       <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
         <Skeleton className="h-5 w-36" />
         <div className="grid grid-cols-2 gap-3">
-          <Skeleton className="h-20 rounded-xl" />
-          <Skeleton className="h-20 rounded-xl" />
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
         </div>
       </div>
       {/* Logout button */}
-      <Skeleton className="h-11 w-full rounded-xl" />
+      <Skeleton className="h-11 w-full rounded-full" />
     </div>
   );
 }
@@ -118,28 +118,28 @@ export default function ProfilePage() {
   return (
     <div className="space-y-4">
       {/* User info card */}
-      <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center gap-2">
-        <div className="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold">
+      <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center gap-1">
+        <div className="w-20 h-20 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold shadow-md">
           {initials}
         </div>
-        <h1 className="text-xl font-bold mt-1">{userProfile?.name}</h1>
+        <h1 className="text-xl font-bold mt-3">{userProfile?.name}</h1>
         <p className="text-muted-foreground text-sm">{userProfile?.email}</p>
         {company?.name && (
-          <p className="text-muted-foreground text-sm">{company.name}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{company.name}</p>
         )}
       </div>
 
       {/* Order stats card */}
       <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
-        <h2 className="font-semibold text-base">Mis estadísticas</h2>
+        <h2 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Mis estad{'\u00ED'}sticas</h2>
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[#FAFAFA] rounded-xl p-4 text-center">
+          <div className="bg-muted/30 rounded-2xl p-4 text-center">
             <p className="text-2xl font-bold font-mono">{monthOrders}</p>
-            <p className="text-xs text-muted-foreground mt-1">Órdenes este mes</p>
+            <p className="text-xs text-muted-foreground mt-1">{'\u00D3'}rdenes este mes</p>
           </div>
-          <div className="bg-[#FAFAFA] rounded-xl p-4 text-center">
+          <div className="bg-muted/30 rounded-2xl p-4 text-center">
             <p className="text-2xl font-bold font-mono">{totalOrders}</p>
-            <p className="text-xs text-muted-foreground mt-1">Total de órdenes</p>
+            <p className="text-xs text-muted-foreground mt-1">Total de {'\u00F3'}rdenes</p>
           </div>
         </div>
       </div>
@@ -147,10 +147,10 @@ export default function ProfilePage() {
       {/* Logout button */}
       <Button
         variant="outline"
-        className="w-full"
+        className="w-full rounded-full border-destructive text-destructive hover:bg-destructive/5 hover:text-destructive"
         onClick={handleLogout}
       >
-        Cerrar sesión
+        Cerrar sesi{'\u00F3'}n
       </Button>
     </div>
   );

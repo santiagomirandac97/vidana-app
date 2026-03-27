@@ -9,7 +9,7 @@ import {
   ShoppingBag,
   Minus,
   Plus,
-  X,
+  Trash2,
   Clock,
   Loader2,
 } from 'lucide-react';
@@ -206,21 +206,19 @@ export default function CartPage() {
 
   if (cart.items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
-        <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
+      <div className="flex flex-col items-center justify-center py-24 text-center px-6">
+        <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
           <ShoppingBag className="h-8 w-8 text-muted-foreground" />
         </div>
-        <div>
-          <p className="text-lg font-semibold">Tu carrito esta vacio</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Agrega platillos desde el menu
-          </p>
-        </div>
+        <p className="text-lg font-semibold">Tu carrito esta vacio</p>
+        <p className="text-sm text-muted-foreground mt-1.5">
+          Agrega platillos desde el menu
+        </p>
         <button
           onClick={() => router.push('/order')}
-          className="mt-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-medium"
+          className="mt-6 px-8 py-3 bg-primary text-white rounded-full text-sm font-semibold hover:bg-primary/90 transition-colors"
         >
-          Ver menu
+          Explorar menu
         </button>
       </div>
     );
@@ -229,275 +227,286 @@ export default function CartPage() {
   // ── Cart with items ────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6 pb-4">
+    <div className="flex flex-col min-h-[calc(100dvh-80px)]">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 px-4 py-3">
         <button
           onClick={() => router.push('/order')}
-          className="h-10 w-10 rounded-full bg-white shadow-sm flex items-center justify-center"
+          className="h-9 w-9 rounded-full flex items-center justify-center hover:bg-muted/60 transition-colors"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
-          <h1 className="text-xl font-bold">Tu Orden</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="text-lg font-semibold">Tu orden</h1>
+          <p className="text-sm text-muted-foreground">
             {cart.totalItems} {cart.totalItems === 1 ? 'articulo' : 'articulos'}
           </p>
         </div>
       </div>
 
-      {/* Cart items */}
-      <div className="space-y-3">
-        <AnimatePresence mode="popLayout">
-          {cart.items.map((item, index) => {
-            const modNames = (item.selectedModifiers ?? [])
-              .map((modId) => {
-                const mod = item.menuItem.modifiers?.find(
-                  (m) => m.id === modId
-                );
-                return mod?.name;
-              })
-              .filter(Boolean);
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto px-4 pb-48">
+        {/* Cart items */}
+        <div className="divide-y divide-border/20">
+          <AnimatePresence mode="popLayout">
+            {cart.items.map((item, index) => {
+              const modNames = (item.selectedModifiers ?? [])
+                .map((modId) => {
+                  const mod = item.menuItem.modifiers?.find(
+                    (m) => m.id === modId
+                  );
+                  return mod?.name;
+                })
+                .filter(Boolean);
 
-            const unitPrice =
-              item.menuItem.price +
-              (item.selectedModifiers ?? []).reduce((sum, modId) => {
-                const mod = item.menuItem.modifiers?.find(
-                  (m) => m.id === modId
-                );
-                return sum + (mod?.priceAdjustment ?? 0);
-              }, 0);
+              const unitPrice =
+                item.menuItem.price +
+                (item.selectedModifiers ?? []).reduce((sum, modId) => {
+                  const mod = item.menuItem.modifiers?.find(
+                    (m) => m.id === modId
+                  );
+                  return sum + (mod?.priceAdjustment ?? 0);
+                }, 0);
 
-            return (
-              <motion.div
-                key={item.menuItem.id + '_' + index}
-                layout
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 40, transition: { duration: 0.2 } }}
-                className="relative bg-white rounded-2xl shadow-sm p-4"
-              >
-                {/* Remove button */}
-                <button
-                  onClick={() => cart.removeItem(index)}
-                  className="absolute top-3 right-3 h-6 w-6 rounded-full bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors"
+              return (
+                <motion.div
+                  key={item.menuItem.id + '_' + index}
+                  layout
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 40, transition: { duration: 0.2 } }}
+                  className="py-4 first:pt-2"
                 >
-                  <X className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
+                  <div className="flex gap-3">
+                    {/* Thumbnail */}
+                    <div className="h-12 w-12 rounded-full overflow-hidden bg-muted shrink-0">
+                      {item.menuItem.imageUrl ? (
+                        <Image
+                          src={item.menuItem.imageUrl}
+                          alt={item.menuItem.name}
+                          width={48}
+                          height={48}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-muted-foreground">
+                          <ShoppingBag className="h-5 w-5" />
+                        </div>
+                      )}
+                    </div>
 
-                <div className="flex gap-3">
-                  {/* Thumbnail */}
-                  <div className="h-12 w-12 rounded-xl overflow-hidden bg-muted shrink-0">
-                    {item.menuItem.imageUrl ? (
-                      <Image
-                        src={item.menuItem.imageUrl}
-                        alt={item.menuItem.name}
-                        width={48}
-                        height={48}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
-                        <ShoppingBag className="h-5 w-5" />
+                    {/* Details + price */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-tight truncate">
+                            {item.menuItem.name}
+                          </p>
+                          {modNames.length > 0 && (
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {modNames.join(', ')}
+                            </p>
+                          )}
+                          {item.specialInstructions && (
+                            <p className="text-xs text-muted-foreground italic mt-0.5 truncate">
+                              &ldquo;{item.specialInstructions}&rdquo;
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-sm font-mono font-semibold shrink-0">
+                          {formatCurrency(unitPrice * item.quantity)}
+                        </span>
                       </div>
-                    )}
-                  </div>
 
-                  {/* Details */}
-                  <div className="flex-1 min-w-0 pr-6">
-                    <p className="font-semibold text-sm leading-tight truncate">
-                      {item.menuItem.name}
-                    </p>
-                    {modNames.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {modNames.join(', ')}
-                      </p>
-                    )}
-                    {item.specialInstructions && (
-                      <p className="text-xs text-muted-foreground italic mt-0.5 truncate">
-                        {item.specialInstructions}
-                      </p>
-                    )}
+                      {/* Quantity stepper + remove */}
+                      <div className="flex items-center justify-between mt-2.5">
+                        <div className="inline-flex items-center rounded-full border border-border/40 bg-background">
+                          <button
+                            onClick={() =>
+                              item.quantity <= 1
+                                ? cart.removeItem(index)
+                                : cart.updateQuantity(index, item.quantity - 1)
+                            }
+                            className="h-8 w-8 flex items-center justify-center hover:bg-muted/60 transition-colors rounded-l-full"
+                          >
+                            {item.quantity <= 1 ? (
+                              <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                            ) : (
+                              <Minus className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                          <span className="w-7 text-center text-sm font-medium select-none">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() =>
+                              cart.updateQuantity(index, item.quantity + 1)
+                            }
+                            className="h-8 w-8 flex items-center justify-center hover:bg-muted/60 transition-colors rounded-r-full"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
 
-                {/* Quantity + Price row */}
-                <div className="flex items-center justify-between mt-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() =>
-                        item.quantity <= 1
-                          ? cart.removeItem(index)
-                          : cart.updateQuantity(index, item.quantity - 1)
-                      }
-                      className="h-8 w-8 rounded-lg bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors"
-                    >
-                      <Minus className="h-3.5 w-3.5" />
-                    </button>
-                    <span className="w-6 text-center text-sm font-medium">
-                      {item.quantity}
-                    </span>
-                    <button
-                      onClick={() =>
-                        cart.updateQuantity(index, item.quantity + 1)
-                      }
-                      className="h-8 w-8 rounded-lg bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                  <span className="font-mono text-sm font-semibold">
-                    {formatCurrency(unitPrice * item.quantity)}
-                  </span>
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-      </div>
+        {/* ── Divider ─────────────────────────────────────────────────────── */}
+        <div className="h-px bg-border/30 my-4" />
 
-      {/* ── Order options ─────────────────────────────────────────────────── */}
-      <div className="space-y-4">
-        {/* Order type */}
-        {takeAwayEnabled && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">
-              Tipo de orden
+        {/* ── Order options ─────────────────────────────────────────────────── */}
+        <div className="space-y-5">
+          {/* Order type */}
+          {takeAwayEnabled && (
+            <div className="space-y-2.5">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Tipo de orden
+              </p>
+              <div className="inline-flex rounded-full border border-border/40 bg-background p-0.5">
+                {(
+                  [
+                    { key: 'eat_in', label: 'Comer aqui' },
+                    { key: 'take_away', label: 'Para llevar' },
+                  ] as const
+                ).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => cart.setOrderType(key)}
+                    className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+                      cart.orderType === key
+                        ? 'bg-foreground text-background shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Schedule */}
+          <div className="space-y-2.5">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Cuando lo quieres?
             </p>
-            <div className="flex gap-2">
+            <div className="inline-flex rounded-full border border-border/40 bg-background p-0.5">
               {(
                 [
-                  { key: 'eat_in', label: 'Comer aqui' },
-                  { key: 'take_away', label: 'Para llevar' },
+                  { key: 'now', label: 'Ahora' },
+                  { key: 'schedule', label: 'Programar' },
                 ] as const
               ).map(({ key, label }) => (
                 <button
                   key={key}
-                  onClick={() => cart.setOrderType(key)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    cart.orderType === key
-                      ? 'bg-primary text-white'
-                      : 'bg-white text-foreground shadow-sm'
+                  onClick={() => handleScheduleModeChange(key)}
+                  className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1.5 ${
+                    scheduleMode === key
+                      ? 'bg-foreground text-background shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
+                  {key === 'schedule' && (
+                    <Clock className="h-3.5 w-3.5" />
+                  )}
                   {label}
                 </button>
               ))}
             </div>
+            <AnimatePresence>
+              {scheduleMode === 'schedule' && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex gap-2 flex-wrap mt-1">
+                    {timeSlots.map((slot) => (
+                      <button
+                        key={slot.value}
+                        onClick={() => cart.setScheduledFor(slot.value)}
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all border ${
+                          cart.scheduledFor === slot.value
+                            ? 'bg-foreground text-background border-foreground'
+                            : 'bg-background text-foreground border-border/40 hover:border-foreground/30'
+                        }`}
+                      >
+                        {slot.label}
+                      </button>
+                    ))}
+                    {timeSlots.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        No hay horarios disponibles
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        )}
 
-        {/* Schedule */}
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">
-            Cuando lo quieres?
-          </p>
-          <div className="flex gap-2">
-            {(
-              [
-                { key: 'now', label: 'Ahora' },
-                { key: 'schedule', label: 'Programar' },
-              ] as const
-            ).map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => handleScheduleModeChange(key)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  scheduleMode === key
-                    ? 'bg-primary text-white'
-                    : 'bg-white text-foreground shadow-sm'
-                }`}
-              >
-                {key === 'schedule' && (
-                  <Clock className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />
-                )}
-                {label}
-              </button>
-            ))}
+          {/* Payment method */}
+          <div className="space-y-2.5">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Metodo de pago
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              {paymentMethods.map((method) => (
+                <button
+                  key={method}
+                  onClick={() => cart.setPaymentMethod(method)}
+                  className={`px-5 py-2 rounded-full text-sm font-medium transition-all border ${
+                    cart.paymentMethod === method
+                      ? 'bg-foreground text-background border-foreground'
+                      : 'bg-background text-foreground border-border/40 hover:border-foreground/30'
+                  }`}
+                >
+                  {PAYMENT_LABELS[method] ?? method}
+                </button>
+              ))}
+            </div>
           </div>
-          <AnimatePresence>
-            {scheduleMode === 'schedule' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="flex gap-2 flex-wrap mt-2">
-                  {timeSlots.map((slot) => (
-                    <button
-                      key={slot.value}
-                      onClick={() => cart.setScheduledFor(slot.value)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        cart.scheduledFor === slot.value
-                          ? 'bg-primary text-white'
-                          : 'bg-white text-foreground shadow-sm'
-                      }`}
-                    >
-                      {slot.label}
-                    </button>
-                  ))}
-                  {timeSlots.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      No hay horarios disponibles
-                    </p>
-                  )}
-                </div>
-              </motion.div>
+        </div>
+      </div>
+
+      {/* ── Sticky bottom: Summary + CTA ────────────────────────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-border/10 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+16px)] z-30">
+        <div className="max-w-lg mx-auto space-y-3">
+          {/* Summary rows */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-mono">{formatCurrency(cart.totalAmount)}</span>
+            </div>
+            <div className="flex justify-between text-lg font-bold">
+              <span>Total</span>
+              <span className="font-mono">{formatCurrency(cart.totalAmount)}</span>
+            </div>
+          </div>
+
+          {/* Confirm button */}
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || cart.items.length === 0}
+            className="w-full bg-primary text-white rounded-full py-4 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all hover:bg-primary/90 active:scale-[0.98]"
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Procesando...
+              </>
+            ) : (
+              <>Confirmar orden</>
             )}
-          </AnimatePresence>
-        </div>
-
-        {/* Payment method */}
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">
-            Metodo de pago
-          </p>
-          <div className="flex gap-2 flex-wrap">
-            {paymentMethods.map((method) => (
-              <button
-                key={method}
-                onClick={() => cart.setPaymentMethod(method)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  cart.paymentMethod === method
-                    ? 'bg-primary text-white'
-                    : 'bg-white text-foreground shadow-sm'
-                }`}
-              >
-                {PAYMENT_LABELS[method] ?? method}
-              </button>
-            ))}
-          </div>
+          </button>
         </div>
       </div>
-
-      {/* ── Order summary ─────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl shadow-sm p-4 space-y-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Subtotal</span>
-          <span className="font-mono">{formatCurrency(cart.totalAmount)}</span>
-        </div>
-        <div className="flex justify-between text-lg font-bold">
-          <span>Total</span>
-          <span className="font-mono">{formatCurrency(cart.totalAmount)}</span>
-        </div>
-      </div>
-
-      {/* ── Confirm button ────────────────────────────────────────────────── */}
-      <button
-        onClick={handleSubmit}
-        disabled={submitting || cart.items.length === 0}
-        className="w-full bg-primary text-white rounded-xl py-4 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-opacity"
-      >
-        {submitting ? (
-          <>
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Procesando...
-          </>
-        ) : (
-          <>Confirmar orden - {formatCurrency(cart.totalAmount)}</>
-        )}
-      </button>
     </div>
   );
 }

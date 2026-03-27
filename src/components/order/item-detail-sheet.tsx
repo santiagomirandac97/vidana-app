@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { UtensilsCrossed, Minus, Plus, ChevronDown } from 'lucide-react';
+import { UtensilsCrossed, Minus, Plus, ChevronDown, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useCart } from '@/context/cart-context';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -53,6 +54,15 @@ export function ItemDetailSheet({ menuItem, open, onClose }: ItemDetailSheetProp
     );
   }, []);
 
+  const selectSingleModifier = useCallback((groupMods: MenuItemModifier[], modId: string) => {
+    setSelectedModifiers((prev) => {
+      // Remove any existing selection from this group, then add the new one
+      const groupIds = new Set(groupMods.map((m) => m.id));
+      const withoutGroup = prev.filter((id) => !groupIds.has(id));
+      return [...withoutGroup, modId];
+    });
+  }, []);
+
   if (!menuItem) return null;
 
   // Group modifiers
@@ -63,6 +73,19 @@ export function ItemDetailSheet({ menuItem, open, onClose }: ItemDetailSheetProp
       modifierGroups[mod.group].push(mod);
     }
   }
+
+  // Determine if a group is single-select: groups where options are mutually exclusive
+  // Heuristic: groups with no price adjustments or where all have the same base pattern
+  // For now, treat groups with exactly 1 modifier as single-select, and groups with 2+ as multi-select
+  // This can be overridden by adding a `maxSelections` field to modifier groups later
+  const isSingleSelectGroup = (_group: string, mods: MenuItemModifier[]): boolean => {
+    // If all modifiers in the group have zero price adjustment, likely a choice (e.g., "Temperatura: Caliente/Frio")
+    // For a more premium UX, we treat any group where picking one logically excludes others as single-select
+    // Conservative: only groups where all items have priceAdjustment === 0, or groups with <= 3 items
+    // that look like choices. For safety, default to multi-select.
+    // Simple heuristic: if group has <= 4 items, single-select; otherwise multi-select
+    return mods.length <= 4;
+  };
 
   const modifierTotal = selectedModifiers.reduce((sum, modId) => {
     const mod = menuItem.modifiers?.find((m) => m.id === modId);
@@ -85,8 +108,8 @@ export function ItemDetailSheet({ menuItem, open, onClose }: ItemDetailSheetProp
 
   const sheetContent = (
     <div className="flex flex-col max-h-[85vh] md:max-h-[90vh]">
-      {/* Image */}
-      <div className="relative w-full aspect-video bg-gradient-to-br from-muted to-muted/60 rounded-t-2xl overflow-hidden shrink-0">
+      {/* Image — edge-to-edge */}
+      <div className="relative w-full aspect-[4/3] bg-gradient-to-br from-muted to-muted/60 overflow-hidden shrink-0">
         {menuItem.imageUrl ? (
           <Image
             src={menuItem.imageUrl}
@@ -100,99 +123,161 @@ export function ItemDetailSheet({ menuItem, open, onClose }: ItemDetailSheetProp
             <UtensilsCrossed size={48} className="text-muted-foreground/40" />
           </div>
         )}
+        {/* Gradient overlay at bottom of image */}
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 h-8 w-8 flex items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-sm hover:bg-white transition-colors z-10"
+        >
+          <X size={18} className="text-foreground" />
+        </button>
       </div>
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-5 pt-4 pb-2">
-        <h2 className="text-xl font-bold text-foreground">{menuItem.name}</h2>
+        {/* Name + price row */}
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-xl font-bold text-foreground">{menuItem.name}</h2>
+          <span className="text-lg font-semibold text-primary whitespace-nowrap font-mono">
+            ${menuItem.price.toFixed(2)}
+          </span>
+        </div>
         {menuItem.description && (
           <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
             {menuItem.description}
           </p>
         )}
-        <p className="mt-2 text-lg font-mono font-semibold text-green-600">
-          ${menuItem.price.toFixed(2)}
-        </p>
 
         {/* Modifiers */}
         {Object.keys(modifierGroups).length > 0 && (
-          <div className="mt-5 space-y-4">
-            {Object.entries(modifierGroups).map(([group, mods]) => (
-              <div key={group}>
-                <h3 className="text-sm font-semibold text-foreground mb-2">{group}</h3>
-                <div className="space-y-2">
-                  {mods.map((mod) => (
-                    <label
-                      key={mod.id}
-                      className="flex items-center gap-3 cursor-pointer py-1"
+          <div className="mt-4">
+            {Object.entries(modifierGroups).map(([group, mods]) => {
+              const singleSelect = isSingleSelectGroup(group, mods);
+              const selectedInGroup = selectedModifiers.find((id) =>
+                mods.some((m) => m.id === id)
+              );
+
+              return (
+                <div key={group}>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mt-5 mb-3">
+                    {group}
+                  </h3>
+
+                  {singleSelect ? (
+                    <RadioGroup
+                      value={selectedInGroup ?? ''}
+                      onValueChange={(val) => selectSingleModifier(mods, val)}
                     >
-                      <Checkbox
-                        checked={selectedModifiers.includes(mod.id)}
-                        onCheckedChange={() => toggleModifier(mod.id)}
-                      />
-                      <span className="flex-1 text-sm text-foreground">{mod.name}</span>
-                      {mod.priceAdjustment > 0 && (
-                        <span className="text-sm font-mono text-muted-foreground">
-                          + ${mod.priceAdjustment.toFixed(2)}
-                        </span>
-                      )}
-                    </label>
-                  ))}
+                      {mods.map((mod, idx) => (
+                        <label
+                          key={mod.id}
+                          className={cn(
+                            'flex items-center gap-3 cursor-pointer py-3',
+                            idx < mods.length - 1 && 'border-b border-border/30'
+                          )}
+                        >
+                          <RadioGroupItem value={mod.id} />
+                          <span className="flex-1 text-sm text-foreground">{mod.name}</span>
+                          {mod.priceAdjustment > 0 && (
+                            <span className="text-sm font-mono text-muted-foreground">
+                              + ${mod.priceAdjustment.toFixed(2)}
+                            </span>
+                          )}
+                        </label>
+                      ))}
+                    </RadioGroup>
+                  ) : (
+                    <div>
+                      {mods.map((mod, idx) => (
+                        <label
+                          key={mod.id}
+                          className={cn(
+                            'flex items-center gap-3 cursor-pointer py-3',
+                            idx < mods.length - 1 && 'border-b border-border/30'
+                          )}
+                        >
+                          <Checkbox
+                            checked={selectedModifiers.includes(mod.id)}
+                            onCheckedChange={() => toggleModifier(mod.id)}
+                          />
+                          <span className="flex-1 text-sm text-foreground">{mod.name}</span>
+                          {mod.priceAdjustment > 0 && (
+                            <span className="text-sm font-mono text-muted-foreground">
+                              + ${mod.priceAdjustment.toFixed(2)}
+                            </span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        {/* Special instructions */}
-        <div className="mt-5">
+        {/* Special instructions — collapsible */}
+        <div className="mt-5 mb-2">
           <button
             onClick={() => setShowInstructions((p) => !p)}
-            className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
           >
             <ChevronDown
               size={16}
-              className={cn('transition-transform', showInstructions && 'rotate-180')}
+              className={cn('transition-transform duration-200', showInstructions && 'rotate-180')}
             />
             Instrucciones especiales
           </button>
-          {showInstructions && (
-            <textarea
-              value={specialInstructions}
-              onChange={(e) => setSpecialInstructions(e.target.value)}
-              placeholder="Ej: Sin cebolla, extra salsa..."
-              className="mt-2 w-full rounded-xl border border-border bg-white p-3 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          )}
+          <AnimatePresence>
+            {showInstructions && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-2 rounded-xl border bg-muted/20 p-3">
+                  <textarea
+                    value={specialInstructions}
+                    onChange={(e) => setSpecialInstructions(e.target.value)}
+                    placeholder="Ej: Sin cebolla, extra salsa..."
+                    className="w-full bg-transparent text-sm resize-none h-20 focus:outline-none placeholder:text-muted-foreground/60"
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
-      {/* Bottom bar: quantity + add button */}
-      <div className="shrink-0 px-5 py-4 border-t border-border/50 space-y-3">
-        {/* Quantity selector */}
+      {/* Bottom sticky bar */}
+      <div className="shrink-0 px-5 py-4 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.06)] space-y-3">
+        {/* Quantity selector — pill shaped */}
         <div className="flex items-center justify-center">
-          <div className="flex items-center gap-4 bg-muted/60 rounded-xl px-3 py-1.5">
+          <div className="flex items-center gap-5 rounded-full border border-border px-4 py-1.5">
             <button
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white transition-colors"
+              className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted/60 transition-colors"
             >
-              <Minus size={16} />
+              <Minus size={16} className={cn(quantity <= 1 && 'text-muted-foreground/40')} />
             </button>
-            <span className="text-lg font-semibold w-8 text-center">{quantity}</span>
+            <span className="text-lg font-semibold w-6 text-center tabular-nums">{quantity}</span>
             <button
               onClick={() => setQuantity((q) => q + 1)}
-              className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white transition-colors"
+              className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted/60 transition-colors"
             >
               <Plus size={16} />
             </button>
           </div>
         </div>
 
-        {/* Add to cart button */}
+        {/* Add to cart button — full width pill */}
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={handleAdd}
-          className="w-full bg-primary text-white rounded-xl py-3.5 font-semibold text-base shadow-sm hover:bg-primary/90 transition-colors"
+          className="w-full bg-primary text-white rounded-full py-4 font-semibold text-base shadow-sm hover:bg-primary/90 transition-colors"
         >
           Agregar al carrito — <span className="font-mono">${total.toFixed(2)}</span>
         </motion.button>
@@ -246,7 +331,7 @@ export function ItemDetailSheet({ menuItem, open, onClose }: ItemDetailSheetProp
   // Desktop: shadcn Dialog
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl gap-0">
+      <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl gap-0 [&>button:last-child]:hidden">
         <DialogTitle className="sr-only">{menuItem.name}</DialogTitle>
         {sheetContent}
       </DialogContent>

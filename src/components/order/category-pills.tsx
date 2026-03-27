@@ -15,10 +15,10 @@ export function CategoryPills({ categories, active, onSelect }: CategoryPillsPro
   const all = ['Todos', ...categories];
 
   return (
-    <div className="sticky top-14 z-40 bg-[#FAFAFA] py-3 -mx-4 px-4">
+    <div className="sticky top-14 z-40 bg-background py-2 -mx-4 px-4">
       <div
         ref={scrollRef}
-        className="flex gap-2 overflow-x-auto scrollbar-hide"
+        className="flex gap-2 overflow-x-auto snap-x snap-mandatory scrollbar-hide"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {all.map((cat) => {
@@ -28,10 +28,10 @@ export function CategoryPills({ categories, active, onSelect }: CategoryPillsPro
               key={cat}
               onClick={() => onSelect(cat)}
               className={cn(
-                'shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap',
+                'shrink-0 snap-start rounded-full px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap',
                 isActive
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'bg-white border border-border text-foreground hover:bg-muted/60'
+                  ? 'bg-foreground text-background shadow-sm'
+                  : 'bg-muted/50 text-foreground hover:bg-muted'
               )}
             >
               {cat}

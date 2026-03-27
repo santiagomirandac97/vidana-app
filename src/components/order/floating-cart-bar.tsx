@@ -30,17 +30,23 @@ export function FloatingCartBar() {
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed bottom-20 md:bottom-4 left-0 right-0 z-40 mx-4 flex justify-center pointer-events-none"
+          transition={{ type: 'spring', damping: 22, stiffness: 260 }}
+          className="fixed bottom-20 md:bottom-4 left-0 right-0 z-40 flex justify-center px-6 pointer-events-none"
         >
           <motion.button
             animate={controls}
+            whileTap={{ scale: 0.95 }}
             onClick={() => router.push('/order/cart')}
-            className="pointer-events-auto flex items-center gap-3 bg-primary text-white rounded-2xl shadow-xl px-6 py-3.5 w-full max-w-md hover:bg-primary/90 transition-colors"
+            className="pointer-events-auto flex items-center gap-3 bg-primary text-white rounded-full shadow-xl px-6 py-3.5 max-w-sm w-full hover:bg-primary/90 transition-colors"
           >
-            <ShoppingBag size={20} />
-            <span className="flex-1 text-left font-medium">
-              {cart.totalItems} {cart.totalItems === 1 ? 'articulo' : 'articulos'}
+            <div className="relative">
+              <ShoppingBag size={20} />
+              <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-white text-primary text-[10px] font-bold">
+                {cart.totalItems}
+              </span>
+            </div>
+            <span className="flex-1 text-left font-medium text-sm">
+              Ver carrito
             </span>
             <span className="font-mono font-semibold">
               ${cart.totalAmount.toFixed(2)}

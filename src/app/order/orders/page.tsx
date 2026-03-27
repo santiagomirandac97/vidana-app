@@ -90,14 +90,14 @@ function OrderCard({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`rounded-2xl shadow-sm p-4 cursor-pointer transition-colors ${
+      className={`rounded-2xl shadow-sm p-4 cursor-pointer transition-all duration-200 hover:shadow-md active:scale-[0.98] ${
         muted ? 'bg-white/70' : 'bg-white'
       }`}
       onClick={() => router.push(`/order/orders/${order.id}`)}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="font-mono font-bold text-sm">
+          <span className="font-mono text-lg font-bold">
             #{order.orderNumber ?? '—'}
           </span>
           <span className="text-xs text-muted-foreground">
@@ -106,24 +106,24 @@ function OrderCard({
         </div>
         <div className="flex items-center gap-2">
           {order.orderType === 'take_away' && (
-            <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-700 border-0">
+            <Badge variant="secondary" className="text-[10px] rounded-full px-2.5 py-0.5 bg-blue-50 text-blue-700 border-0">
               <Package className="w-3 h-3 mr-1" />
               Para llevar
             </Badge>
           )}
           {isPending ? (
-            <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px] px-2 py-0.5">
+            <Badge className="rounded-full px-3 py-1 bg-amber-100 text-amber-800 border-0 text-[11px] font-medium">
               Recibido
             </Badge>
           ) : (
-            <Badge className="bg-green-100 text-green-800 border-0 text-[10px] px-2 py-0.5">
+            <Badge className="rounded-full px-3 py-1 bg-green-100 text-green-800 border-0 text-[11px] font-medium">
               Listo
             </Badge>
           )}
         </div>
       </div>
 
-      <p className={`text-sm leading-relaxed ${muted ? 'text-muted-foreground' : 'text-foreground/80'}`}>
+      <p className={`text-sm leading-relaxed line-clamp-1 ${muted ? 'text-muted-foreground' : 'text-foreground/80'}`}>
         {itemsPreview(order.items)}
       </p>
 
@@ -134,15 +134,15 @@ function OrderCard({
 
         {muted && onRepeat ? (
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="text-xs h-7 px-2 text-primary"
+            className="rounded-full border-primary text-primary text-xs h-8 px-4"
             onClick={(e) => {
               e.stopPropagation();
               onRepeat();
             }}
           >
-            <RotateCcw className="w-3 h-3 mr-1" />
+            <RotateCcw className="w-3 h-3 mr-1.5" />
             Repetir orden
           </Button>
         ) : (
@@ -250,7 +250,7 @@ function OrdersContent() {
         {/* Active orders */}
         {activeOrders.length > 0 && (
           <section>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               {'\u00D3'}rdenes activas
             </h2>
             <div className="space-y-3">
@@ -264,12 +264,12 @@ function OrdersContent() {
         {/* Past orders */}
         {pastOrders.length > 0 && (
           <section>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               Historial
             </h2>
             {Object.entries(pastGrouped).map(([dateLabel, orders]) => (
               <div key={dateLabel} className="mb-4">
-                <p className="text-xs font-medium text-muted-foreground mb-2">{dateLabel}</p>
+                <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wide mb-2">{dateLabel}</p>
                 <div className="space-y-3">
                   {orders.map((order) => (
                     <OrderCard
@@ -287,16 +287,18 @@ function OrdersContent() {
 
         {/* Empty state */}
         {hasNoOrders && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <ClipboardList className="w-16 h-16 text-muted-foreground/40 mb-4" />
-            <p className="text-muted-foreground font-medium">
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mb-5">
+              <ClipboardList className="w-10 h-10 text-muted-foreground/50" />
+            </div>
+            <p className="text-lg font-semibold text-foreground">
               {`A\u00FAn no tienes \u00F3rdenes`}
             </p>
-            <p className="text-muted-foreground/60 text-sm mt-1">
-              {`Tus pedidos aparecer\u00E1n aqu\u00ED`}
+            <p className="text-muted-foreground text-sm mt-1.5 max-w-[240px]">
+              {`Tus pedidos aparecer\u00E1n aqu\u00ED una vez que ordenes`}
             </p>
             <Button
-              className="mt-6 rounded-xl"
+              className="mt-8 rounded-full px-8"
               onClick={() => router.push('/order')}
             >
               Explorar men{'\u00FA'}

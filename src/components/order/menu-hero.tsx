@@ -13,16 +13,24 @@ export function MenuHero({ schedules, companyName }: MenuHeroProps) {
 
   if (activeSchedules.length <= 1 && !activeSchedules[0]?.timeRestriction) {
     return (
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/90 to-primary h-[120px] md:h-[160px] flex items-center px-6 md:px-10">
-        <div className="relative z-10">
-          <p className="text-white/70 text-sm font-medium">Bienvenido a</p>
-          <h1 className="text-white text-2xl md:text-3xl font-bold mt-1">
+      <div className="relative overflow-hidden rounded-2xl h-32 md:h-40 flex items-center justify-center bg-gradient-to-br from-primary via-primary/90 to-primary/70">
+        {/* Food pattern overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 20% 30%, currentColor 1px, transparent 1px), radial-gradient(circle at 60% 70%, currentColor 1.5px, transparent 1.5px), radial-gradient(circle at 80% 20%, currentColor 1px, transparent 1px), radial-gradient(circle at 40% 80%, currentColor 2px, transparent 2px)',
+            backgroundSize: '60px 60px, 80px 80px, 50px 50px, 70px 70px',
+          }}
+        />
+        {/* Gradient overlay for depth */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
+        <div className="relative z-10 text-center">
+          <h1 className="text-2xl font-bold text-white">
             {companyName || 'Tu comedor'}
           </h1>
+          <p className="text-white/70 text-sm mt-1">Ordena tu comida</p>
         </div>
-        {/* Decorative circles */}
-        <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/10" />
-        <div className="absolute -right-4 bottom-0 h-24 w-24 rounded-full bg-white/5" />
       </div>
     );
   }
@@ -32,12 +40,23 @@ export function MenuHero({ schedules, companyName }: MenuHeroProps) {
       {activeSchedules.map((schedule) => (
         <div
           key={schedule.id ?? schedule.name}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/90 to-primary h-[120px] md:h-[160px] flex items-center px-6 md:px-10"
+          className="relative overflow-hidden rounded-2xl h-32 md:h-40 flex items-center justify-center bg-gradient-to-br from-primary via-primary/90 to-primary/70"
         >
-          <div className="relative z-10 flex-1">
-            <h2 className="text-white text-xl md:text-2xl font-bold">
+          {/* Food pattern overlay */}
+          <div
+            className="absolute inset-0 opacity-[0.06]"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 20% 30%, currentColor 1px, transparent 1px), radial-gradient(circle at 60% 70%, currentColor 1.5px, transparent 1.5px), radial-gradient(circle at 80% 20%, currentColor 1px, transparent 1px), radial-gradient(circle at 40% 80%, currentColor 2px, transparent 2px)',
+              backgroundSize: '60px 60px, 80px 80px, 50px 50px, 70px 70px',
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
+          <div className="relative z-10 text-center">
+            <h2 className="text-2xl font-bold text-white">
               {schedule.name}
             </h2>
+            <p className="text-white/70 text-sm mt-1">Ordena tu comida</p>
             {schedule.timeRestriction && (
               <div className="inline-flex items-center gap-1.5 mt-2 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1">
                 <Clock size={14} className="text-white/80" />
@@ -47,9 +66,6 @@ export function MenuHero({ schedules, companyName }: MenuHeroProps) {
               </div>
             )}
           </div>
-          {/* Decorative circles */}
-          <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/10" />
-          <div className="absolute -right-4 bottom-0 h-24 w-24 rounded-full bg-white/5" />
         </div>
       ))}
     </div>

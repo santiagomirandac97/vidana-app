@@ -66,7 +66,7 @@ export function OrderLayout({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  const companyName = company?.name ?? '';
+  const companyName = (company as any)?.portalDisplayName ?? company?.name ?? '';
 
   return (
     <CartProvider>

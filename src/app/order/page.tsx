@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { doc, collection, query, where } from 'firebase/firestore';
 import { useUser, useFirebase, useMemoFirebase, useDoc, useCollection } from '@/firebase';
 import type { UserProfile, Company, MenuItem, MenuSchedule } from '@/lib/types';
@@ -10,6 +10,7 @@ import { CategoryPills } from '@/components/order/category-pills';
 import { MenuCard } from '@/components/order/menu-card';
 import { ItemDetailSheet } from '@/components/order/item-detail-sheet';
 import { FloatingCartBar } from '@/components/order/floating-cart-bar';
+import { Search, X } from 'lucide-react';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -152,15 +153,21 @@ export default function OrderPage() {
   const [activeCategory, setActiveCategory] = useState('Todos');
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Filter items by category
-  const visibleItems = useMemo(
-    () =>
-      activeCategory === 'Todos'
-        ? menuItems
-        : menuItems.filter((i) => i.category === activeCategory),
-    [menuItems, activeCategory]
-  );
+  const isSearching = searchQuery.trim().length > 0;
+
+  // Filter items by search or category
+  const visibleItems = useMemo(() => {
+    if (isSearching) {
+      const q = searchQuery.trim().toLowerCase();
+      return menuItems.filter((i) => i.name.toLowerCase().includes(q));
+    }
+    return activeCategory === 'Todos'
+      ? menuItems
+      : menuItems.filter((i) => i.category === activeCategory);
+  }, [menuItems, activeCategory, searchQuery, isSearching]);
 
   const isLoading = profileLoading || schedulesLoading || itemsLoading;
 
@@ -191,11 +198,40 @@ export default function OrderPage() {
         </div>
       ) : (
         <>
-          <CategoryPills
-            categories={categories}
-            active={activeCategory}
-            onSelect={setActiveCategory}
-          />
+          {/* Search bar */}
+          <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm pb-2 -mt-1 pt-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar en el menú..."
+                className="w-full rounded-xl bg-white shadow-sm border border-border/50 px-4 py-3 pl-10 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+              />
+              {isSearching && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    searchInputRef.current?.focus();
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center rounded-full bg-muted hover:bg-muted/80 transition-colors"
+                >
+                  <X className="h-3 w-3 text-muted-foreground" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {!isSearching && (
+            <CategoryPills
+              categories={categories}
+              active={activeCategory}
+              onSelect={setActiveCategory}
+            />
+          )}
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
             {visibleItems.map((item) => (
@@ -210,7 +246,9 @@ export default function OrderPage() {
           {visibleItems.length === 0 && (
             <div className="flex items-center justify-center py-12">
               <p className="text-muted-foreground text-sm">
-                No hay platillos en esta categoria.
+                {isSearching
+                  ? 'No se encontraron resultados.'
+                  : 'No hay platillos en esta categoria.'}
               </p>
             </div>
           )}

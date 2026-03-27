@@ -70,11 +70,12 @@ export function OrderLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <CartProvider>
-      <div className="flex flex-col min-h-screen bg-[#FAFAFA]">
+      <div className="flex flex-col min-h-screen" style={{ background: 'linear-gradient(135deg, #1a3fa8 0%, #2563eb 50%, #1e40af 100%)' }}>
         <OrderHeader companyName={companyName} />
 
-        {/* Main content area */}
-        <main className="flex-1 px-4 pt-4 pb-28 md:pb-6 max-w-5xl mx-auto w-full">
+        {/* White content card */}
+        <main className="flex-1 pb-28 md:pb-6 max-w-5xl mx-auto w-full px-3 md:px-4 pt-3 md:pt-4">
+          <div className="bg-white rounded-2xl shadow-xl min-h-full px-0 pb-4">
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}
@@ -86,6 +87,7 @@ export function OrderLayout({ children }: { children: React.ReactNode }) {
               {children}
             </motion.div>
           </AnimatePresence>
+          </div>
         </main>
 
         {/* Mobile bottom tab bar */}

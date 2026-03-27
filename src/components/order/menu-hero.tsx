@@ -13,8 +13,7 @@ export function MenuHero({ schedules, companyName }: MenuHeroProps) {
   const hasTimeRestrictions = activeSchedules.some((s) => s.timeRestriction);
 
   return (
-    <div className="p-[2px] rounded-2xl" style={{ background: 'linear-gradient(135deg, #1a4fd6 0%, #3b82f6 40%, #6366f1 100%)' }}>
-    <div className="relative overflow-hidden rounded-[14px] h-44 md:h-52" style={{ backgroundColor: '#ef3340' }}>
+    <div className="relative overflow-hidden rounded-2xl h-44 md:h-52" style={{ backgroundColor: '#ef3340' }}>
       {/* Brand background image */}
       <img
         src="/nmas-hero.png"
@@ -50,7 +49,6 @@ export function MenuHero({ schedules, companyName }: MenuHeroProps) {
           </div>
         )}
       </div>
-    </div>
     </div>
   );
 }

@@ -203,7 +203,7 @@ export default function OrderPage() {
     <div className="space-y-3 px-4 md:px-6 lg:px-8 pb-4">
       <MenuHero
         schedules={activeSchedules}
-        companyName={company?.name ?? ''}
+        companyName={(company as any)?.portalDisplayName ?? company?.name ?? ''}
       />
 
       {menuItems.length === 0 ? (

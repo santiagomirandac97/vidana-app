@@ -13,15 +13,15 @@ export function MenuHero({ schedules, companyName }: MenuHeroProps) {
   const hasTimeRestrictions = activeSchedules.some((s) => s.timeRestriction);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl h-44 md:h-52">
-      {/* Food background image */}
+    <div className="relative overflow-hidden rounded-2xl h-44 md:h-52" style={{ backgroundColor: '#ef3340' }}>
+      {/* Brand background image */}
       <img
-        src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&h=600&fit=crop&crop=center"
+        src="/nmas-hero.png"
         alt=""
         className="absolute inset-0 w-full h-full object-cover"
       />
-      {/* Dark gradient overlay for text readability */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20" />
+      {/* Subtle bottom gradient for text readability */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
 
       {/* Content */}
       <div className="relative z-10 h-full flex flex-col justify-end p-5 md:p-6">

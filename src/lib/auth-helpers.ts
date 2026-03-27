@@ -7,6 +7,12 @@ export async function checkAndCreateUserProfile(firestore: Firestore, user: User
         throw new Error("No se pudo obtener el email de la cuenta de Google.");
     }
 
+    const userDocRef = doc(firestore, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    // If user already exists in Firestore, skip domain check — they're already registered
+    if (userDoc.exists()) return;
+
     // If there's a valid invite, skip domain check — invite is already admin-authorized
     if (!invite) {
         const configDocRef = doc(firestore, 'configuration', 'app');
@@ -19,9 +25,6 @@ export async function checkAndCreateUserProfile(firestore: Firestore, user: User
             throw new Error("El dominio de su correo no está autorizado para registrarse.");
         }
     }
-
-    const userDocRef = doc(firestore, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
 
     if (!userDoc.exists()) {
         const newUserProfile: UserProfile = {

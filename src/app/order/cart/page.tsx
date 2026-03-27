@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { doc, collection, query, where, addDoc, getDocs } from 'firebase/firestore';
+import { doc, collection, addDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -17,6 +17,7 @@ import Image from 'next/image';
 
 import { useUser, useFirebase, useMemoFirebase, useDoc } from '@/firebase';
 import { useCart } from '@/context/cart-context';
+import { useToast } from '@/hooks/use-toast';
 import type { UserProfile, Company } from '@/lib/types';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ export default function CartPage() {
   const { user } = useUser();
   const { firestore } = useFirebase();
   const cart = useCart();
+  const { toast } = useToast();
 
   const [scheduleMode, setScheduleMode] = useState<'now' | 'schedule'>(
     cart.scheduledFor ? 'schedule' : 'now'
@@ -122,25 +124,12 @@ export default function CartPage() {
 
     setSubmitting(true);
     try {
-      // 1. Query today's non-voided consumptions to get next orderNumber
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date();
-      todayEnd.setHours(23, 59, 59, 999);
-
+      // 1. Generate order number from timestamp (avoids composite index requirement)
       const consumptionsRef = collection(
         firestore,
         `companies/${companyId}/consumptions`
       );
-      const todayQuery = query(
-        consumptionsRef,
-        where('voided', '==', false),
-        where('timestamp', '>=', todayStart.toISOString()),
-        where('timestamp', '<=', todayEnd.toISOString())
-      );
-
-      const todaySnap = await getDocs(todayQuery);
-      const nextOrderNumber = todaySnap.size + 1;
+      const nextOrderNumber = Math.floor(Date.now() / 1000) % 100000;
 
       // 2. Build the Consumption document
       const consumptionDoc = {
@@ -188,6 +177,11 @@ export default function CartPage() {
       router.push(`/order/orders?success=${nextOrderNumber}`);
     } catch (err) {
       console.error('Failed to submit order:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error al confirmar',
+        description: 'No se pudo procesar tu orden. Intenta de nuevo.',
+      });
       setSubmitting(false);
     }
   }, [firestore, user, userProfile, companyId, cart, router]);

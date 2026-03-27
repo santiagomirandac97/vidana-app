@@ -186,16 +186,6 @@ export default function CartPage() {
     }
   }, [firestore, user, userProfile, companyId, cart, router]);
 
-  // ── Loading ────────────────────────────────────────────────────────────────
-
-  if (profileLoading || companyLoading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
   // ── Empty cart ─────────────────────────────────────────────────────────────
 
   if (cart.items.length === 0) {
@@ -354,6 +344,14 @@ export default function CartPage() {
         <div className="h-px bg-border/30 my-4" />
 
         {/* ── Order options ─────────────────────────────────────────────────── */}
+        {(profileLoading || companyLoading) ? (
+          <div className="space-y-5 animate-pulse">
+            <div className="h-4 w-24 bg-muted rounded-full" />
+            <div className="h-10 w-48 bg-muted rounded-full" />
+            <div className="h-4 w-32 bg-muted rounded-full" />
+            <div className="h-10 w-48 bg-muted rounded-full" />
+          </div>
+        ) : (
         <div className="space-y-5">
           {/* Order type */}
           {takeAwayEnabled && (
@@ -467,6 +465,7 @@ export default function CartPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* ── Sticky bottom: Summary + CTA ────────────────────────────────── */}
@@ -487,7 +486,7 @@ export default function CartPage() {
           {/* Confirm button */}
           <button
             onClick={handleSubmit}
-            disabled={submitting || cart.items.length === 0}
+            disabled={submitting || cart.items.length === 0 || profileLoading || companyLoading}
             className="w-full bg-primary text-white rounded-full py-4 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all hover:bg-primary/90 active:scale-[0.98]"
           >
             {submitting ? (

@@ -26,10 +26,9 @@ export function MenuCard({ menuItem, onTap }: MenuCardProps) {
   };
 
   return (
-    <button
+    <div
       onClick={isUnavailable ? undefined : onTap}
-      disabled={isUnavailable}
-      className="group relative flex flex-col bg-white rounded-2xl shadow-sm overflow-hidden text-left transition-all duration-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed"
+      className={`group relative flex flex-col bg-white rounded-2xl shadow-sm overflow-hidden text-left transition-all duration-200 hover:shadow-md ${isUnavailable ? 'cursor-not-allowed' : 'cursor-pointer'}`}
     >
       {/* 4:3 image area */}
       <div className="relative w-full aspect-[4/3] bg-gradient-to-br from-muted to-muted/60">
@@ -49,15 +48,13 @@ export function MenuCard({ menuItem, onTap }: MenuCardProps) {
 
         {/* Quick add button for items without modifiers */}
         {!isUnavailable && !hasModifiers && (
-          <div
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
             onClick={handleQuickAdd}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAdd(e as unknown as React.MouseEvent); }}
             className="absolute bottom-2 right-2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white shadow-md hover:scale-110 active:scale-95 transition-transform"
           >
             <Plus size={18} strokeWidth={2.5} />
-          </div>
+          </button>
         )}
 
         {/* Sold out overlay */}
@@ -84,6 +81,6 @@ export function MenuCard({ menuItem, onTap }: MenuCardProps) {
           ${menuItem.price.toFixed(2)}
         </p>
       </div>
-    </button>
+    </div>
   );
 }

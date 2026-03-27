@@ -39,7 +39,7 @@ export function OrderLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isSignup || authLoading || profileLoading) return;
     if (!user) {
-      router.replace('/order/signup');
+      router.replace('/login');
       return;
     }
     if (userProfile && userProfile.role !== 'customer') {

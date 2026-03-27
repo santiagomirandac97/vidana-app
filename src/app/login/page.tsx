@@ -326,19 +326,18 @@ export default function LoginPage() {
             {isGoogleLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/> Verificando...</> : <><GoogleIcon className="mr-2 h-5 w-5"/> Google</>}
           </Button>
 
-          <div className="pt-2 text-center text-sm text-gray-500">
-            ¿No tienes cuenta?{' '}
-            <Link href="/signup" className="font-medium text-primary hover:underline">
-              Regístrate
-            </Link>
+          <div className="pt-4 space-y-2">
+            <div className="text-center text-xs text-gray-400 uppercase tracking-wide mb-2">¿No tienes cuenta?</div>
+            <div className="grid grid-cols-2 gap-3">
+              <Link href="/order/signup" className="flex items-center justify-center h-10 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                Ordenar comida
+              </Link>
+              <Link href="/signup" className="flex items-center justify-center h-10 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                Administrador
+              </Link>
+            </div>
           </div>
         </div>
-
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          <Link href="/order/signup" className="text-primary hover:underline">
-            ¿Quieres ordenar? Crea tu cuenta
-          </Link>
-        </p>
       </div>
 
       {/* Footer tagline */}

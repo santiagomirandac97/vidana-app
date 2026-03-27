@@ -135,7 +135,7 @@ export default function CartPage() {
       const consumptionDoc = {
         employeeId: user.uid,
         employeeNumber: 'PORTAL',
-        name: userProfile.name,
+        name: userProfile.name ?? '',
         companyId,
         timestamp: new Date().toISOString(),
         voided: false,
@@ -151,7 +151,7 @@ export default function CartPage() {
         paymentMethod: cart.paymentMethod,
         source: 'portal' as const,
         orderType: cart.orderType,
-        scheduledFor: cart.scheduledFor || undefined,
+        ...(cart.scheduledFor ? { scheduledFor: cart.scheduledFor } : {}),
         selectedModifiers: Object.fromEntries(
           cart.items.map((i, idx) => [
             i.menuItem.id + '_' + idx,
@@ -166,7 +166,7 @@ export default function CartPage() {
               i.specialInstructions,
             ])
         ),
-        customerEmail: userProfile.email,
+        customerEmail: userProfile.email ?? '',
       };
 
       // 3. Write to Firestore

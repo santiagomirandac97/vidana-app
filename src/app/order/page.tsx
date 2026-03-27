@@ -10,7 +10,8 @@ import { CategoryPills } from '@/components/order/category-pills';
 import { MenuCard } from '@/components/order/menu-card';
 import { ItemDetailSheet } from '@/components/order/item-detail-sheet';
 import { FloatingCartBar } from '@/components/order/floating-cart-bar';
-import { Search, X } from 'lucide-react';
+import { useCart } from '@/context/cart-context';
+import { Search, X, UtensilsCrossed, ShoppingBag } from 'lucide-react';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ function SkeletonCardGrid() {
 export default function OrderPage() {
   const { user } = useUser();
   const { firestore } = useFirebase();
+  const { orderType, setOrderType } = useCart();
 
   // 1. Fetch user profile
   const userProfileRef = useMemoFirebase(
@@ -205,6 +207,36 @@ export default function OrderPage() {
         schedules={activeSchedules}
         companyName={(company as any)?.portalDisplayName ?? company?.name ?? ''}
       />
+
+      {/* Order type toggle — only shown when take away is enabled */}
+      {(company as any)?.takeAwayEnabled && (
+        <div className="px-4 md:px-6 lg:px-8 pt-1">
+          <div className="inline-flex rounded-full border border-border/40 bg-muted/30 p-1 gap-1">
+            <button
+              onClick={() => setOrderType('eat_in')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                orderType === 'eat_in'
+                  ? 'bg-white text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <UtensilsCrossed size={15} />
+              Comer aquí
+            </button>
+            <button
+              onClick={() => setOrderType('take_away')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                orderType === 'take_away'
+                  ? 'bg-white text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <ShoppingBag size={15} />
+              Para llevar
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="px-4 md:px-6 lg:px-8 space-y-3">
       {menuItems.length === 0 ? (

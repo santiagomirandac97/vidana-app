@@ -248,13 +248,15 @@ function OrdersContent() {
   const hasNoOrders = activeOrders.length === 0 && pastOrders.length === 0;
 
   return (
-    <>
+    <div className="flex flex-col flex-1 px-4 md:px-6 pt-5 pb-8">
       {/* Success overlay */}
       {successOrderNumber && (
         <OrderSuccess orderNumber={successOrderNumber} onDismiss={dismissSuccess} />
       )}
 
-      <div className="space-y-6">
+      <h1 className="text-xl font-bold text-foreground mb-5">Mis Órdenes</h1>
+
+      <div className="space-y-6 flex-1">
         {/* Active orders */}
         {activeOrders.length > 0 && (
           <section>
@@ -314,7 +316,7 @@ function OrdersContent() {
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }
 

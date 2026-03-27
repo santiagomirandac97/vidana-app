@@ -74,8 +74,8 @@ export function OrderLayout({ children }: { children: React.ReactNode }) {
         <OrderHeader companyName={companyName} />
 
         {/* White content card */}
-        <main className="flex-1 pb-28 md:pb-6 max-w-5xl mx-auto w-full px-3 md:px-4 pt-0">
-          <div className="bg-white rounded-b-2xl shadow-xl min-h-full px-0 pb-4">
+        <main className="flex flex-col flex-1 pb-20 md:pb-6 max-w-5xl mx-auto w-full px-3 md:px-4">
+          <div className="flex flex-col flex-1 bg-white rounded-2xl shadow-xl overflow-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}
@@ -83,6 +83,7 @@ export function OrderLayout({ children }: { children: React.ReactNode }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="flex flex-col flex-1"
             >
               {children}
             </motion.div>

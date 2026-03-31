@@ -1,4 +1,9 @@
 
+export type OperatingHour = {
+  day: number;    // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  open: string;   // "08:00" (24h format)
+  close: string;  // "17:30" (24h format)
+};
 
 export type Company = {
   id: string;
@@ -22,6 +27,10 @@ export type Company = {
   paymentMethods?: ('nomina' | 'efectivo' | 'tarjeta' | 'transferencia')[];
   takeAwayEnabled?: boolean;
   orderPortalEnabled?: boolean;
+  operatingHours?: OperatingHour[];
+  estimatedPrepTime?: string;
+  termsUrl?: string;
+  privacyUrl?: string;
 };
 
 export interface RfidDevice {

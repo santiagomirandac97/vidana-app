@@ -10,6 +10,9 @@ import { CategoryPills } from '@/components/order/category-pills';
 import { MenuCard } from '@/components/order/menu-card';
 import { ItemDetailSheet } from '@/components/order/item-detail-sheet';
 import { FloatingCartBar } from '@/components/order/floating-cart-bar';
+import { OrderStatusBar } from '@/components/order/order-status-bar';
+import { HoursModal } from '@/components/order/hours-modal';
+import { LegalLinksPopover } from '@/components/order/legal-links-popover';
 import { useCart } from '@/context/cart-context';
 import { Search, X, UtensilsCrossed, ShoppingBag } from 'lucide-react';
 
@@ -158,6 +161,8 @@ export default function OrderPage() {
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [hoursModalOpen, setHoursModalOpen] = useState(false);
+  const [legalPopoverOpen, setLegalPopoverOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const isSearching = searchQuery.trim().length > 0;
@@ -207,6 +212,23 @@ export default function OrderPage() {
         schedules={activeSchedules}
         companyName={(company as any)?.portalDisplayName ?? company?.name ?? ''}
       />
+
+      {/* Status bar: open/closed badge, prep time, hours button */}
+      <div className="px-4 md:px-6 lg:px-8 pt-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <OrderStatusBar
+            operatingHours={(company as any)?.operatingHours}
+            estimatedPrepTime={(company as any)?.estimatedPrepTime}
+            onOpenHoursModal={() => setHoursModalOpen(true)}
+          />
+          <LegalLinksPopover
+            termsUrl={(company as any)?.termsUrl}
+            privacyUrl={(company as any)?.privacyUrl}
+            open={legalPopoverOpen}
+            onOpenChange={setLegalPopoverOpen}
+          />
+        </div>
+      </div>
 
       {/* Order type toggle — only shown when take away is enabled */}
       {(company as any)?.takeAwayEnabled && (
@@ -335,6 +357,13 @@ export default function OrderPage() {
 
       <FloatingCartBar />
       </div>
+
+      <HoursModal
+        open={hoursModalOpen}
+        onOpenChange={setHoursModalOpen}
+        operatingHours={(company as any)?.operatingHours}
+        address={(company as any)?.address}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { UtensilsCrossed, Plus } from 'lucide-react';
 import type { MenuItem } from '@/lib/types';
 import { useCart } from '@/context/cart-context';
+import { useToast } from '@/hooks/use-toast';
 
 interface MenuCardProps {
   menuItem: MenuItem;
@@ -14,6 +15,7 @@ export function MenuCard({ menuItem, onTap }: MenuCardProps) {
   const isUnavailable = menuItem.available === false;
   const hasModifiers = menuItem.modifiers && menuItem.modifiers.length > 0;
   const cart = useCart();
+  const { toast } = useToast();
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -23,6 +25,7 @@ export function MenuCard({ menuItem, onTap }: MenuCardProps) {
       selectedModifiers: [],
       specialInstructions: '',
     });
+    toast({ title: 'Agregado al carrito', description: menuItem.name });
   };
 
   return (

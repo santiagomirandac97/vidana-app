@@ -4,6 +4,7 @@ import { useState, useCallback, type FC, type KeyboardEvent } from 'react';
 import { useFirebase, useMemoFirebase, useDoc } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { type Company } from '@/lib/types';
+import type { OperatingHour } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -15,6 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, X } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/skeleton-layouts';
 import { MenuScheduleManager } from './MenuScheduleManager';
+
+const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 const PAYMENT_OPTIONS = [
     { value: 'nomina' as const, label: 'Nomina' },
@@ -36,6 +39,10 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
     const [domainInput, setDomainInput] = useState('');
     const [paymentMethods, setPaymentMethods] = useState<('nomina' | 'efectivo' | 'tarjeta' | 'transferencia')[]>([]);
     const [takeAwayEnabled, setTakeAwayEnabled] = useState(false);
+    const [operatingHours, setOperatingHours] = useState<OperatingHour[]>([]);
+    const [estimatedPrepTime, setEstimatedPrepTime] = useState('');
+    const [termsUrl, setTermsUrl] = useState('');
+    const [privacyUrl, setPrivacyUrl] = useState('');
 
     // Fetch the selected company document
     const companyDocRef = useMemoFirebase(() =>
@@ -51,6 +58,10 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
         setAllowedCustomerDomains(companyDoc.allowedCustomerDomains ?? []);
         setPaymentMethods(companyDoc.paymentMethods ?? []);
         setTakeAwayEnabled(companyDoc.takeAwayEnabled ?? false);
+        setOperatingHours((companyDoc as any).operatingHours ?? []);
+        setEstimatedPrepTime((companyDoc as any).estimatedPrepTime ?? '');
+        setTermsUrl((companyDoc as any).termsUrl ?? '');
+        setPrivacyUrl((companyDoc as any).privacyUrl ?? '');
     }
 
     // Reset local state when company selection cleared
@@ -60,6 +71,10 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
         setAllowedCustomerDomains([]);
         setPaymentMethods([]);
         setTakeAwayEnabled(false);
+        setOperatingHours([]);
+        setEstimatedPrepTime('');
+        setTermsUrl('');
+        setPrivacyUrl('');
     }
 
     const handleAddDomain = useCallback(() => {
@@ -92,6 +107,22 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
         );
     }, []);
 
+    const toggleDayEnabled = useCallback((day: number) => {
+        setOperatingHours(prev => {
+            const existing = prev.find(h => h.day === day);
+            if (existing) {
+                return prev.filter(h => h.day !== day);
+            }
+            return [...prev, { day, open: '08:00', close: '17:30' }];
+        });
+    }, []);
+
+    const updateDayTime = useCallback((day: number, field: 'open' | 'close', value: string) => {
+        setOperatingHours(prev =>
+            prev.map(h => h.day === day ? { ...h, [field]: value } : h)
+        );
+    }, []);
+
     const handleSave = useCallback(async () => {
         if (!firestore || !selectedCompanyId) return;
         setSaving(true);
@@ -102,6 +133,10 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
                 allowedCustomerDomains,
                 paymentMethods,
                 takeAwayEnabled,
+                operatingHours,
+                estimatedPrepTime: estimatedPrepTime || null,
+                termsUrl: termsUrl || null,
+                privacyUrl: privacyUrl || null,
             });
             toast({ title: 'Configuracion guardada', description: 'Los ajustes del portal fueron actualizados.' });
         } catch (err: any) {
@@ -109,7 +144,7 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
         } finally {
             setSaving(false);
         }
-    }, [firestore, selectedCompanyId, orderPortalEnabled, allowedCustomerDomains, paymentMethods, takeAwayEnabled, toast]);
+    }, [firestore, selectedCompanyId, orderPortalEnabled, allowedCustomerDomains, paymentMethods, takeAwayEnabled, operatingHours, estimatedPrepTime, termsUrl, privacyUrl, toast]);
 
     if (companiesLoading) {
         return (
@@ -221,6 +256,86 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
                                 id="takeAwayEnabled"
                                 checked={takeAwayEnabled}
                                 onCheckedChange={setTakeAwayEnabled}
+                            />
+                        </div>
+
+                        {/* Operating hours */}
+                        <div className="space-y-3">
+                            <Label>Horario de operación</Label>
+                            <div className="space-y-2">
+                                {[1, 2, 3, 4, 5, 6, 0].map(day => {
+                                    const entry = operatingHours.find(h => h.day === day);
+                                    const isEnabled = !!entry;
+                                    return (
+                                        <div key={day} className="flex items-center gap-3">
+                                            <Checkbox
+                                                id={`day-${day}`}
+                                                checked={isEnabled}
+                                                onCheckedChange={() => toggleDayEnabled(day)}
+                                            />
+                                            <Label htmlFor={`day-${day}`} className="font-normal w-24 cursor-pointer">
+                                                {DAY_NAMES[day]}
+                                            </Label>
+                                            {isEnabled ? (
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        type="time"
+                                                        value={entry!.open}
+                                                        onChange={e => updateDayTime(day, 'open', e.target.value)}
+                                                        className="w-32"
+                                                    />
+                                                    <span className="text-muted-foreground">–</span>
+                                                    <Input
+                                                        type="time"
+                                                        value={entry!.close}
+                                                        onChange={e => updateDayTime(day, 'close', e.target.value)}
+                                                        className="w-32"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <span className="text-sm text-muted-foreground">Cerrado</span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Estimated prep time */}
+                        <div className="space-y-2">
+                            <Label htmlFor="estimatedPrepTime">Tiempo estimado de preparación</Label>
+                            <Input
+                                id="estimatedPrepTime"
+                                placeholder="20-25 min"
+                                value={estimatedPrepTime}
+                                onChange={e => setEstimatedPrepTime(e.target.value)}
+                                className="max-w-xs"
+                            />
+                        </div>
+
+                        {/* Terms URL */}
+                        <div className="space-y-2">
+                            <Label htmlFor="termsUrl">URL de Términos y Condiciones</Label>
+                            <Input
+                                id="termsUrl"
+                                type="url"
+                                placeholder="https://..."
+                                value={termsUrl}
+                                onChange={e => setTermsUrl(e.target.value)}
+                                className="max-w-md"
+                            />
+                        </div>
+
+                        {/* Privacy URL */}
+                        <div className="space-y-2">
+                            <Label htmlFor="privacyUrl">URL de Política de Privacidad</Label>
+                            <Input
+                                id="privacyUrl"
+                                type="url"
+                                placeholder="https://..."
+                                value={privacyUrl}
+                                onChange={e => setPrivacyUrl(e.target.value)}
+                                className="max-w-md"
                             />
                         </div>
 

@@ -2,14 +2,14 @@
 
 import { Suspense, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { doc, collection, query, where } from 'firebase/firestore';
+import { doc, collection, query, where, getDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import { ClipboardList, Package, ArrowRight, RotateCcw } from 'lucide-react';
 import { formatDistanceToNow, format, isToday, isYesterday, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { useUser, useFirebase, useMemoFirebase, useDoc, useCollection } from '@/firebase';
-import type { UserProfile, Consumption } from '@/lib/types';
+import type { UserProfile, Consumption, MenuItem } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -217,26 +217,37 @@ function OrdersContent() {
 
   // Repeat order handler
   const handleRepeat = useCallback(
-    (order: Consumption & { id: string }) => {
-      if (!order.items) return;
+    async (order: Consumption & { id: string }) => {
+      if (!order.items || !firestore || !companyId) return;
+
+      // Fetch live menu items so we get imageUrl, modifiers, and category
+      const uniqueItemIds = [...new Set(order.items.map((i) => i.itemId))];
+      const menuItemDocs = await Promise.all(
+        uniqueItemIds.map((id) =>
+          getDoc(doc(firestore, `companies/${companyId}/menuItems/${id}`)),
+        ),
+      );
+      const menuItemMap = new Map<string, MenuItem>(
+        menuItemDocs
+          .filter((d) => d.exists())
+          .map((d) => [d.id, { id: d.id, ...d.data() } as MenuItem]),
+      );
+
       for (const item of order.items) {
+        const liveMenuItem = menuItemMap.get(item.itemId);
+        if (!liveMenuItem) continue; // item no longer exists — skip it
+
         const cartItem: CartItem = {
-          menuItem: {
-            id: item.itemId,
-            name: item.name,
-            price: item.price,
-            category: '',
-            companyId: companyId ?? '',
-          },
+          menuItem: liveMenuItem,
           quantity: item.quantity,
-          selectedModifiers: [],
-          specialInstructions: '',
+          selectedModifiers: order.selectedModifiers?.[item.itemId] ?? [],
+          specialInstructions: order.specialInstructions?.[item.itemId] ?? '',
         };
         addItem(cartItem);
       }
       router.push('/order/cart');
     },
-    [addItem, router, companyId],
+    [addItem, router, companyId, firestore],
   );
 
   const isLoading = profileLoading || consumptionsLoading;

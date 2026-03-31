@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useCart } from '@/context/cart-context';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import type { MenuItem, MenuItemModifier } from '@/lib/types';
+import type { MenuItem, MenuItemModifier, ModifierGroupMeta } from '@/lib/types';
 
 interface ItemDetailSheetProps {
   menuItem: MenuItem | null;
@@ -48,11 +48,24 @@ export function ItemDetailSheet({ menuItem, open, onClose }: ItemDetailSheetProp
     }
   }, [open, menuItem?.id]);
 
-  const toggleModifier = useCallback((modId: string) => {
-    setSelectedModifiers((prev) =>
-      prev.includes(modId) ? prev.filter((id) => id !== modId) : [...prev, modId]
-    );
-  }, []);
+  const toggleModifier = useCallback(
+    (modId: string, groupMods: MenuItemModifier[], groupMeta?: ModifierGroupMeta) => {
+      setSelectedModifiers((prev) => {
+        if (prev.includes(modId)) {
+          return prev.filter((id) => id !== modId);
+        }
+        // Enforce maxSelections if defined
+        if (groupMeta?.maxSelections !== undefined) {
+          const selectedCountInGroup = prev.filter((id) => groupMods.some((m) => m.id === id)).length;
+          if (selectedCountInGroup >= groupMeta.maxSelections) {
+            return prev; // at max, don't add
+          }
+        }
+        return [...prev, modId];
+      });
+    },
+    []
+  );
 
   const selectSingleModifier = useCallback((groupMods: MenuItemModifier[], modId: string) => {
     setSelectedModifiers((prev) => {
@@ -74,16 +87,18 @@ export function ItemDetailSheet({ menuItem, open, onClose }: ItemDetailSheetProp
     }
   }
 
-  // Determine if a group is single-select: groups where options are mutually exclusive
-  // Heuristic: groups with no price adjustments or where all have the same base pattern
-  // For now, treat groups with exactly 1 modifier as single-select, and groups with 2+ as multi-select
-  // This can be overridden by adding a `maxSelections` field to modifier groups later
-  const isSingleSelectGroup = (_group: string, mods: MenuItemModifier[]): boolean => {
-    // If all modifiers in the group have zero price adjustment, likely a choice (e.g., "Temperatura: Caliente/Frio")
-    // For a more premium UX, we treat any group where picking one logically excludes others as single-select
-    // Conservative: only groups where all items have priceAdjustment === 0, or groups with <= 3 items
-    // that look like choices. For safety, default to multi-select.
-    // Simple heuristic: if group has <= 4 items, single-select; otherwise multi-select
+  // Determine if a group is single-select: groups where options are mutually exclusive.
+  // If maxSelections === 1 on the group meta, treat as single-select.
+  // Otherwise fall back to heuristic: groups with <= 4 items are treated as single-select.
+  const isSingleSelectGroup = (
+    _group: string,
+    mods: MenuItemModifier[],
+    groupMeta?: ModifierGroupMeta
+  ): boolean => {
+    if (groupMeta?.maxSelections !== undefined) {
+      return groupMeta.maxSelections === 1;
+    }
+    // Fallback heuristic for backwards compatibility
     return mods.length <= 4;
   };
 
@@ -153,16 +168,27 @@ export function ItemDetailSheet({ menuItem, open, onClose }: ItemDetailSheetProp
         {Object.keys(modifierGroups).length > 0 && (
           <div className="mt-4">
             {Object.entries(modifierGroups).map(([group, mods]) => {
-              const singleSelect = isSingleSelectGroup(group, mods);
+              const groupMeta = menuItem.modifierGroupMeta?.[group];
+              const singleSelect = isSingleSelectGroup(group, mods, groupMeta);
               const selectedInGroup = selectedModifiers.find((id) =>
                 mods.some((m) => m.id === id)
               );
+              const selectedCountInGroup = selectedModifiers.filter((id) =>
+                mods.some((m) => m.id === id)
+              ).length;
 
               return (
                 <div key={group}>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mt-5 mb-3">
-                    {group}
-                  </h3>
+                  <div className="flex items-center gap-2 mt-5 mb-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                      {group}
+                    </h3>
+                    {groupMeta?.maxSelections && groupMeta.maxSelections > 1 && (
+                      <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">
+                        Máx {groupMeta.maxSelections}
+                      </span>
+                    )}
+                  </div>
 
                   {singleSelect ? (
                     <RadioGroup
@@ -189,26 +215,35 @@ export function ItemDetailSheet({ menuItem, open, onClose }: ItemDetailSheetProp
                     </RadioGroup>
                   ) : (
                     <div>
-                      {mods.map((mod, idx) => (
-                        <label
-                          key={mod.id}
-                          className={cn(
-                            'flex items-center gap-3 cursor-pointer py-3',
-                            idx < mods.length - 1 && 'border-b border-border/30'
-                          )}
-                        >
-                          <Checkbox
-                            checked={selectedModifiers.includes(mod.id)}
-                            onCheckedChange={() => toggleModifier(mod.id)}
-                          />
-                          <span className="flex-1 text-sm text-foreground">{mod.name}</span>
-                          {mod.priceAdjustment > 0 && (
-                            <span className="text-sm font-mono text-muted-foreground">
-                              + ${mod.priceAdjustment.toFixed(2)}
-                            </span>
-                          )}
-                        </label>
-                      ))}
+                      {mods.map((mod, idx) => {
+                        const isChecked = selectedModifiers.includes(mod.id);
+                        const atMax =
+                          groupMeta?.maxSelections !== undefined &&
+                          selectedCountInGroup >= groupMeta.maxSelections &&
+                          !isChecked;
+                        return (
+                          <label
+                            key={mod.id}
+                            className={cn(
+                              'flex items-center gap-3 cursor-pointer py-3',
+                              idx < mods.length - 1 && 'border-b border-border/30',
+                              atMax && 'opacity-40 cursor-not-allowed'
+                            )}
+                          >
+                            <Checkbox
+                              checked={isChecked}
+                              disabled={atMax}
+                              onCheckedChange={() => toggleModifier(mod.id, mods, groupMeta)}
+                            />
+                            <span className="flex-1 text-sm text-foreground">{mod.name}</span>
+                            {mod.priceAdjustment > 0 && (
+                              <span className="text-sm font-mono text-muted-foreground">
+                                + ${mod.priceAdjustment.toFixed(2)}
+                              </span>
+                            )}
+                          </label>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

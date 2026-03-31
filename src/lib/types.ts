@@ -133,6 +133,7 @@ export interface MenuItem {
     description?: string;
     imageUrl?: string;
     modifiers?: MenuItemModifier[];
+    modifierGroupMeta?: Record<string, ModifierGroupMeta>; // keyed by group name
     available?: boolean;
 }
 
@@ -141,6 +142,10 @@ export interface MenuItemModifier {
   name: string;
   group: string;
   priceAdjustment: number;
+}
+
+export interface ModifierGroupMeta {
+  maxSelections?: number; // max items selectable in this group; undefined = no limit
 }
 
 export interface MenuSchedule {

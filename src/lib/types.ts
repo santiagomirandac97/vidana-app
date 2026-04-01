@@ -31,6 +31,7 @@ export type Company = {
   estimatedPrepTime?: string;
   termsUrl?: string;
   privacyUrl?: string;
+  heroImageUrl?: string;   // URL to hero/banner photo for the order portal (1280×480px recommended)
 };
 
 export interface RfidDevice {

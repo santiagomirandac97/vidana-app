@@ -12,9 +12,10 @@ interface LegalLinksPopoverProps {
   privacyUrl?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  triggerClassName?: string;
 }
 
-export function LegalLinksPopover({ termsUrl, privacyUrl, open, onOpenChange }: LegalLinksPopoverProps) {
+export function LegalLinksPopover({ termsUrl, privacyUrl, open, onOpenChange, triggerClassName }: LegalLinksPopoverProps) {
   // Don't render if no URLs configured
   if (!termsUrl && !privacyUrl) return null;
 
@@ -23,7 +24,7 @@ export function LegalLinksPopover({ termsUrl, privacyUrl, open, onOpenChange }: 
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="p-2 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+          className={triggerClassName ?? 'p-2 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground'}
           aria-label="Información legal"
         >
           <Info size={18} />

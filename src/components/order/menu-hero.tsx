@@ -4,10 +4,9 @@ import { useState } from 'react';
 import { CalendarDays, Clock, Store, UtensilsCrossed, ShoppingBag } from 'lucide-react';
 import { isRestaurantOpen } from '@/lib/operating-hours';
 import { LegalLinksPopover } from '@/components/order/legal-links-popover';
-import type { MenuSchedule, OperatingHour } from '@/lib/types';
+import type { OperatingHour } from '@/lib/types';
 
 interface MenuHeroProps {
-  schedules: MenuSchedule[];
   companyName: string;
   heroImageUrl?: string;
   operatingHours?: OperatingHour[];

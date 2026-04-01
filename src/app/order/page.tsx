@@ -206,7 +206,6 @@ export default function OrderPage() {
   return (
     <div className="space-y-3 pb-4">
       <MenuHero
-        schedules={activeSchedules}
         companyName={(company as any)?.portalDisplayName ?? company?.name ?? ''}
         heroImageUrl={(company as any)?.heroImageUrl}
         operatingHours={(company as any)?.operatingHours}

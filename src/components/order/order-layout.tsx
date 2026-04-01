@@ -70,7 +70,7 @@ export function OrderLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <CartProvider>
-      <div className="flex flex-col min-h-screen" style={{ background: 'linear-gradient(135deg, #1a3fa8 0%, #2563eb 50%, #1e40af 100%)' }}>
+      <div className="flex flex-col min-h-screen bg-background">
         <OrderHeader companyName={companyName} />
 
         {/* White content card */}

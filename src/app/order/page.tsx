@@ -10,9 +10,7 @@ import { CategoryPills } from '@/components/order/category-pills';
 import { MenuCard } from '@/components/order/menu-card';
 import { ItemDetailSheet } from '@/components/order/item-detail-sheet';
 import { FloatingCartBar } from '@/components/order/floating-cart-bar';
-import { OrderStatusBar } from '@/components/order/order-status-bar';
 import { HoursModal } from '@/components/order/hours-modal';
-import { LegalLinksPopover } from '@/components/order/legal-links-popover';
 import { useCart } from '@/context/cart-context';
 import { Search, X, UtensilsCrossed, ShoppingBag } from 'lucide-react';
 
@@ -162,7 +160,6 @@ export default function OrderPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [hoursModalOpen, setHoursModalOpen] = useState(false);
-  const [legalPopoverOpen, setLegalPopoverOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const isSearching = searchQuery.trim().length > 0;
@@ -211,28 +208,20 @@ export default function OrderPage() {
       <MenuHero
         schedules={activeSchedules}
         companyName={(company as any)?.portalDisplayName ?? company?.name ?? ''}
+        heroImageUrl={(company as any)?.heroImageUrl}
+        operatingHours={(company as any)?.operatingHours}
+        estimatedPrepTime={(company as any)?.estimatedPrepTime}
+        onOpenHoursModal={() => setHoursModalOpen(true)}
+        termsUrl={(company as any)?.termsUrl}
+        privacyUrl={(company as any)?.privacyUrl}
+        takeAwayEnabled={(company as any)?.takeAwayEnabled}
+        orderType={orderType}
+        onOrderTypeChange={setOrderType}
       />
 
-      {/* Status bar: open/closed badge, prep time, hours button */}
-      <div className="px-4 md:px-6 lg:px-8 pt-2">
-        <div className="flex items-center gap-3 flex-wrap">
-          <OrderStatusBar
-            operatingHours={(company as any)?.operatingHours}
-            estimatedPrepTime={(company as any)?.estimatedPrepTime}
-            onOpenHoursModal={() => setHoursModalOpen(true)}
-          />
-          <LegalLinksPopover
-            termsUrl={(company as any)?.termsUrl}
-            privacyUrl={(company as any)?.privacyUrl}
-            open={legalPopoverOpen}
-            onOpenChange={setLegalPopoverOpen}
-          />
-        </div>
-      </div>
-
-      {/* Order type toggle — only shown when take away is enabled */}
+      {/* Order type toggle — only shown on mobile when take away is enabled */}
       {(company as any)?.takeAwayEnabled && (
-        <div className="px-4 md:px-6 lg:px-8 pt-1">
+        <div className="md:hidden px-4 pt-1">
           <div className="inline-flex rounded-full border border-border/40 bg-muted/30 p-1 gap-1">
             <button
               onClick={() => setOrderType('eat_in')}

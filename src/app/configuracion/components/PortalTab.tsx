@@ -43,6 +43,7 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
     const [estimatedPrepTime, setEstimatedPrepTime] = useState('');
     const [termsUrl, setTermsUrl] = useState('');
     const [privacyUrl, setPrivacyUrl] = useState('');
+    const [heroImageUrl, setHeroImageUrl] = useState('');
 
     // Fetch the selected company document
     const companyDocRef = useMemoFirebase(() =>
@@ -62,6 +63,7 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
         setEstimatedPrepTime((companyDoc as any).estimatedPrepTime ?? '');
         setTermsUrl((companyDoc as any).termsUrl ?? '');
         setPrivacyUrl((companyDoc as any).privacyUrl ?? '');
+        setHeroImageUrl(companyDoc.heroImageUrl ?? '');
     }
 
     // Reset local state when company selection cleared
@@ -75,6 +77,7 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
         setEstimatedPrepTime('');
         setTermsUrl('');
         setPrivacyUrl('');
+        setHeroImageUrl('');
     }
 
     const handleAddDomain = useCallback(() => {
@@ -137,6 +140,7 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
                 estimatedPrepTime: estimatedPrepTime || null,
                 termsUrl: termsUrl || null,
                 privacyUrl: privacyUrl || null,
+                heroImageUrl: heroImageUrl || null,
             });
             toast({ title: 'Configuracion guardada', description: 'Los ajustes del portal fueron actualizados.' });
         } catch (err: any) {
@@ -144,7 +148,7 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
         } finally {
             setSaving(false);
         }
-    }, [firestore, selectedCompanyId, orderPortalEnabled, allowedCustomerDomains, paymentMethods, takeAwayEnabled, operatingHours, estimatedPrepTime, termsUrl, privacyUrl, toast]);
+    }, [firestore, selectedCompanyId, orderPortalEnabled, allowedCustomerDomains, paymentMethods, takeAwayEnabled, operatingHours, estimatedPrepTime, termsUrl, privacyUrl, heroImageUrl, toast]);
 
     if (companiesLoading) {
         return (
@@ -337,6 +341,22 @@ export const PortalTab: FC<{ companies: Company[] | null; companiesLoading: bool
                                 onChange={e => setPrivacyUrl(e.target.value)}
                                 className="max-w-md"
                             />
+                        </div>
+
+                        {/* Hero image URL */}
+                        <div className="space-y-2">
+                            <Label htmlFor="heroImageUrl">Imagen del restaurante (URL)</Label>
+                            <Input
+                                id="heroImageUrl"
+                                type="url"
+                                placeholder="https://..."
+                                value={heroImageUrl}
+                                onChange={e => setHeroImageUrl(e.target.value)}
+                                className="max-w-md"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Aparece como fondo en la sección de pedidos. Recomendado: 1280×480px.
+                            </p>
                         </div>
 
                         {/* Save button */}
